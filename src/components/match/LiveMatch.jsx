@@ -290,6 +290,7 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
 
     const [homeViewMode, setHomeViewMode] = useState('list'); // 'list' | 'pitch'
     const [awayViewMode, setAwayViewMode] = useState('list'); // 'list' | 'pitch'
+    const [mobileTab, setMobileTab] = useState('home'); // 'home' | 'timeline' | 'away'
     const [activePitchPlayerMenu, setActivePitchPlayerMenu] = useState(null); // { playerId, x, y, side }
     const [gkSaveModalData, setGkSaveModalData] = useState(null); // { player }
 
@@ -1059,10 +1060,32 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
                 </div>
             </div>
 
+            {/* ── Mobile Section Switcher ──────────────────────────────── */}
+            <div className="mobile-live-tab-bar">
+                <button
+                    className={`mobile-live-tab-btn ${mobileTab === 'home' ? 'active' : ''}`}
+                    onClick={() => setMobileTab('home')}
+                >
+                    🏠 Home ({homeStarters.length + homeBench.length})
+                </button>
+                <button
+                    className={`mobile-live-tab-btn ${mobileTab === 'timeline' ? 'active' : ''}`}
+                    onClick={() => setMobileTab('timeline')}
+                >
+                    ⏱️ Timeline ({timeline.length})
+                </button>
+                <button
+                    className={`mobile-live-tab-btn ${mobileTab === 'away' ? 'active' : ''}`}
+                    onClick={() => setMobileTab('away')}
+                >
+                    ✈️ Away ({awayStarters.length + awayBench.length})
+                </button>
+            </div>
+
             {/* ── Three-column layout ─────────────────────────────────── */}
-            <div style={styles.columns}>
+            <div style={styles.columns} className="live-match-columns">
                 {/* Home column */}
-                <div style={styles.column}>
+                <div style={{ ...styles.column, display: (window.innerWidth <= 900 && mobileTab !== 'home') ? 'none' : 'flex' }}>
                     <div style={styles.columnHeader}>
                         <span style={styles.columnHeaderDot('#22c55e')} />
                         <span style={{ flex: 1 }}>Home Roster</span>
@@ -1117,7 +1140,7 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
                 </div>
 
                 {/* Center Match Timeline Column */}
-                <div style={styles.timelineColumn}>
+                <div style={{ ...styles.timelineColumn, display: (window.innerWidth <= 900 && mobileTab !== 'timeline') ? 'none' : 'flex' }}>
                     <div style={styles.columnHeader}>
                         ⏱️ Match Timeline
                     </div>
@@ -1201,7 +1224,7 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
                 </div>
 
                 {/* Away column */}
-                <div style={styles.column}>
+                <div style={{ ...styles.column, display: (window.innerWidth <= 900 && mobileTab !== 'away') ? 'none' : 'flex' }}>
                     <div style={styles.columnHeader}>
                         <span style={styles.columnHeaderDot('#6366f1')} />
                         <span style={{ flex: 1 }}>Away Roster</span>

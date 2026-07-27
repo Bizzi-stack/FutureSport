@@ -98,12 +98,15 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, onSav
                 background: 'rgba(10, 16, 32, 0.9)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '20px',
-                padding: '28px',
-                width: '580px',
+                padding: '20px',
+                width: '100%',
+                maxWidth: 'min(580px, calc(100vw - 24px))',
+                maxHeight: '90vh',
+                overflowY: 'auto',
                 boxShadow: '0 20px 50px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '20px'
+                gap: '16px'
             }}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
