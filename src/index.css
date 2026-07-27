@@ -530,6 +530,66 @@ select option {
   }
 }
 
+/* ── Mobile Live Data Entry (Statistician Portal) ──────── */
+@media (max-width: 900px) {
+  .live-match-columns {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .mobile-live-tab-bar {
+    display: flex !important;
+    gap: 6px;
+    background: rgba(13, 21, 38, 0.95);
+    backdrop-filter: blur(16px);
+    padding: 6px;
+    border-radius: 14px;
+    border: var(--border);
+    position: sticky;
+    top: 80px;
+    z-index: 90;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    margin-bottom: 12px;
+  }
+
+  .mobile-live-tab-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.16s ease;
+    touch-action: manipulation;
+  }
+
+  .mobile-live-tab-btn.active {
+    background: rgba(37, 99, 235, 0.2);
+    color: var(--primary-light);
+    border-color: rgba(37, 99, 235, 0.4);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+  }
+
+  .live-action-btn {
+    min-width: 38px !important;
+    min-height: 38px !important;
+    border-radius: 10px !important;
+    font-size: 15px !important;
+    touch-action: manipulation !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .mobile-live-tab-bar {
+    display: none !important;
+  }
+}
+
 /* ── Scrollbars ─────────────────────────────── */
 ::-webkit-scrollbar {
   width: 1px;

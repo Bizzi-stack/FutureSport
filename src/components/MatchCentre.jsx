@@ -92,9 +92,11 @@ export default function MatchCentre({ allStudents, year, term, matches, onEndMat
         }}>
             {/* Header */}
             <div style={{
-                height: '70px', flexShrink: 0,
+                minHeight: '64px', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0 28px',
+                padding: '10px 16px',
+                flexWrap: 'wrap',
+                gap: '10px',
                 borderBottom: 'var(--border)',
                 background: 'var(--bg-surface)',
                 backdropFilter: 'blur(24px)',
