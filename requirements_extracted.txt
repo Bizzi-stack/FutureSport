@@ -1,0 +1,204 @@
+Barbados Schools Football League (BSFL)
+Website & Management System Development Requirements
+1. Project Overview
+Objective
+Develop a modern league management platform to manage all BSFL competitions, registrations, fixtures, results, statistics and website content. The initial objective is to deliver a stable Version 1 (MVP) for live testing before the end of August.
+The platform should support all current and future BSFL competitions while maintaining historical records for schools, players and competitions.
+2. Core Modules
+User Management
+School Registration
+Competition Management
+Fixtures & Scheduling
+Live Match Centre
+Statistics
+Website Content Management
+Administration Dashboard
+Reports & Data Export
+Communications
+3. User Roles
+Role
+Responsibilities
+Super Administrator
+Full system administration
+League Administrator
+Competition management and approvals
+School Administrator
+School, team and player registration
+Coach / Team Manager
+Squad management and matchday submissions
+Match Commissioner
+Match approval and reports
+Referee
+Match reports
+Statistician
+Live data entry
+Media
+Read-only access
+Public
+Website access
+4. School Registration
+School
+School information
+Logo / Crest
+Contact details
+School colours
+Players
+Personal information
+Photograph
+Date of Birth
+Position
+Preferred Foot
+Jersey Number
+Medical Information
+Emergency Contact
+Officials
+Head Coach
+Assistant Coach
+Team Manager
+Physiotherapist
+Media Officer (Optional)
+Features
+Separate Boys' and Girls' registration
+Two school logins (Administrator & Team Manager)
+Document uploads
+Registration approval
+Registration status tracking
+5. Competition Management
+Create competitions
+Create divisions/groups
+Assign schools
+Generate and edit fixtures
+Manage venues
+Assign officials
+Publish fixtures
+League tables
+Knockout brackets
+Competition documents
+6. Website
+Public pages:
+Home
+News
+Competitions
+Fixtures
+Results
+League Tables
+Schools
+Players
+Statistics
+Sponsors
+Media
+Contact
+All content should be manageable through the administration panel.
+7. Live Match Centre
+Match Setup
+Team Sheets
+Starting XI
+Substitutes
+Officials
+Formation
+Match Events
+Goals
+Assists
+Yellow Cards
+Red Cards
+Substitutions
+Penalties
+Injuries
+Team Statistics
+Goals
+Shots
+Shots on Target
+Possession
+Corners
+Fouls
+Offsides
+Player Statistics
+Appearances
+Minutes Played
+Goals
+Assists
+Shots
+Cards
+Goalkeeper Saves
+Statistics should automatically update league tables, player profiles and competition statistics after approval.
+8. Administration Dashboard
+Display:
+Competition overview
+Today's fixtures
+Live matches
+Pending registrations
+Pending reports
+Outstanding approvals
+System notifications
+Quick Actions:
+Register School
+Register Player
+Generate Fixtures
+Assign Officials
+Enter Results
+Publish News
+Upload Documents
+Export Reports
+9. Reports & Exports
+School Reports
+Player Reports
+Competition Reports
+Match Reports
+Statistics
+Discipline Reports
+Export formats: PDF, Excel and CSV.
+10. Future Enhancements
+Not required for Version 1, but the platform should be designed to accommodate:
+Competition
+Multi-season history
+Promotion & relegation
+Player eligibility validation
+Fixture conflict detection
+Player Development
+Career history
+Talent identification
+Performance dashboards
+Officials
+Referee availability
+Assessments
+Performance tracking
+Safeguarding
+Incident reporting
+Case management
+Communications
+SMS
+Push notifications
+WhatsApp integration
+Media
+Live streaming
+Video highlights
+Digital advertising
+Ticketing
+Merchandise
+Analytics
+Expected Goals (xG)
+Heat maps
+GPS integration
+Artificial Intelligence
+AI match reports
+AI competition summaries
+Player of the Match recommendations
+Mobile
+Coach App
+Statistician App
+Referee App
+Administrator App
+Fan App
+11. Version 1 Deliverables
+The following modules are required for live testing before the end of August:
+User Management
+School Registration
+Player Registration
+Competition Management
+Fixture Management
+Live Match Centre
+Statistics
+Website Content Management
+Administration Dashboard
+Reports & Data Export
+Future enhancements should be implemented in later phases without major changes to the core platform.

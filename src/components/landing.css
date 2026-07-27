@@ -1,0 +1,447 @@
+/* landing.css - Dark theme vibes inspired by Hexora */
+.admin-landing-page {
+  background-color: #0b0d10;
+  /* deep dark charcoal */
+  min-height: 100vh;
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Subtle background grid pattern */
+.admin-landing-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Subtle glowing accent blobs */
+.hero-glow-1 {
+  position: absolute;
+  top: -150px;
+  left: -150px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-glow-2 {
+  position: absolute;
+  top: 10%;
+  right: -5%;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Navigation */
+.landing-nav {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(11, 13, 16, 0.7);
+  backdrop-filter: blur(16px);
+}
+
+.landing-nav .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+/* Hero Content */
+.hero-container {
+  display: flex;
+  flex: 1;
+  padding: 60px 48px 100px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+  align-items: center;
+}
+
+@media (max-width: 1024px) {
+  .hero-container {
+    flex-direction: column;
+    padding: 60px 24px;
+    text-align: center;
+  }
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 50%;
+  position: relative;
+  z-index: 10;
+}
+
+@media (max-width: 1024px) {
+  .hero-text {
+    width: 100%;
+  }
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  color: #a1a1aa;
+  font-size: 13px;
+  font-weight: 500;
+  width: max-content;
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 1024px) {
+  .hero-badge {
+    margin: 0 auto;
+  }
+}
+
+.hero-badge .badge-highlight {
+  color: #e4e4e7;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hero-title {
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -2px;
+  color: #fff;
+  margin: 0;
+}
+
+.hero-subtitle {
+  font-size: 19px;
+  color: #a1a1aa;
+  line-height: 1.6;
+  max-width: 540px;
+  margin: 0;
+}
+
+@media (max-width: 1024px) {
+  .hero-subtitle {
+    margin: 0 auto;
+  }
+}
+
+/* Right Side - Custom Education Graphic */
+.hero-graphic {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60%;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero-graphic img {
+  position: absolute;
+  top: 50%;
+  right: -5%;
+  transform: translateY(-50%);
+  height: 120%;
+  width: auto;
+  min-width: 100%;
+  object-fit: cover;
+  object-position: left center;
+  mask-image: linear-gradient(to right, transparent 0%, black 40%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 40%);
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+@media (max-width: 1024px) {
+  .hero-graphic {
+    width: 100%;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 40%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 40%);
+  }
+}
+
+/* Glassmorphism custom login card */
+.login-card-wrapper {
+  background: rgba(13, 21, 38, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 32px 32px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  margin-top: 24px;
+  max-width: 440px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1024px) {
+  .login-card-wrapper {
+    margin: 32px auto !important;
+  }
+}
+
+.login-card-wrapper .title {
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.login-card-wrapper .description {
+  color: #8f9ba8;
+  font-size: 15px;
+  margin-bottom: 28px;
+  text-align: left;
+}
+
+.login-form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.login-form-group label {
+  color: #e4e4e7;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.login-form-group input,
+.login-form-group select {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  height: 46px;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-size: 15px;
+  transition: border-color 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.login-form-group select {
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23ffffff%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px top 50%;
+  background-size: 10px auto;
+}
+
+.login-form-group select option {
+  background: #0d1526;
+  color: #fff;
+}
+
+.login-form-group input:focus,
+.login-form-group select:focus {
+  border-color: #3b82f6;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  outline: none;
+}
+
+.login-card-wrapper .submit {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  margin-top: 12px;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 200ms ease, filter 200ms ease;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+}
+
+.login-card-wrapper .submit:hover {
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.5);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.login-card-wrapper .submit:active {
+  transform: scale(0.97);
+}
+
+.login-card-wrapper .footer {
+  color: #8f9ba8;
+  font-size: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 24px;
+}
+
+.login-card-wrapper .footer a {
+  color: #818cf8;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.login-card-wrapper .footer a:hover {
+  color: #6366f1;
+  text-decoration: underline;
+}
+
+.login-card-wrapper .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 18px 0;
+}
+
+.login-card-wrapper .remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.login-card-wrapper .remember label {
+  margin: 0;
+  font-size: 14px;
+  cursor: pointer;
+  color: #a1a1aa;
+}
+
+.login-card-wrapper .forgot-link {
+  color: #8f9ba8;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.login-card-wrapper .forgot-link:hover {
+  color: #fff;
+}
+
+/* Trusted By Section */
+.trusted-by {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+  animation: fadeUp 0.8s ease-out forwards;
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .trusted-by {
+    align-items: center;
+    margin-top: 16px;
+  }
+}
+
+.trusted-by p {
+  color: #8f9ba8;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+.school-logos {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.logo-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: grayscale(100%) opacity(0.65);
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.logo-circle:hover {
+  filter: grayscale(0%) opacity(1);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 0 12px rgba(255, 255, 255, 0.05);
+}
+
+.logo-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
