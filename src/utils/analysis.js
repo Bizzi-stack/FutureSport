@@ -32,13 +32,16 @@ export function analyzeStudent(student, year, term, settings = {}) {
     const strengths = [];
 
     for (const sub of subjects) {
-        const val = gradesObj[sub];
+        const val = Number(gradesObj[sub]);
+        if (isNaN(val)) continue;
+        
         const range = STAT_RANGES[sub] || { min: 0, max: 100 };
+        const span = (range.max - range.min) || 1;
         
         // Normalize the stat to a 0-100 score relative to its max capacity
-        let normalized = ((val - range.min) / (range.max - range.min)) * 100;
+        let normalized = ((val - range.min) / span) * 100;
         // Clamp it just in case
-        normalized = Math.max(0, Math.min(100, normalized));
+        normalized = Math.max(0, Math.min(100, isNaN(normalized) ? 0 : normalized));
         
         totalNormalized += normalized;
 
@@ -50,7 +53,8 @@ export function analyzeStudent(student, year, term, settings = {}) {
         }
     }
 
-    const average = totalNormalized / subjects.length;
+    const validSubjectCount = subjects.length || 1;
+    const average = totalNormalized / validSubjectCount;
 
     // Behavioral data for this term
     const matchStats = student.matchStats?.[year]?.[term];

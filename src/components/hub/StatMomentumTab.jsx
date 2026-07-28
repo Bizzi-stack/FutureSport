@@ -48,7 +48,7 @@ export default function StatMomentumTab({ year, term, selectedSchool, onPlayerCl
     const filteredPlayers = useMemo(() => {
         if (!searchQuery.trim()) return classPlayers;
         const q = searchQuery.toLowerCase();
-        return classPlayers.filter(s => s.name.toLowerCase().includes(q));
+        return classPlayers.filter(s => typeof s?.name === 'string' && s.name.toLowerCase().includes(q));
     }, [classPlayers, searchQuery]);
 
     const targetPlayer = selectedPlayer ?? classPlayers[0];
