@@ -138,7 +138,7 @@ export default function FactorScoreTab({ year, term, selectedSchool, onStudentCl
     const filteredStudents = useMemo(() => {
         if (!searchQuery) return analysis;
         const q = searchQuery.toLowerCase();
-        return analysis.filter(s => s.name.toLowerCase().includes(q));
+        return analysis.filter(s => typeof s?.name === 'string' && s.name.toLowerCase().includes(q));
     }, [analysis, searchQuery]);
 
     const [selectedStudentId, setSelectedStudentId] = useState(null);

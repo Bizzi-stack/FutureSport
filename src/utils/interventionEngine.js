@@ -11,13 +11,15 @@ export function generateTeacherAlerts(students, year, currentTerm) {
     const alerts = [];
     let alertId = 1;
 
+    const safeStudents = Array.isArray(students) ? students : [];
+
     // Compare Matchdays
     const prevTerm = currentTerm === 'Matchday 2' ? 'Matchday 1' : currentTerm === 'Matchday 3' ? 'Matchday 2' : null;
 
     let totalCurrentGrade = 0, currentGradeCount = 0;
     let totalPrevGrade = 0, prevGradeCount = 0;
 
-    students.forEach(s => {
+    safeStudents.forEach(s => {
         const currentGrade = getOverall(s, year, currentTerm);
         const prevGrade = prevTerm ? getOverall(s, year, prevTerm) : null;
 

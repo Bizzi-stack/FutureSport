@@ -304,9 +304,9 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                     const missingDocsCount = schoolPlayers.filter(p => !p.documents?.birthCertificate || !p.documents?.enrollmentLetter).length;
 
                     const filtered = schoolPlayers.filter(p => {
-                        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                              (p.jerseyNumber && String(p.jerseyNumber).includes(searchQuery));
-                        const matchesIncomplete = !showOnlyIncomplete || (!p.documents?.birthCertificate || !p.documents?.enrollmentLetter);
+                        const matchesSearch = (typeof p?.name === 'string' && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
+                                              (p?.jerseyNumber && String(p.jerseyNumber).includes(searchQuery));
+                        const matchesIncomplete = !showOnlyIncomplete || (!p?.documents?.birthCertificate || !p?.documents?.enrollmentLetter);
                         return matchesSearch && matchesIncomplete;
                     });
 

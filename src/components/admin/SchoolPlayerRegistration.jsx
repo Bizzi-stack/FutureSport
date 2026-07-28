@@ -30,8 +30,8 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
             }
             const matchesSchool = schoolFilter === 'all' || p.schoolId === schoolFilter;
             const matchesGender = genderFilter === 'all' || p.gender === genderFilter;
-            const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                  (p.jerseyNumber && String(p.jerseyNumber).includes(searchQuery));
+            const matchesSearch = (typeof p?.name === 'string' && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
+                                  (p?.jerseyNumber && String(p.jerseyNumber).includes(searchQuery));
             return matchesStatus && matchesSchool && matchesGender && matchesSearch;
         });
     }, [allPlayers, statusFilter, schoolFilter, genderFilter, searchQuery]);
