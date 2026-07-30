@@ -382,16 +382,30 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
                             
                             {/* Match header */}
-                            <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
                                         {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)}
                                     </h3>
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selectedMatch.ageGroup} • {selectedMatch.matchday} • {selectedMatch.venue}</span>
                                 </div>
-                                {alreadySubmitted && (
-                                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '4px 10px', borderRadius: '20px' }}>Squad Submitted</span>
-                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {alreadySubmitted ? (
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>✓ Squad Submitted</span>
+                                    ) : (
+                                        <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{
+                                            padding: '8px 22px', borderRadius: '10px', fontSize: '12px', fontWeight: '800',
+                                            background: selectedStartingXIIds.length === 11 ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'rgba(255,255,255,0.06)',
+                                            color: selectedStartingXIIds.length === 11 ? '#ffffff' : 'var(--text-muted)',
+                                            border: selectedStartingXIIds.length === 11 ? 'none' : 'var(--border)',
+                                            cursor: selectedStartingXIIds.length === 11 ? 'pointer' : 'not-allowed',
+                                            boxShadow: selectedStartingXIIds.length === 11 ? '0 4px 14px rgba(37,99,235,0.4)' : 'none',
+                                            transition: 'all 0.15s ease'
+                                        }}>
+                                            Submit Squad ({formation})
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Formation selector */}
@@ -430,7 +444,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     <div style={{
                                         position: 'relative',
                                         width: '100%',
-                                        paddingBottom: '120%', /* contained pitch aspect ratio */
+                                        height: '440px',
                                         background: 'linear-gradient(180deg, #165c29 0%, #1c6d32 15%, #165c29 30%, #1c6d32 45%, #165c29 60%, #1c6d32 75%, #165c29 90%, #1c6d32 100%)',
                                         borderRadius: '0 0 12px 12px',
                                         overflow: 'hidden',
