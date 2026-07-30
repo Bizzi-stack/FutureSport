@@ -287,6 +287,7 @@ const DEFAULT_MATCHES = [
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [selectedTournament, setSelectedTournament] = useState('PMC'); // 'PMC' | 'NSSL'
   const [allStudents, setAllStudents] = useState(() => {
     try {
       const saved = localStorage.getItem('eduvision-students');
@@ -731,8 +732,35 @@ function App() {
         zIndex: 100,
       }}>
         {/* Logo + Brand */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {/* <img src={fsLooLogo} alt="Logo" style={{ height: '80px', width: 'auto', objectFit: 'contain' }} /> */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            background: 'rgba(0, 38, 127, 0.35)', border: '1px solid rgba(255, 199, 38, 0.4)',
+            padding: '4px', borderRadius: '12px'
+          }}>
+            <button
+              onClick={() => setSelectedTournament('PMC')}
+              style={{
+                padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
+                color: selectedTournament === 'PMC' ? '#00267F' : 'var(--text-secondary)',
+                border: 'none', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+              }}
+            >
+              🏆 Prime Minister's Cup
+            </button>
+            <button
+              onClick={() => setSelectedTournament('NSSL')}
+              style={{
+                padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                background: selectedTournament === 'NSSL' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                color: selectedTournament === 'NSSL' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                border: 'none', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+              }}
+            >
+              ⚽ National League
+            </button>
+          </div>
         </div>
 
         {/* Centre — Search */}
