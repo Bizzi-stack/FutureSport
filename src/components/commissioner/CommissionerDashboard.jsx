@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import LeagueTable from '../LeagueTable';
 import KnockoutBrackets from '../KnockoutBrackets';
+import { exportPMCMatchPacket, pushMatchToPMC } from '../../utils/pmcSyncEngine';
 
 const DEFAULT_VENUES = [
     { id: 'Wildey Turf', name: 'Wildey Turf Ground' },
@@ -19,7 +20,7 @@ const DEFAULT_OFFICIALS = [
     { id: 'comm-2', name: 'Harcourt Wason', role: 'Commissioner' }
 ];
 
-export default function CommissionerDashboard({ matches, schools, allTeams, onUpdateMatch, onAddMatches }) {
+export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches }) {
     const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'scheduling'
     const [selectedMatch, setSelectedMatch] = useState(null);
     
@@ -183,7 +184,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, onUp
         setTimeout(() => setManualSuccess(false), 3000);
     };
 
-    const handleApproveMatch = (e) => {
+    const handleApproveMatch = async (e) => {
         e.preventDefault();
         if (!commissionerSignature.trim()) return;
 
@@ -199,6 +200,13 @@ export default function CommissionerDashboard({ matches, schools, allTeams, onUp
         };
 
         onUpdateMatch(updatedMatch);
+
+        // Export to Prime Minister's Cup Portal
+        const pmcPacket = exportPMCMatchPacket(updatedMatch, allStudents, allTeams, schools);
+        if (pmcPacket) {
+            await pushMatchToPMC(pmcPacket);
+        }
+
         setApprovalSuccess(true);
         setSelectedMatch(null); // return to list view
         setTimeout(() => setApprovalSuccess(false), 3000);

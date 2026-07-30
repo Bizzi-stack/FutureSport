@@ -20,6 +20,12 @@
   --primary-glow: rgba(37, 99, 235, 0.4);
   --primary-glow-sm: rgba(37, 99, 235, 0.2);
 
+  /* Prime Minister's Cup BFA Theme Accent Colors */
+  --pmc-navy: #00267F;
+  --pmc-gold: #FFC726;
+  --pmc-gold-glow: rgba(255, 199, 38, 0.35);
+  --pmc-sand: #FFF5D6;
+
   /* Status */
   --danger: #f43f5e;
   --danger-dim: rgba(244, 63, 94, 0.15);
