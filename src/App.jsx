@@ -165,39 +165,46 @@ function cleanStudentsForSave(students) {
 }
 
 function loadAndMergeStudents(savedList) {
-  if (!savedList || !Array.isArray(savedList)) return ALL_STUDENTS;
+  if (!savedList || !Array.isArray(savedList) || savedList.length === 0) return ALL_STUDENTS;
   const migratedList = migrateTermsToMatchdays(savedList);
-  return migratedList.map(savedStudent => {
-    if (!savedStudent) return savedStudent;
-    const baseStudent = ALL_STUDENTS.find(b => b && String(b.id) === String(savedStudent.id));
-    if (baseStudent) {
-      const mockShots = (baseStudent.shotLogs || []).filter(shot => shot && shot.id && !String(shot.id).includes('-u-'));
-      const userShots = (savedStudent.shotLogs || []).filter(shot => shot && shot.id && String(shot.id).includes('-u-'));
-      return {
-        ...baseStudent,
-        name: savedStudent.name,
-        schoolId: savedStudent.schoolId,
-        teamAssignments: savedStudent.teamAssignments || baseStudent.teamAssignments,
-        performance: savedStudent.performance || baseStudent.performance,
-        matchStats: savedStudent.matchStats || baseStudent.matchStats,
-        extracurriculars: savedStudent.extracurriculars || baseStudent.extracurriculars,
-        jerseyNumber: savedStudent.jerseyNumber,
-        shotLogs: [...mockShots, ...userShots],
-        // Merge registration details
-        dob: savedStudent.dob !== undefined ? savedStudent.dob : baseStudent.dob,
-        gender: savedStudent.gender !== undefined ? savedStudent.gender : baseStudent.gender,
-        position: savedStudent.position !== undefined ? savedStudent.position : baseStudent.position,
-        preferredFoot: savedStudent.preferredFoot !== undefined ? savedStudent.preferredFoot : baseStudent.preferredFoot,
-        medicalInfo: savedStudent.medicalInfo !== undefined ? savedStudent.medicalInfo : baseStudent.medicalInfo,
-        emergencyContact: savedStudent.emergencyContact !== undefined ? savedStudent.emergencyContact : baseStudent.emergencyContact,
-        status: savedStudent.status !== undefined ? savedStudent.status : baseStudent.status,
-        rejectionReason: savedStudent.rejectionReason !== undefined ? savedStudent.rejectionReason : baseStudent.rejectionReason,
-        documents: savedStudent.documents !== undefined ? savedStudent.documents : baseStudent.documents,
-      };
-    } else {
-      return savedStudent;
-    }
+
+  const baseIds = new Set(ALL_STUDENTS.map(b => b && String(b.id)));
+  
+  // Update base students with any saved edits
+  const mergedBase = ALL_STUDENTS.map(baseStudent => {
+    if (!baseStudent) return baseStudent;
+    const savedStudent = migratedList.find(s => s && String(s.id) === String(baseStudent.id));
+    if (!savedStudent) return baseStudent;
+
+    const mockShots = (baseStudent.shotLogs || []).filter(shot => shot && shot.id && !String(shot.id).includes('-u-'));
+    const userShots = (savedStudent.shotLogs || []).filter(shot => shot && shot.id && String(shot.id).includes('-u-'));
+
+    return {
+      ...baseStudent,
+      name: savedStudent.name || baseStudent.name,
+      schoolId: savedStudent.schoolId || baseStudent.schoolId,
+      teamAssignments: savedStudent.teamAssignments || baseStudent.teamAssignments,
+      performance: savedStudent.performance || baseStudent.performance,
+      matchStats: savedStudent.matchStats || baseStudent.matchStats,
+      extracurriculars: savedStudent.extracurriculars || baseStudent.extracurriculars,
+      jerseyNumber: savedStudent.jerseyNumber != null ? savedStudent.jerseyNumber : baseStudent.jerseyNumber,
+      shotLogs: [...mockShots, ...userShots],
+      dob: savedStudent.dob !== undefined ? savedStudent.dob : baseStudent.dob,
+      gender: savedStudent.gender !== undefined ? savedStudent.gender : baseStudent.gender,
+      position: savedStudent.position !== undefined ? savedStudent.position : baseStudent.position,
+      preferredFoot: savedStudent.preferredFoot !== undefined ? savedStudent.preferredFoot : baseStudent.preferredFoot,
+      medicalInfo: savedStudent.medicalInfo !== undefined ? savedStudent.medicalInfo : baseStudent.medicalInfo,
+      emergencyContact: savedStudent.emergencyContact !== undefined ? savedStudent.emergencyContact : baseStudent.emergencyContact,
+      status: savedStudent.status !== undefined ? savedStudent.status : baseStudent.status,
+      rejectionReason: savedStudent.rejectionReason !== undefined ? savedStudent.rejectionReason : baseStudent.rejectionReason,
+      documents: savedStudent.documents !== undefined ? savedStudent.documents : baseStudent.documents,
+    };
   });
+
+  // Preserve any newly registered custom players added by user
+  const customSaved = migratedList.filter(s => s && s.id && !baseIds.has(String(s.id)));
+  const result = [...mergedBase, ...customSaved];
+  return result.length > 0 ? result : ALL_STUDENTS;
 }
 
 const DEFAULT_MATCHES = [
@@ -292,7 +299,10 @@ function App() {
     try {
       const saved = localStorage.getItem('eduvision-students');
       if (saved) {
-        return loadAndMergeStudents(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return loadAndMergeStudents(parsed);
+        }
       }
     } catch (err) {
       console.error("Error loading eduvision-students from localStorage:", err);
