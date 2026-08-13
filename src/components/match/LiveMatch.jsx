@@ -1264,14 +1264,15 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                         }
                         handleQuickAction(logData.playerId, logData.type);
                     }}
-                    onShotModal={(player, defaultOutcome) => {
+                    onShotModal={(player, defaultGoalType) => {
                         const isHome = homePlayers.includes(player.id);
                         const teammates = isHome 
                             ? homePlayers.map(id => studentsById[id]).filter(Boolean)
                             : awayPlayers.map(id => studentsById[id]).filter(Boolean);
                         setShotModalData({
                             player,
-                            defaultOutcome: defaultOutcome || 'goal',
+                            defaultOutcome: 'goal',
+                            defaultGoalType: defaultGoalType || 'foot',
                             teammates
                         });
                     }}
@@ -1520,6 +1521,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     player={shotModalData.player}
                     teammates={shotModalData.teammates}
                     defaultOutcome={shotModalData.defaultOutcome}
+                    defaultGoalType={shotModalData.defaultGoalType}
                     onSave={handleSaveShot}
                     onClose={() => setShotModalData(null)}
                 />
