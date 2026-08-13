@@ -29,11 +29,38 @@ export default function TeacherDashboard({
 
     const activeAlerts = alerts.filter(a => !dismissedIds.has(a.id));
 
-    // Check if the coach's selected team is currently playing a live match
+    // Check if the coach's selected team/school is currently playing a live match
     const liveMatch = useMemo(() => {
-        if (!selectedClassroom || userRole !== 'coach') return null;
-        return matches.find(m => m.status === 'live' && (m.homeTeamId === selectedClassroom || m.awayTeamId === selectedClassroom));
-    }, [matches, selectedClassroom, userRole]);
+        if (userRole !== 'coach') return null;
+        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId);
+        const teamObj = (allTeams || []).find(t => t.id === selectedClassroom || t.name === selectedClassroom);
+
+        const cleanSchoolId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
+        const cleanClassroom = String(selectedClassroom || '').toLowerCase().replace('-team-pmc', '');
+
+        const targets = [
+            schoolId, selectedClassroom, cleanSchoolId, cleanClassroom,
+            schoolObj?.id, schoolObj?.name,
+            teamObj?.id, teamObj?.name, teamObj?.schoolId
+        ].filter(Boolean).map(x => String(x).toLowerCase());
+
+        return (matches || []).find(m => {
+            if (m.status !== 'live') return false;
+            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+
+            const isHome = homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
+            const isAway = awayVals.some(a => targets.some(t => a.includes(t) || t.includes(a)));
+            return isHome || isAway;
+        });
+    }, [matches, schoolId, selectedClassroom, userRole, schools, allTeams]);
+
+    // Auto-switch coach to 'live' tab when their match goes live
+    useEffect(() => {
+        if (liveMatch && userRole === 'coach') {
+            setMainTab('live');
+        }
+    }, [liveMatch?.id, userRole]);
 
     const handleDismiss = (id) => {
         setDismissedIds(prev => {
@@ -68,6 +95,62 @@ export default function TeacherDashboard({
         return result;
     }, [students, year, term]);
 
+    // Aggregated Squad Analytics & Top Performers for Coach Dashboard
+    const squadStats = useMemo(() => {
+        let totalGoals = 0;
+        let totalAssists = 0;
+        let totalShots = 0;
+        let totalShotsOnTarget = 0;
+        let totalSaves = 0;
+        let totalCleanSheets = 0;
+        let topScorer = null;
+        let topAssist = null;
+        let topSaves = null;
+
+        students.forEach(s => {
+            const perf = s.performance?.[year]?.[term] || {};
+            const g = perf['Goals'] || 0;
+            const a = perf['Assists'] || 0;
+            const sh = perf['Shots'] || 0;
+            const sot = perf['Shots on Target'] || 0;
+            const sv = perf['Saves'] || 0;
+            const cs = perf['Clean Sheets'] || 0;
+
+            totalGoals += g;
+            totalAssists += a;
+            totalShots += sh;
+            totalShotsOnTarget += sot;
+            totalSaves += sv;
+            totalCleanSheets += cs;
+
+            if (g > 0 && (!topScorer || g > topScorer.goals)) {
+                topScorer = { name: s.name, jerseyNumber: s.jerseyNumber, goals: g, position: s.position };
+            }
+            if (a > 0 && (!topAssist || a > topAssist.assists)) {
+                topAssist = { name: s.name, jerseyNumber: s.jerseyNumber, assists: a, position: s.position };
+            }
+            if (sv > 0 && (!topSaves || sv > topSaves.saves)) {
+                topSaves = { name: s.name, jerseyNumber: s.jerseyNumber, saves: sv, position: s.position };
+            }
+        });
+
+        const shotAcc = totalShots > 0 ? Math.round((totalShotsOnTarget / totalShots) * 100) : 0;
+        const convRate = totalShotsOnTarget > 0 ? Math.round((totalGoals / totalShotsOnTarget) * 100) : 0;
+
+        return {
+            totalGoals,
+            totalAssists,
+            totalShots,
+            totalSaves,
+            totalCleanSheets,
+            shotAcc,
+            convRate,
+            topScorer,
+            topAssist,
+            topSaves
+        };
+    }, [students, year, term]);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Top-level Tabs for Coach View */}
@@ -87,7 +170,7 @@ export default function TeacherDashboard({
                             transition: 'all 0.2s'
                         }}
                     >
-                        Squad Overview
+                        Squad Overview & Analytics
                     </button>
                     <button
                         onClick={() => setMainTab('registration')}
@@ -179,25 +262,105 @@ export default function TeacherDashboard({
                     </button>
                 </div>
 
-                {/* Quick squad creation action */}
-                <button
-                    onClick={() => setShowCreateSquad(true)}
-                    style={{
-                        padding: '8px 18px', borderRadius: '20px', background: 'rgba(99,102,241,0.15)',
-                        color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', fontSize: '12px', fontWeight: '700', cursor: 'pointer'
-                    }}
-                >
-                    + Initialize New Squad
-                </button>
+                {userRole !== 'coach' && (
+                    <button
+                        onClick={() => setShowCreateSquad(true)}
+                        style={{
+                            padding: '8px 18px', borderRadius: '20px', background: 'rgba(99,102,241,0.15)',
+                            color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', fontSize: '12px', fontWeight: '700', cursor: 'pointer'
+                        }}
+                    >
+                        + Initialize New Squad
+                    </button>
+                )}
             </div>
 
             {mainTab === 'overview' && (
-                <div style={{ 
-                    width: '100%', 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-                    gap: '24px'
-                }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+                    {/* Team Insights & Stats Overview Panel */}
+                    <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '18px' }}>📈</span>
+                                <h2 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                                    Team Performance Insights & Stats Overview
+                                </h2>
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#FFC726', background: 'rgba(255,199,38,0.12)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(255,199,38,0.3)' }}>
+                                {year} · {term}
+                            </span>
+                        </div>
+
+                        {/* Stat Metric Cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Squad Goals</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#4ade80', marginTop: '4px' }}>{squadStats.totalGoals}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.totalAssists} Assists</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shot Accuracy</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#60a5fa', marginTop: '4px' }}>{squadStats.shotAcc}%</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.convRate}% Conversion</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Defensive Saves</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#f59e0b', marginTop: '4px' }}>{squadStats.totalSaves}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.totalCleanSheets} Clean Sheets</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Roster</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#a78bfa', marginTop: '4px' }}>{students.length}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Registered Players</div>
+                            </div>
+                        </div>
+
+                        {/* Top Performers Banner */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '4px' }}>
+                            <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '20px' }}>⚽</span>
+                                <div>
+                                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#4ade80', textTransform: 'uppercase' }}>Top Goalscorer</div>
+                                    <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        {squadStats.topScorer ? `${squadStats.topScorer.name} (#${squadStats.topScorer.jerseyNumber || '-'})` : 'No goals logged'}
+                                    </div>
+                                    {squadStats.topScorer && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{squadStats.topScorer.goals} Goals</div>}
+                                </div>
+                            </div>
+
+                            <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '20px' }}>🅰️</span>
+                                <div>
+                                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#818cf8', textTransform: 'uppercase' }}>Assist Leader</div>
+                                    <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        {squadStats.topAssist ? `${squadStats.topAssist.name} (#${squadStats.topAssist.jerseyNumber || '-'})` : 'No assists logged'}
+                                    </div>
+                                    {squadStats.topAssist && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{squadStats.topAssist.assists} Assists</div>}
+                                </div>
+                            </div>
+
+                            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '20px' }}>🧤</span>
+                                <div>
+                                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#fbbf24', textTransform: 'uppercase' }}>Defensive / Save Anchor</div>
+                                    <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        {squadStats.topSaves ? `${squadStats.topSaves.name} (#${squadStats.topSaves.jerseyNumber || '-'})` : 'No saves logged'}
+                                    </div>
+                                    {squadStats.topSaves && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{squadStats.topSaves.saves} Saves</div>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ 
+                        width: '100%', 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
+                        gap: '24px'
+                    }}>
                     
                     {/* Active Intervention Alerts */}
                     <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -342,6 +505,7 @@ export default function TeacherDashboard({
                         </div>
                     </div>
                 </div>
+            </div>
             )}
 
             {mainTab === 'registration' && (

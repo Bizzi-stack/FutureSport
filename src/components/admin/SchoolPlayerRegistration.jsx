@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 
-export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, schools, teams }) {
+export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, schools, teams, selectedTournament }) {
+    const isPmc = selectedTournament === 'PMC';
     const [statusFilter, setStatusFilter] = useState('pending'); // 'all' | 'pending' | 'approved' | 'rejected' | 'incomplete'
     const [schoolFilter, setSchoolFilter] = useState('all');
     const [genderFilter, setGenderFilter] = useState('all'); // 'all' | 'Boy' | 'Girl'
@@ -73,7 +74,7 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
 
     const getSchoolName = (schoolId) => {
         const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+        return sc ? sc.name : (isPmc ? 'Unknown Club' : 'Unknown School');
     };
 
     return (
@@ -82,7 +83,7 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
             {/* Stats Bar */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
                 {[
-                    { label: 'Total Registrations', value: stats.total, color: 'var(--primary-light)', bg: 'rgba(99, 102, 241, 0.08)' },
+                    { label: isPmc ? 'Total Senior Registrations' : 'Total Registrations', value: stats.total, color: 'var(--primary-light)', bg: 'rgba(99, 102, 241, 0.08)' },
                     { label: 'Pending Review', value: stats.pending, color: 'var(--warning)', bg: 'rgba(245, 158, 11, 0.08)' },
                     { label: 'Approved', value: stats.approved, color: 'var(--success)', bg: 'rgba(16, 185, 129, 0.08)' },
                     { label: 'Rejected / Flagged', value: stats.rejected, color: 'var(--danger)', bg: 'rgba(239, 68, 68, 0.08)' }
@@ -117,7 +118,7 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>School</label>
+                                <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>{isPmc ? 'Club / Team' : 'School'}</label>
                                 <select
                                     value={schoolFilter}
                                     onChange={e => setSchoolFilter(e.target.value)}
@@ -126,7 +127,7 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
                                         background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)', fontSize: '12px', outline: 'none', cursor: 'pointer'
                                     }}
                                 >
-                                    <option value="all">All Schools</option>
+                                    <option value="all">{isPmc ? 'All Clubs' : 'All Schools'}</option>
                                     {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                 </select>
                             </div>

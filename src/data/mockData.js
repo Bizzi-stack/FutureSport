@@ -339,6 +339,92 @@ function generateShotLogsForStudent(student, rng) {
     return shotLogs;
 }
 
+function generateSaveLogsForGoalkeeper(student, rng) {
+    const saveLogs = [];
+    let logId = 1;
+    for (const year of Object.keys(student.performance)) {
+        for (const term of Object.keys(student.performance[year])) {
+            const perf = student.performance[year][term];
+            const saves = perf['Saves'] || 0;
+            const goalsConceded = perf['Goals Conceded'] || 0;
+            
+            // Generate save logs
+            for (let i = 0; i < saves; i++) {
+                const sRnd = rng();
+                let sType = 'normal';
+                if (sRnd < 0.70) sType = 'normal';
+                else if (sRnd < 0.82) sType = '1v1';
+                else if (sRnd < 0.92) sType = 'freekick';
+                else sType = 'penalty';
+
+                // Distribute save locations on goal frame (x: 12-88%, y: 25-88%)
+                const zoneType = rng();
+                let x, y;
+                if (zoneType < 0.35) { // Corner dive
+                    x = rng() < 0.5 ? (12 + rng() * 20) : (68 + rng() * 20);
+                    y = 30 + rng() * 45;
+                } else if (zoneType < 0.65) { // Low save
+                    x = 15 + rng() * 70;
+                    y = 65 + rng() * 23;
+                } else if (zoneType < 0.85) { // High save / punch
+                    x = 20 + rng() * 60;
+                    y = 25 + rng() * 30;
+                } else { // Central save
+                    x = 35 + rng() * 30;
+                    y = 40 + rng() * 35;
+                }
+
+                saveLogs.push({
+                    id: `${student.id}-${year}-${term}-sv-${logId++}`,
+                    year,
+                    term,
+                    result: 'save',
+                    saveType: sType,
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    timestamp: Date.now() - rng() * 10000000
+                });
+            }
+
+            // Generate conceded goal logs
+            for (let i = 0; i < goalsConceded; i++) {
+                const sRnd = rng();
+                let sType = 'normal';
+                if (sRnd < 0.65) sType = 'normal';
+                else if (sRnd < 0.82) sType = '1v1';
+                else if (sRnd < 0.93) sType = 'freekick';
+                else sType = 'penalty';
+
+                // Goals conceded usually go to corners or low corners
+                const zoneType = rng();
+                let x, y;
+                if (zoneType < 0.5) { // Top or side corners
+                    x = rng() < 0.5 ? (12 + rng() * 18) : (70 + rng() * 18);
+                    y = 22 + rng() * 35;
+                } else if (zoneType < 0.85) { // Bottom corners
+                    x = rng() < 0.5 ? (12 + rng() * 22) : (66 + rng() * 22);
+                    y = 65 + rng() * 23;
+                } else { // Central / Chip
+                    x = 38 + rng() * 24;
+                    y = 25 + rng() * 45;
+                }
+
+                saveLogs.push({
+                    id: `${student.id}-${year}-${term}-gc-${logId++}`,
+                    year,
+                    term,
+                    result: 'goal_conceded',
+                    saveType: sType,
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    timestamp: Date.now() - rng() * 10000000
+                });
+            }
+        }
+    }
+    return saveLogs;
+}
+
 function createCohort(schoolId, startGroupIndex, startYear, count = 25) {
     const teamId = `${schoolId}-team-${['U14', 'U16', 'U19'][startGroupIndex]}`;
     
@@ -414,6 +500,9 @@ function createCohort(schoolId, startGroupIndex, startYear, count = 25) {
             status
         };
         student.shotLogs = generateShotLogsForStudent(student, rng);
+        if (student.position === 'Goalkeeper') {
+            student.saveLogs = generateSaveLogsForGoalkeeper(student, rng);
+        }
         ALL_STUDENTS.push(student);
     }
 }

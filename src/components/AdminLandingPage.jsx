@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SCHOOLS } from '../data/mockData';
 import DotField from './DotField';
 import './landing.css';
@@ -9,11 +9,87 @@ const SparklesIcon = () => (
   </svg>
 );
 
-const AdminLandingPage = ({ onLogin, allTeams = [], allSchools = [] }) => {
+const AdminLandingPage = ({ 
+  onLogin, 
+  allTeams = [], 
+  allSchools = [], 
+  pmcTeams = [], 
+  pmcSchools = [], 
+  nsslTeams = [], 
+  nsslSchools = [],
+  selectedTournament = 'PMC',
+  setSelectedTournament = () => {}
+}) => {
   const [selectedRole, setSelectedRole] = useState('super_admin');
-  const [selectedTeam, setSelectedTeam] = useState(allTeams[0]?.id || '');
+  
+  const activeTeamsList = useMemo(() => {
+    return selectedTournament === 'PMC' ? (pmcTeams.length ? pmcTeams : allTeams) : (nsslTeams.length ? nsslTeams : allTeams);
+  }, [selectedTournament, pmcTeams, nsslTeams, allTeams]);
+
+  const activeSchoolsList = useMemo(() => {
+    return selectedTournament === 'PMC' ? (pmcSchools.length ? pmcSchools : allSchools) : (nsslSchools.length ? nsslSchools : allSchools);
+  }, [selectedTournament, pmcSchools, nsslSchools, allSchools]);
+
+  const [selectedTeam, setSelectedTeam] = useState(activeTeamsList[0]?.id || '');
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
+  const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
+  const teamComboboxRef = useRef(null);
+
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Update default selected team and sanitize selectedRole when tournament mode switches
+  useEffect(() => {
+    if (activeTeamsList.length > 0) {
+      setSelectedTeam(activeTeamsList[0].id);
+      setTeamSearchQuery('');
+    }
+    if (selectedTournament === 'PMC') {
+      if (['school_admin', 'league_admin', 'commissioner'].includes(selectedRole)) {
+        setSelectedRole('coach');
+      }
+    }
+  }, [selectedTournament, activeTeamsList]);
+
+  // Handle outside click to close team dropdown
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (teamComboboxRef.current && !teamComboboxRef.current.contains(e.target)) {
+        setIsTeamDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  const getTeamLabel = (team) => {
+    if (!team) return '';
+    const school = activeSchoolsList.find(s => s.id === team.schoolId);
+    return school ? `${school.name} - ${team.name || team.ageGroup}` : (team.name || team.ageGroup);
+  };
+
+  const selectedTeamObj = useMemo(() => {
+    const team = activeTeamsList.find(t => t.id === selectedTeam);
+    if (!team) return null;
+    const school = activeSchoolsList.find(s => s.id === team.schoolId);
+    return { ...team, school };
+  }, [activeTeamsList, activeSchoolsList, selectedTeam]);
+
+  const filteredTeamsList = useMemo(() => {
+    if (!teamSearchQuery.trim()) return activeTeamsList;
+    const q = teamSearchQuery.toLowerCase();
+    return activeTeamsList.filter(team => {
+      const school = activeSchoolsList.find(s => s.id === team.schoolId);
+      const label = school ? `${school.name} ${team.name || team.ageGroup}` : (team.name || team.ageGroup);
+      return label.toLowerCase().includes(q);
+    });
+  }, [activeTeamsList, activeSchoolsList, teamSearchQuery]);
+
+  const handleSelectTeam = (teamId) => {
+    setSelectedTeam(teamId);
+    setIsTeamDropdownOpen(false);
+    setTeamSearchQuery('');
+  };
   
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -77,6 +153,39 @@ const AdminLandingPage = ({ onLogin, allTeams = [], allSchools = [] }) => {
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
+                {/* Tournament Selector */}
+                <div className="login-form-group" style={{ marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    Tournament Competition
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', background: 'rgba(3, 7, 18, 0.65)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTournament('PMC')}
+                      style={{
+                        flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '800',
+                        background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
+                        color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255, 255, 255, 0.7)',
+                        border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                      }}
+                    >
+                      🏆 Prime Minister's Cup
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTournament('NSSL')}
+                      style={{
+                        flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '800',
+                        background: selectedTournament === 'NSSL' ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                        color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
+                        border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                      }}
+                    >
+                      ⚽ National League
+                    </button>
+                  </div>
+                </div>
+
                 <div className="login-form-group" style={{ marginBottom: '4px' }}>
                   <label htmlFor="role-select" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Select Portal Role</label>
                   <select 
@@ -96,46 +205,123 @@ const AdminLandingPage = ({ onLogin, allTeams = [], allSchools = [] }) => {
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="super_admin">Super Administrator</option>
-                    <option value="league_admin">League Administrator</option>
-                    <option value="school_admin">School Administrator</option>
+                    <option value="super_admin">
+                      {selectedTournament === 'PMC' ? "🏆 PMC Tournament Director / Super Admin" : "🏫 Schools League Super Administrator"}
+                    </option>
+                    {selectedTournament !== 'PMC' && <option value="league_admin">League Administrator</option>}
+                    {selectedTournament !== 'PMC' && <option value="school_admin">School Administrator</option>}
                     <option value="coach">Coach / Team Manager</option>
                     <option value="referee">Referee</option>
                     <option value="fourth_official">Fourth Official</option>
                     <option value="statistician">Statistician (Live Data Entry)</option>
-                    <option value="commissioner">Match Commissioner</option>
+                    {selectedTournament !== 'PMC' && <option value="commissioner">Match Commissioner</option>}
                   </select>
                 </div>
 
                 {selectedRole === 'coach' && (
-                  <div className="login-form-group" style={{ marginBottom: '4px' }}>
-                    <label htmlFor="team-select" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Select Your Team</label>
-                    <select 
-                      id="team-select"
-                      value={selectedTeam} 
-                      onChange={(e) => setSelectedTeam(e.target.value)} 
-                      style={{ 
-                        width: '100%',
-                        height: '42px', 
-                        padding: '0 12px',
-                        borderRadius: '8px',
-                        fontSize: '14px', 
-                        background: 'rgba(3, 7, 18, 0.65)', 
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        color: '#ffffff',
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {allTeams.map(team => {
-                        const school = allSchools.find(s => s.id === team.schoolId);
-                        return (
-                          <option key={team.id} value={team.id}>
-                            {school ? school.name : 'Unknown'} - {team.name || team.ageGroup}
-                          </option>
-                        );
-                      })}
-                    </select>
+                  <div className="login-form-group" ref={teamComboboxRef} style={{ marginBottom: '4px', position: 'relative' }}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                      Select Your Team / Club
+                    </label>
+                    
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      {selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen && (
+                        <img 
+                          src={selectedTeamObj.school.logo} 
+                          alt="" 
+                          style={{ position: 'absolute', left: '12px', width: '22px', height: '22px', objectFit: 'contain', pointerEvents: 'none' }} 
+                        />
+                      )}
+                      <input
+                        type="text"
+                        value={isTeamDropdownOpen ? teamSearchQuery : (selectedTeamObj ? getTeamLabel(selectedTeamObj) : teamSearchQuery)}
+                        onFocus={() => {
+                          setIsTeamDropdownOpen(true);
+                          setTeamSearchQuery('');
+                        }}
+                        onChange={(e) => {
+                          setTeamSearchQuery(e.target.value);
+                          setIsTeamDropdownOpen(true);
+                        }}
+                        placeholder="Type club name (e.g. UWI, Wotton, Notre Dame...)"
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          paddingLeft: (selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen) ? '42px' : '14px',
+                          paddingRight: '32px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          background: 'rgba(3, 7, 18, 0.65)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          outline: 'none'
+                        }}
+                      />
+                      <span style={{ position: 'absolute', right: '12px', color: 'rgba(255,255,255,0.4)', fontSize: '11px', pointerEvents: 'none' }}>
+                        ▼
+                      </span>
+                    </div>
+
+                    {isTeamDropdownOpen && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 6px)',
+                        left: 0,
+                        right: 0,
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                        background: '#0b1120',
+                        border: '1px solid rgba(255, 255, 255, 0.18)',
+                        borderRadius: '10px',
+                        zIndex: 1000,
+                        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.8)',
+                        padding: '6px'
+                      }}>
+                        {filteredTeamsList.length === 0 ? (
+                          <div style={{ padding: '12px 14px', fontSize: '12px', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>
+                            No matching teams found
+                          </div>
+                        ) : (
+                          filteredTeamsList.map(team => {
+                            const school = activeSchoolsList.find(s => s.id === team.schoolId);
+                            const isSelected = selectedTeam === team.id;
+                            return (
+                              <div
+                                key={team.id}
+                                onClick={() => handleSelectTeam(team.id)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  background: isSelected ? 'rgba(255, 199, 38, 0.15)' : 'transparent',
+                                  color: isSelected ? '#FFC726' : '#ffffff',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onMouseEnter={e => {
+                                  if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                                }}
+                                onMouseLeave={e => {
+                                  if (!isSelected) e.currentTarget.style.background = 'transparent';
+                                }}
+                              >
+                                {school?.logo && (
+                                  <img src={school.logo} alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                                )}
+                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                                  <span style={{ fontSize: '13px', fontWeight: '700' }}>{school ? school.name : 'Club'}</span>
+                                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{team.name || team.ageGroup}</span>
+                                </div>
+                                {isSelected && <span style={{ fontSize: '12px', fontWeight: '800' }}>✓</span>}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

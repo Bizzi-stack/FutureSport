@@ -14,6 +14,11 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
     const [refereeSignature, setRefereeSignature] = useState('');
     const [reportSaved, setReportSaved] = useState(false);
 
+    // Get scheduled matches (Referee can kick these off)
+    const scheduledMatches = useMemo(() => {
+        return matches.filter(m => m.status === 'upcoming' || m.status === 'scheduled');
+    }, [matches]);
+
     // Get matches waiting for Referee Reports (completed matches)
     const pendingMatches = useMemo(() => {
         return matches.filter(m => m.status === 'completed');
@@ -24,9 +29,15 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
         return matches.filter(m => m.status === 'live');
     }, [matches]);
 
-    const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+    const getSchoolName = (schoolId, matchObj) => {
+        if (!schoolId && !matchObj) return 'Unknown School';
+        const sc = schools?.find(s => s.id === schoolId || s.rawId === schoolId);
+        if (sc) return sc.name;
+        if (matchObj) {
+            if (matchObj.homeTeamId === schoolId && matchObj.homeTeam) return matchObj.homeTeam;
+            if (matchObj.awayTeamId === schoolId && matchObj.awayTeam) return matchObj.awayTeam;
+        }
+        return schoolId || 'Unknown School';
     };
 
     const handleSelectMatch = (match) => {
@@ -44,6 +55,33 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
             setRefereeSignature(match.refereeReport?.refereeSignature || '');
             setReportSaved(false);
         }
+    };
+
+    const handleKickOff = (match) => {
+        const homeSquadReady = !!match.homeSquadSelection;
+        const awaySquadReady = !!match.awaySquadSelection;
+
+        if (!homeSquadReady || !awaySquadReady) {
+            alert(`Cannot kick off — squads pending:\n${!homeSquadReady ? '• Home team squad not submitted\n' : ''}${!awaySquadReady ? '• Away team squad not submitted' : ''}`);
+            return;
+        }
+
+        if (!window.confirm(`Blow the whistle and KICK OFF:\n${getSchoolName(match.homeTeamId, match)} vs ${getSchoolName(match.awayTeamId, match)}?`)) {
+            return;
+        }
+
+        onUpdateMatch({
+            ...match,
+            status: 'live',
+            liveState: match.liveState || {
+                isRunning: true,
+                startTime: Date.now(),
+                elapsedOffset: 0,
+                period: '1H',
+                playerStats: {},
+                timeline: []
+            }
+        });
     };
 
     const handleSubmitReport = (e) => {
@@ -76,7 +114,7 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
             <div className="glass-panel" style={{ width: '380px', display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
                 <div style={{ padding: '20px 24px', borderBottom: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}>
                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Referee Schedule</h3>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Select a match to officiate or submit report</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kick off matches, officiate, or submit reports</span>
                 </div>
                 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -86,6 +124,72 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                             border: '1px solid rgba(16, 185, 129, 0.25)', color: 'var(--success)', fontSize: '12px', fontWeight: '600', textAlign: 'center'
                         }}>
                             ✓ Match report submitted successfully!
+                        </div>
+                    )}
+
+                    {/* Scheduled Matches — Kick Off Section */}
+                    {scheduledMatches.length > 0 && (
+                        <div style={{ marginBottom: '10px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', textTransform: 'uppercase', marginBottom: '8px', paddingLeft: '4px' }}>📅 Scheduled — Awaiting Kick-Off</div>
+                            {scheduledMatches.map(m => {
+                                const homeSquadReady = !!m.homeSquadSelection;
+                                const awaySquadReady = !!m.awaySquadSelection;
+                                const bothReady = homeSquadReady && awaySquadReady;
+                                return (
+                                    <div
+                                        key={m.id}
+                                        style={{
+                                            padding: '14px', borderRadius: '10px',
+                                            background: 'rgba(255,255,255,0.01)',
+                                            border: '1px solid rgba(96,165,250,0.15)',
+                                            display: 'flex', flexDirection: 'column', gap: '8px',
+                                            marginBottom: '8px'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--primary-light)', fontWeight: '700' }}>
+                                            <span>{m.ageGroup || m.division || 'Match'}</span>
+                                            <span style={{ color: '#60a5fa' }}>{m.time || m.kickoff || 'Scheduled'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                                            <span>{getSchoolName(m.homeTeamId, m)}</span>
+                                            <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                VS
+                                            </span>
+                                            <span>{getSchoolName(m.awayTeamId, m)}</span>
+                                        </div>
+
+                                        {/* Squad Readiness Badges */}
+                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                            <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+                                                {homeSquadReady ? '✅' : '⏳'} Home
+                                            </span>
+                                            <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+                                                {awaySquadReady ? '✅' : '⏳'} Away
+                                            </span>
+                                        </div>
+
+                                        {/* Kick Off Button */}
+                                        <button
+                                            onClick={() => handleKickOff(m)}
+                                            disabled={!bothReady}
+                                            style={{
+                                                padding: '8px 14px', borderRadius: '8px',
+                                                background: bothReady ? 'var(--success)' : 'rgba(255,255,255,0.03)',
+                                                color: bothReady ? '#fff' : 'var(--text-muted)',
+                                                border: bothReady ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                                fontWeight: '800', fontSize: '12px',
+                                                cursor: bothReady ? 'pointer' : 'not-allowed',
+                                                opacity: bothReady ? 1 : 0.6,
+                                                boxShadow: bothReady ? '0 4px 12px rgba(16,185,129,0.3)' : 'none',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {bothReady ? '🏟️ Blow Whistle — Kick Off' : '⏳ Waiting for Squad Submissions'}
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -108,11 +212,11 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                                         <span style={{ color: 'var(--success)' }}>LIVE</span>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                                        <span>{getSchoolName(m.homeTeamId).split(' ')[0]}</span>
+                                        <span>{getSchoolName(m.homeTeamId, m)}</span>
                                         <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>
                                             {m.homeScore} - {m.awayScore}
                                         </span>
-                                        <span>{getSchoolName(m.awayTeamId).split(' ')[0]}</span>
+                                        <span>{getSchoolName(m.awayTeamId, m)}</span>
                                     </div>
                                 </div>
                             ))}
@@ -141,11 +245,11 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                                     <span>{m.matchday}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                                    <span>{getSchoolName(m.homeTeamId).split(' ')[0]}</span>
+                                    <span>{getSchoolName(m.homeTeamId, m)}</span>
                                     <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>
                                         {m.homeScore} - {m.awayScore}
                                     </span>
-                                    <span>{getSchoolName(m.awayTeamId).split(' ')[0]}</span>
+                                    <span>{getSchoolName(m.awayTeamId, m)}</span>
                                 </div>
                             </div>
                         ))
@@ -164,7 +268,7 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                                 year={year}
                                 isRefereeMode={true}
                                 onUpdateMatch={onUpdateMatch}
-                                onEndMatch={(res) => { onUpdateMatch(res); setSelectedMatch(null); }}
+                                onEndMatch={(res) => { onUpdateMatch({ ...res, status: 'completed' }); setSelectedMatch(null); }}
                                 onCancel={() => setSelectedMatch(null)}
                             />
                         </div>
