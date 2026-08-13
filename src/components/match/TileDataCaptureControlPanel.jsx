@@ -72,17 +72,20 @@ export default function TileDataCaptureControlPanel({
         setTimeout(() => setToastMessage(null), 2500);
     };
 
-    // All Direct Stat Tiles Configuration
+    // All Direct Stat Tiles Configuration (Categorized with dedicated Shot Types)
     const STAT_TILES = [
-        { key: 'shot', label: '⚽ Shot / Goal', subtitle: 'Log Shot attempt or Goal', color: 'linear-gradient(135deg, #10b981, #059669)', border: 'rgba(16, 185, 129, 0.4)' },
+        { key: 'goal', label: '🎯 Goal Scored', subtitle: 'Standard Goal', color: 'linear-gradient(135deg, #059669, #047857)', border: 'rgba(5, 150, 105, 0.4)' },
+        { key: 'shotOnTarget', label: '⚽ Shot on Target', subtitle: 'Saved by Opposing GK (Auto-Logged)', color: 'linear-gradient(135deg, #10b981, #059669)', border: 'rgba(16, 185, 129, 0.4)' },
+        { key: 'shotMissed', label: '💥 Shot Off-Target', subtitle: 'Missed Wide or Over Crossbar', color: 'linear-gradient(135deg, #64748b, #475569)', border: 'rgba(100, 116, 139, 0.4)' },
+        { key: 'headerShot', label: '🗣️ Header Shot / Goal', subtitle: 'Header Attempt or Goal', color: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'rgba(2, 132, 199, 0.4)' },
+        { key: 'penaltyShot', label: '🎯 Penalty Kick', subtitle: 'Penalty Spot Kick', color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'rgba(139, 92, 246, 0.4)' },
+        { key: 'freekickShot', label: '📐 Free Kick Shot', subtitle: 'Direct Free Kick Attempt', color: 'linear-gradient(135deg, #06b6d4, #0891b2)', border: 'rgba(6, 182, 212, 0.4)' },
+        { key: 'ownGoal', label: '⚠️ Own Goal', subtitle: 'Accidental Goal against Own Team', color: 'linear-gradient(135deg, #dc2626, #991b1b)', border: 'rgba(220, 38, 38, 0.4)' },
         { key: 'yellowCard', label: '🟨 Yellow Card', subtitle: 'Caution / Warning', color: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'rgba(245, 158, 11, 0.4)' },
         { key: 'redCard', label: '🟥 Red Card', subtitle: 'Ejection / Send-off', color: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'rgba(239, 68, 68, 0.4)' },
         { key: 'assist', label: '🅰️ Goal Assist', subtitle: 'Key Pass Scorer Assist', color: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'rgba(99, 102, 241, 0.4)' },
-        { key: 'gkSave', label: '🧤 Goalkeeper Save', subtitle: 'GK Shot Block / Save', color: 'linear-gradient(135deg, #06b6d4, #0891b2)', border: 'rgba(6, 182, 212, 0.4)' },
         { key: 'foul', label: '🛑 Foul Committed', subtitle: 'Tactical or Free Kick Foul', color: 'linear-gradient(135deg, #ea580c, #c2410c)', border: 'rgba(234, 88, 12, 0.4)' },
         { key: 'corner', label: '🚩 Corner Kick', subtitle: 'Set Piece Corner', color: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'rgba(59, 130, 246, 0.4)' },
-        { key: 'penalty', label: '🎯 Penalty Kick', subtitle: 'Penalty Spot Kick', color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'rgba(139, 92, 246, 0.4)' },
-        { key: 'offside', label: '🚩 Offside Call', subtitle: 'Offside Infringement', color: 'linear-gradient(135deg, #64748b, #475569)', border: 'rgba(100, 116, 139, 0.4)' },
         { key: 'sub', label: '🔄 Substitution', subtitle: 'Player Tactical Swap', color: 'linear-gradient(135deg, #4b5563, #374151)', border: 'rgba(75, 85, 99, 0.4)' },
     ];
 
@@ -95,17 +98,6 @@ export default function TileDataCaptureControlPanel({
             return;
         }
 
-        // Handle specific modal triggers
-        if (tile.key === 'shot' && onShotModal) {
-            setPendingAction(tile);
-            return;
-        }
-
-        if (tile.key === 'gkSave' && onGkSaveModal) {
-            setPendingAction(tile);
-            return;
-        }
-
         // Open quick player picker for stat
         setPendingAction(tile);
     };
@@ -115,14 +107,13 @@ export default function TileDataCaptureControlPanel({
         const student = studentsById[player.id];
         const name = student?.name || player.name || `Player #${player.id}`;
 
-        if (actionKey === 'shot' && onShotModal) {
-            onShotModal(player, 'goal');
-            setPendingAction(null);
-            return;
-        }
-
-        if (actionKey === 'gkSave' && onGkSaveModal) {
-            onGkSaveModal(player);
+        if ((actionKey === 'goal' || actionKey === 'headerShot' || actionKey === 'penaltyShot' || actionKey === 'freekickShot' || actionKey === 'ownGoal') && onShotModal) {
+            let defaultOutcome = 'goal';
+            if (actionKey === 'headerShot') defaultOutcome = 'header';
+            if (actionKey === 'penaltyShot') defaultOutcome = 'penalty';
+            if (actionKey === 'freekickShot') defaultOutcome = 'freekick';
+            if (actionKey === 'ownGoal') defaultOutcome = 'own-goal';
+            onShotModal(player, defaultOutcome);
             setPendingAction(null);
             return;
         }

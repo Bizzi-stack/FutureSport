@@ -468,10 +468,37 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             ]);
 
             setPlayerStats(prev => {
-                const ps = { ...prev, [playerId]: { ...prev[playerId] } };
-                if (actionKey === 'assist') ps[playerId].Assists += 1;
-                if (actionKey === 'yellowCard') ps[playerId].yellowCards += 1;
-                if (actionKey === 'redCard') ps[playerId].redCards += 1;
+                const ps = { ...prev };
+                if (!ps[playerId]) ps[playerId] = initPlayerStats([playerId], isHome ? 'home' : 'away')[playerId];
+                ps[playerId] = { ...ps[playerId] };
+
+                if (actionKey === 'assist') ps[playerId].Assists = (ps[playerId].Assists || 0) + 1;
+                if (actionKey === 'yellowCard') ps[playerId].yellowCards = (ps[playerId].yellowCards || 0) + 1;
+                if (actionKey === 'redCard') ps[playerId].redCards = (ps[playerId].redCards || 0) + 1;
+                if (actionKey === 'corner') ps[playerId]['Corners Taken'] = (ps[playerId]['Corners Taken'] || 0) + 1;
+                if (actionKey === 'foul') ps[playerId]['Fouls Committed'] = (ps[playerId]['Fouls Committed'] || 0) + 1;
+
+                if (actionKey === 'shotMissed') {
+                    ps[playerId].Shots = (ps[playerId].Shots || 0) + 1;
+                }
+
+                if (actionKey === 'shotOnTarget') {
+                    ps[playerId].Shots = (ps[playerId].Shots || 0) + 1;
+                    ps[playerId]['Shots on Target'] = (ps[playerId]['Shots on Target'] || 0) + 1;
+
+                    // Automatically credit opposing Goalkeeper with a Save!
+                    const oppPlayers = isHome ? awayPlayers : homePlayers;
+                    const oppGkId = oppPlayers.find(id => studentsById[id]?.position === 'Goalkeeper') || oppPlayers[0];
+                    if (oppGkId) {
+                        const oppSide = isHome ? 'away' : 'home';
+                        if (!ps[oppGkId]) ps[oppGkId] = initPlayerStats([oppGkId], oppSide)[oppGkId];
+                        ps[oppGkId] = {
+                            ...ps[oppGkId],
+                            Saves: (ps[oppGkId].Saves || 0) + 1
+                        };
+                    }
+                }
+
                 return ps;
             });
         }
