@@ -18,11 +18,11 @@ const DEFAULT_OFFICIALS = [
     { id: 'off5', name: 'Adrian Hunte', role: 'Referee' },
 ];
 
-export default function CompetitionAdmin({ schools, teams, matches, allStudents, year, onAddMatches }) {
+export default function CompetitionAdmin({ schools, teams, matches, allStudents, year, onAddMatches, selectedTournament }) {
     const [activeSubTab, setActiveSubTab] = useState('divisions'); // 'divisions' | 'venues' | 'generator' | 'standings' | 'knockout' | 'stats'
     
     // Generator states
-    const [selectedDivision, setSelectedDivision] = useState('U14');
+    const [selectedDivision, setSelectedDivision] = useState(() => selectedTournament === 'PMC' ? 'PMC' : 'U14');
     const [selectedVenue, setSelectedVenue] = useState('v1');
     const [matchdayTerm, setMatchdayTerm] = useState('Matchday 1');
     const [generationSuccess, setGenerationSuccess] = useState(false);
@@ -30,10 +30,11 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
     // Group teams by division/age group
     const divisionGroups = useMemo(() => {
         const safeTeams = teams || [];
+        const PMC = safeTeams.filter(t => t && (t.ageGroup === 'PMC' || (typeof t.name === 'string' && t.name.includes('PMC'))));
         const U14 = safeTeams.filter(t => t && (t.ageGroup === 'U14' || (typeof t.name === 'string' && t.name.includes('U14'))));
         const U16 = safeTeams.filter(t => t && (t.ageGroup === 'U16' || (typeof t.name === 'string' && t.name.includes('U16'))));
         const U19 = safeTeams.filter(t => t && (t.ageGroup === 'U19' || (typeof t.name === 'string' && t.name.includes('U19'))));
-        return { U14, U16, U19 };
+        return { PMC, U14, U16, U19 };
     }, [teams]);
 
     const getSchoolName = (schoolId) => {
@@ -116,13 +117,16 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
             {/* Content Switcher */}
             <div style={{ flex: 1, minHeight: 0 }}>
                 {activeSubTab === 'divisions' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-                        {['U14', 'U16', 'U19'].map(div => {
+                    <div style={{ display: 'grid', gridTemplateColumns: selectedTournament === 'PMC' || divisionGroups.PMC.length > 0 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '20px' }}>
+                        {(selectedTournament === 'PMC' || divisionGroups.PMC.length > 0 ? ['PMC', 'U14', 'U16', 'U19'] : ['U14', 'U16', 'U19']).map(div => {
                             const list = divisionGroups[div] || [];
+                            if (list.length === 0 && div !== 'PMC' && selectedTournament === 'PMC') return null;
                             return (
                                 <div key={div} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '8px' }}>
-                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>{div} Division</h3>
+                                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                            {div === 'PMC' ? "PMC Senior Division" : `${div} Division`}
+                                        </h3>
                                         <span style={{ fontSize: '11px', color: 'var(--primary-light)', background: 'rgba(37,99,235,0.1)', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' }}>
                                             {list.length} Teams
                                         </span>
@@ -200,6 +204,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                     onChange={e => setSelectedDivision(e.target.value)}
                                     style={{ padding: '8px 12px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
                                 >
+                                    {(selectedTournament === 'PMC' || divisionGroups.PMC.length > 0) && <option value="PMC">PMC Senior Division</option>}
                                     <option value="U14">U14 Division</option>
                                     <option value="U16">U16 Division</option>
                                     <option value="U19">U19 Division</option>

@@ -168,31 +168,51 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         return (allTeams || []).filter(t => t.schoolId === schoolId).map(t => t.id);
     }, [allTeams, schoolId]);
 
-    const myScheduledMatches = useMemo(() => {
-        return (matches || []).filter(m =>
-            m.status === 'scheduled' &&
-            (myTeamIds.includes(m.homeTeamId) || myTeamIds.includes(m.awayTeamId))
-        );
-    }, [matches, myTeamIds]);
+    const myMatches = useMemo(() => {
+        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
+        const schoolNameStr = schoolObj?.name || schoolName || '';
+        const cleanSchoolId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
+
+        const targets = [
+            schoolId, cleanSchoolId, schoolNameStr,
+            schoolObj?.id, schoolObj?.name, schoolObj?.rawId,
+            ...(allTeams || []).filter(t => t.schoolId === schoolId || t.schoolId === schoolObj?.id).flatMap(t => [t.id, t.name, t.schoolId])
+        ].filter(Boolean).map(x => String(x).toLowerCase());
+
+        return (matches || []).filter(m => {
+            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+
+            const isHome = homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
+            const isAway = awayVals.some(a => targets.some(t => a.includes(t) || t.includes(a)));
+            return isHome || isAway;
+        });
+    }, [matches, schoolId, schoolName, schools, allTeams]);
 
     const selectedMatch = useMemo(() => {
-        return myScheduledMatches.find(m => m.id === selectedMatchId) || null;
-    }, [myScheduledMatches, selectedMatchId]);
+        return myMatches.find(m => m.id === selectedMatchId) || myMatches[0] || null;
+    }, [myMatches, selectedMatchId]);
 
-    const myTeamId = useMemo(() => {
-        if (!selectedMatch) return null;
-        if (myTeamIds.includes(selectedMatch.homeTeamId)) return selectedMatch.homeTeamId;
-        if (myTeamIds.includes(selectedMatch.awayTeamId)) return selectedMatch.awayTeamId;
-        return null;
-    }, [selectedMatch, myTeamIds]);
+    const isHome = useMemo(() => {
+        if (!selectedMatch) return false;
+        const targets = [
+            schoolId, schoolName,
+            ...(allTeams || []).filter(t => t.schoolId === schoolId).flatMap(t => [t.id, t.name])
+        ].filter(Boolean).map(x => String(x).toLowerCase());
+
+        const homeVals = [selectedMatch.homeTeamId, selectedMatch.homeTeam, selectedMatch.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+        return homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
+    }, [selectedMatch, schoolId, schoolName, allTeams]);
 
     const eligiblePlayers = useMemo(() => {
-        if (!myTeamId) return [];
+        if (!selectedMatch) return [];
         return (allPlayers || []).filter(p => {
+            if (p.schoolId === schoolId) return true;
             const assignments = p.teamAssignments || {};
-            return Object.values(assignments).includes(myTeamId);
+            const teamIds = (allTeams || []).filter(t => t.schoolId === schoolId).map(t => t.id);
+            return teamIds.some(tId => Object.values(assignments).includes(tId)) || Object.values(assignments).includes(schoolId);
         });
-    }, [allPlayers, myTeamId]);
+    }, [allPlayers, selectedMatch, schoolId, allTeams]);
 
     // Flat list of selected player IDs in starting XI (no nulls)
     const selectedStartingXIIds = useMemo(() => {
@@ -218,11 +238,26 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         );
     }, [availablePlayers, searchQuery]);
 
-    const getSchoolName = (teamId) => {
-        const team = (allTeams || []).find(t => t.id === teamId);
-        if (!team) return teamId;
-        const sc = (schools || []).find(s => s.id === team.schoolId);
-        return sc ? sc.name : team.name;
+    const getSchoolName = (teamId, matchObj) => {
+        if (!teamId && !matchObj) return 'Unknown Team';
+        // 1. Direct match in schools/clubs list (e.g. pmc-club-10 -> WOTTON)
+        const sc = (schools || []).find(s => s.id === teamId || s.rawId === teamId);
+        if (sc) return sc.name;
+
+        // 2. Direct match in teams list
+        const team = (allTeams || []).find(t => t.id === teamId || t.schoolId === teamId);
+        if (team) {
+            const sc2 = (schools || []).find(s => s.id === team.schoolId);
+            return sc2 ? sc2.name : team.name;
+        }
+
+        // 3. Fallback to matchObj property
+        if (matchObj) {
+            if (matchObj.homeTeamId === teamId && matchObj.homeTeam) return matchObj.homeTeam;
+            if (matchObj.awayTeamId === teamId && matchObj.awayTeam) return matchObj.awayTeam;
+        }
+
+        return teamId || 'Unknown Team';
     };
 
     const getPlayerById = (id) => eligiblePlayers.find(p => p.id === id);
@@ -232,7 +267,6 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         
         // Find if this match has pre-existing squad selection to restore
         const match = matches.find(m => m.id === matchId);
-        const isHome = myTeamIds.includes(match?.homeTeamId);
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
         const savedSquad = match?.[squadKey];
 
@@ -295,7 +329,6 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const handleSubmitSquad = () => {
         if (selectedStartingXIIds.length !== 11 || !selectedMatch) return;
-        const isHome = myTeamIds.includes(selectedMatch.homeTeamId);
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
         const updatedMatch = {
             ...selectedMatch,
@@ -314,10 +347,9 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const alreadySubmitted = useMemo(() => {
         if (!selectedMatch) return false;
-        const isHome = myTeamIds.includes(selectedMatch.homeTeamId);
         const key = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
         return !!selectedMatch[key];
-    }, [selectedMatch, myTeamIds]);
+    }, [selectedMatch, isHome]);
 
     const pitchSlots = useMemo(() => {
         const layout = FORMATION_LAYOUTS[formation];
@@ -336,11 +368,11 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Configure formation, click pitch positions to select players, and fill your bench.</span>
             </div>
 
-            {myScheduledMatches.length === 0 ? (
+            {myMatches.length === 0 ? (
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '60px 24px' }}>
                     <span style={{ fontSize: '2.5rem' }}>📋</span>
                     <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '12px' }}>
-                        No upcoming scheduled matches for {schoolName}. The Match Commissioner will schedule fixtures.
+                        No matches found for {schoolName}. Fixtures are automatically populated from the Prime Minister's Cup schedule.
                     </p>
                 </div>
             ) : (
@@ -349,13 +381,14 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                     {/* Fixture list */}
                     <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
                         <div style={{ padding: '14px 18px', borderBottom: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                            <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>Upcoming Fixtures</h3>
+                            <h3 style={{ margin: 0, fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>Team Fixtures</h3>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {myScheduledMatches.map(m => {
-                                const isHome = myTeamIds.includes(m.homeTeamId);
-                                const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+                            {myMatches.map(m => {
+                                const isMatchHome = String(m.homeTeamId).toLowerCase().includes(String(schoolId).toLowerCase().replace('-team-pmc', ''));
+                                const squadKey = isMatchHome ? 'homeSquadSelection' : 'awaySquadSelection';
                                 const submitted = !!m[squadKey];
+                                const isFinished = m.status === 'completed' || m.status === 'refereed';
                                 return (
                                     <div key={m.id} onClick={() => handleSelectMatch(m.id)} style={{
                                         padding: '10px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s',
@@ -363,12 +396,16 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                         border: selectedMatchId === m.id ? '1px solid rgba(37,99,235,0.3)' : 'var(--border)',
                                         display: 'flex', flexDirection: 'column', gap: '4px'
                                     }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                                            <span style={{ color: 'var(--primary-light)', fontWeight: '700' }}>{m.ageGroup} • {m.matchday}</span>
-                                            {submitted && <span style={{ color: 'var(--success)', fontWeight: '700' }}>✓ SENT</span>}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
+                                            <span style={{ color: 'var(--primary-light)', fontWeight: '700' }}>{m.ageGroup || 'PMC'} • {m.matchday || m.round}</span>
+                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                {m.status === 'live' && <span style={{ color: '#4ade80', fontWeight: '800', background: 'rgba(74,222,128,0.15)', padding: '1px 6px', borderRadius: '8px' }}>🔴 LIVE</span>}
+                                                {isFinished && <span style={{ color: '#94a3b8', fontWeight: '700', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '8px' }}>✓ FINISHED</span>}
+                                                {submitted && !isFinished && m.status !== 'live' && <span style={{ color: 'var(--success)', fontWeight: '700' }}>✓ SENT</span>}
+                                            </div>
                                         </div>
                                         <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                                            {getSchoolName(m.homeTeamId).split(' ')[0]} vs {getSchoolName(m.awayTeamId).split(' ')[0]}
+                                            {getSchoolName(m.homeTeamId, m)} vs {getSchoolName(m.awayTeamId, m)}
                                         </div>
                                         <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>📍 {m.venue}</span>
                                     </div>
@@ -385,12 +422,20 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                             <div className="glass-panel" style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                        {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)}
+                                        {getSchoolName(selectedMatch.homeTeamId, selectedMatch)} vs {getSchoolName(selectedMatch.awayTeamId, selectedMatch)}
                                     </h3>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selectedMatch.ageGroup} • {selectedMatch.matchday} • {selectedMatch.venue}</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selectedMatch.ageGroup || 'PMC'} • {selectedMatch.matchday || selectedMatch.round} • {selectedMatch.venue}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {alreadySubmitted ? (
+                                    {selectedMatch.status === 'live' ? (
+                                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(74,222,128,0.15)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(74,222,128,0.3)' }}>
+                                            🔴 LIVE ({selectedMatch.homeScore} - {selectedMatch.awayScore})
+                                        </span>
+                                    ) : (selectedMatch.status === 'completed' || selectedMatch.status === 'refereed') ? (
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: '20px', border: 'var(--border)' }}>
+                                            ✓ Match Completed ({selectedMatch.homeScore} - {selectedMatch.awayScore})
+                                        </span>
+                                    ) : alreadySubmitted ? (
                                         <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>✓ Squad Submitted</span>
                                     ) : (
                                         <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{

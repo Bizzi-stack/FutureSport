@@ -257,6 +257,69 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
         return `${student.name} ${zoneText}, ${efficiencyText}`;
     }, [shotStats, student]);
 
+    const isGk = student.position === 'Goalkeeper';
+
+    // Filter save logs based on selection for GK
+    const filteredSaves = useMemo(() => {
+        const logs = student.saveLogs || [];
+        if (shotFilter === 'all') return logs;
+        const [yr, tr] = shotFilter.split('|');
+        return logs.filter(l => l.year === yr && l.term === tr);
+    }, [student, shotFilter]);
+
+    // Compute save statistics for filtered logs
+    const saveStats = useMemo(() => {
+        const total = filteredSaves.length;
+        const saves = filteredSaves.filter(l => l.result === 'save').length;
+        const conceded = filteredSaves.filter(l => l.result === 'goal_conceded').length;
+        
+        const savePct = total > 0 ? Math.round((saves / total) * 100) : 0;
+
+        // Zones: Left (x < 40), Center (x >= 40 && x <= 60), Right (x > 60)
+        const leftSaves = filteredSaves.filter(l => l.x < 40);
+        const centerSaves = filteredSaves.filter(l => l.x >= 40 && l.x <= 60);
+        const rightSaves = filteredSaves.filter(l => l.x > 60);
+
+        const leftCount = leftSaves.length;
+        const centerCount = centerSaves.length;
+        const rightCount = rightSaves.length;
+
+        const leftPct = total > 0 ? Math.round((leftCount / total) * 100) : 0;
+        const centerPct = total > 0 ? Math.round((centerCount / total) * 100) : 0;
+        const rightPct = total > 0 ? Math.round((rightCount / total) * 100) : 0;
+
+        const leftMade = leftSaves.filter(l => l.result === 'save').length;
+        const centerMade = centerSaves.filter(l => l.result === 'save').length;
+        const rightMade = rightSaves.filter(l => l.result === 'save').length;
+
+        const leftSaveRate = leftCount > 0 ? Math.round((leftMade / leftCount) * 100) : 0;
+        const centerSaveRate = centerCount > 0 ? Math.round((centerMade / centerCount) * 100) : 0;
+        const rightSaveRate = rightCount > 0 ? Math.round((rightMade / rightCount) * 100) : 0;
+
+        return {
+            total, saves, conceded, savePct,
+            zones: {
+                left: { count: leftCount, pct: leftPct, saveRate: leftSaveRate, saves: leftMade },
+                center: { count: centerCount, pct: centerPct, saveRate: centerSaveRate, saves: centerMade },
+                right: { count: rightCount, pct: rightPct, saveRate: rightSaveRate, saves: rightMade }
+            }
+        };
+    }, [filteredSaves]);
+
+    // Generate dynamic save insight
+    const saveInsight = useMemo(() => {
+        const { total, savePct, zones } = saveStats;
+        if (total === 0) return "No save logs recorded for this goalkeeper in the selected time period.";
+
+        const { left, center, right } = zones;
+        let bestZone = 'center';
+        let bestRate = center.saveRate;
+        if (left.saveRate > bestRate) { bestZone = 'left'; bestRate = left.saveRate; }
+        if (right.saveRate > bestRate) { bestZone = 'right'; bestRate = right.saveRate; }
+
+        return `${student.name} holds a ${savePct}% overall save rate. Highest stopping efficiency is on the ${bestZone} side of the goal with a ${bestRate}% save rate across all recorded shot events.`;
+    }, [saveStats, student]);
+
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 200,
@@ -320,7 +383,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                 cursor: 'pointer', transition: 'all 0.2s', border: 'none', outline: 'none'
                             }}
                         >
-                            Shot Analytics
+                            {isGk ? 'Save Analytics' : 'Shot Analytics'}
                         </button>
                     </div>
                 </div>
@@ -367,6 +430,259 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                     })}
                                 </tbody>
                             </table>
+                        </Card>
+                    </>
+                ) : isGk ? (
+                    <>
+                        {/* Goalkeeper Save Map (spans 2 cols) */}
+                        <Card 
+                            title="Interactive Save Map" 
+                            style={{ gridColumn: 'span 2', minHeight: '380px' }}
+                            headerExtra={
+                                <CustomSelect 
+                                    value={shotFilter} 
+                                    onChange={e => setShotFilter(e.target.value)}
+                                    options={filterOptions}
+                                    selectStyle={{
+                                        padding: '5px 24px 5px 10px', borderRadius: '8px', border: 'var(--border)',
+                                        fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)', background: 'var(--bg-surface)',
+                                        cursor: 'pointer', outline: 'none'
+                                    }}
+                                />
+                            }
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                                {/* Goal Frame Area */}
+                                <div style={{
+                                    width: '100%', height: '240px',
+                                    background: '#090d16',
+                                    border: 'var(--border-lg)',
+                                    borderRadius: '12px',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.6)'
+                                }}>
+                                    {/* Goalposts Structure */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        left: '10%', right: '10%',
+                                        top: '20%', bottom: '5%',
+                                        border: '5px solid #ffffff',
+                                        borderBottom: 'none',
+                                        background: `repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, transparent 1px, transparent 12px), 
+                                                     repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, transparent 1px, transparent 12px)`,
+                                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)'
+                                    }}>
+                                        <div style={{ position: 'absolute', inset: 0, boxShadow: 'inset 0 10px 20px rgba(0,0,0,0.8)' }} />
+                                    </div>
+
+                                    {/* Ground Line */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        left: 0, right: 0,
+                                        bottom: 0, height: '5%',
+                                        background: '#14532d',
+                                        borderTop: '2px solid #166534',
+                                    }} />
+
+                                    {/* Plot Save Dots */}
+                                    {filteredSaves.map(save => {
+                                        const isSaved = save.result === 'save';
+                                        const color = isSaved ? 'var(--success)' : 'var(--danger)';
+                                        const label = isSaved ? 'Save Made' : 'Goal Conceded';
+                                        
+                                        const formatType = (type) => {
+                                            if (!type || type === 'normal') return 'Open Play';
+                                            if (type === '1v1') return '1v1 Breakaway';
+                                            if (type === 'freekick') return 'Free Kick';
+                                            if (type === 'penalty') return 'Penalty Kick';
+                                            return type.charAt(0).toUpperCase() + type.slice(1);
+                                        };
+                                        const typeLabel = formatType(save.saveType);
+
+                                        return (
+                                            <div
+                                                key={save.id}
+                                                title={`${typeLabel} ${label} (${save.year} · ${save.term})`}
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: `${save.x}%`,
+                                                    top: `${save.y}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                    width: '10px', height: '10px',
+                                                    borderRadius: '50%',
+                                                    background: color,
+                                                    border: '1.5px solid #ffffff',
+                                                    boxShadow: `0 0 6px ${color}, 0 1px 2px rgba(0,0,0,0.5)`,
+                                                    cursor: 'help',
+                                                    zIndex: 10
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Map Legend */}
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '14px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
+                                        Saves Made ({saveStats.saves})
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', display: 'inline-block' }}></span>
+                                        Goals Conceded ({saveStats.conceded})
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Save Statistics Card (spans 1 col) */}
+                        <Card title="Goalkeeping Statistics" style={{ gridColumn: 'span 1' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {/* Big Numbers */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '10px', border: 'var(--border)', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Save %</div>
+                                        <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--success)', marginTop: '4px' }}>{saveStats.savePct}%</div>
+                                    </div>
+                                    <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '10px', border: 'var(--border)', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Saves</div>
+                                        <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{saveStats.saves}</div>
+                                    </div>
+                                </div>
+                                
+                                <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '10px', border: 'var(--border)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', paddingBottom: '6px', borderBottom: 'var(--border)' }}>
+                                        <span>Shots Faced:</span>
+                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{saveStats.total}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', paddingTop: '6px' }}>
+                                        <span>Goals Conceded:</span>
+                                        <span style={{ fontWeight: '700', color: 'var(--danger)' }}>{saveStats.conceded}</span>
+                                    </div>
+                                </div>
+
+                                {/* Text Insight */}
+                                <div style={{ 
+                                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.03))',
+                                    border: '1px dashed rgba(16, 185, 129, 0.3)',
+                                    borderRadius: '10px', padding: '14px', marginTop: '4px'
+                                }}>
+                                    <h4 style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: '700', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        🧤 Save Pattern Insight
+                                    </h4>
+                                    <p style={{ margin: 0, fontSize: '12.5px', lineHeight: 1.45, color: '#a7f3d0', fontWeight: '500' }}>
+                                        {saveInsight}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Zone Save Analysis Card (spans 2 cols) */}
+                        <Card title="Zone Volume & Save % Analysis" style={{ gridColumn: 'span 2' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                                {/* Left Zone */}
+                                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: 'var(--border)', borderRadius: '12px', padding: '16px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Left Zone</h4>
+                                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: '20px' }}>
+                                            {saveStats.zones.left.count} shots
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Volume Share:</span>
+                                        <span style={{ fontWeight: '700' }}>{saveStats.zones.left.pct}%</span>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                                        <div style={{ width: `${saveStats.zones.left.pct}%`, height: '100%', background: '#34d399', borderRadius: '3px' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--success)', fontWeight: '700' }}>
+                                        <span>Save Rate:</span>
+                                        <span>{saveStats.zones.left.saveRate}%</span>
+                                    </div>
+                                </div>
+
+                                {/* Center Zone */}
+                                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: 'var(--border)', borderRadius: '12px', padding: '16px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Center Zone</h4>
+                                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: '20px' }}>
+                                            {saveStats.zones.center.count} shots
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Volume Share:</span>
+                                        <span style={{ fontWeight: '700' }}>{saveStats.zones.center.pct}%</span>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                                        <div style={{ width: `${saveStats.zones.center.pct}%`, height: '100%', background: '#34d399', borderRadius: '3px' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--success)', fontWeight: '700' }}>
+                                        <span>Save Rate:</span>
+                                        <span>{saveStats.zones.center.saveRate}%</span>
+                                    </div>
+                                </div>
+
+                                {/* Right Zone */}
+                                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: 'var(--border)', borderRadius: '12px', padding: '16px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Right Zone</h4>
+                                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', background: 'rgba(255, 255, 255, 0.08)', padding: '2px 8px', borderRadius: '20px' }}>
+                                            {saveStats.zones.right.count} shots
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Volume Share:</span>
+                                        <span style={{ fontWeight: '700' }}>{saveStats.zones.right.pct}%</span>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                                        <div style={{ width: `${saveStats.zones.right.pct}%`, height: '100%', background: '#34d399', borderRadius: '3px' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--success)', fontWeight: '700' }}>
+                                        <span>Save Rate:</span>
+                                        <span>{saveStats.zones.right.saveRate}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Save Scenario Analysis Card (spans 1 col) */}
+                        <Card title="Save Scenario Analysis" style={{ gridColumn: 'span 1' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {[
+                                    { key: 'normal', label: '⚽ Open Play Shots', color: '#60a5fa' },
+                                    { key: '1v1', label: '👟 1v1 Breakaways', color: '#f59e0b' },
+                                    { key: 'freekick', label: '🎯 Free Kicks', color: '#10b981' },
+                                    { key: 'penalty', label: '🥅 Penalties', color: '#ec4899' }
+                                ].map(type => {
+                                    const typeSaves = filteredSaves.filter(s => (s.saveType || 'normal') === type.key);
+                                    const total = typeSaves.length;
+                                    const savesMade = typeSaves.filter(s => s.result === 'save').length;
+                                    const sRate = total > 0 ? Math.round((savesMade / total) * 100) : 0;
+                                    const pct = saveStats.total > 0 ? Math.round((total / saveStats.total) * 100) : 0;
+
+                                    return (
+                                        <div key={type.key} style={{ background: 'rgba(255, 255, 255, 0.02)', border: 'var(--border)', borderRadius: '10px', padding: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{type.label}</span>
+                                                <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                                                    {total} event{total !== 1 ? 's' : ''} ({pct}%)
+                                                </span>
+                                            </div>
+                                            
+                                            <div style={{ height: '4px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '2px', overflow: 'hidden', marginBottom: '8px' }}>
+                                                <div style={{ width: `${pct}%`, height: '100%', background: type.color, borderRadius: '2px' }} />
+                                            </div>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600' }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>Saves: {savesMade}</span>
+                                                <span style={{ color: sRate > 50 ? 'var(--success)' : 'var(--text-muted)' }}>Save Rate: {sRate}%</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </Card>
                     </>
                 ) : (

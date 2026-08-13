@@ -190,7 +190,10 @@ function initPlayerStats(playerIds, side) {
 }
 
 /* ─── component ────────────────────────────────────────────────────── */
-export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch, onEndMatch, onCancel, isRefereeMode }) {
+export default function LiveMatch({ matchData: matchDataProp, match: matchProp, schools: schoolsProp, allStudents: allStudentsProp, allPlayers: allPlayersProp, year, onUpdateMatch, onEndMatch, onCancel, isRefereeMode }) {
+    const matchData = matchDataProp || matchProp || {};
+    const allStudents = allStudentsProp || allPlayersProp || [];
+    const schools = schoolsProp || [];
     const { 
         homeTeamId, awayTeamId, ageGroup, matchday,
         homeSquadSelection, awaySquadSelection
@@ -202,13 +205,27 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
     // Fallback if players are missing from global state
     const homePlayers = useMemo(() => {
         if (matchData.homePlayers && matchData.homePlayers.length > 0) return matchData.homePlayers;
-        return allStudents.filter(s => s.teamAssignments?.[year] === homeTeamId).map(s => s.id);
-    }, [matchData.homePlayers, allStudents, homeTeamId, year]);
+        const targetTeamName = (matchData.homeTeam || '').toLowerCase();
+        return allStudents.filter(s => 
+            (homeTeamId && s.schoolId === homeTeamId) || 
+            (homeTeamId && s.teamAssignments?.[year] === homeTeamId) ||
+            (homeTeamId && s.teamAssignments?.[year] === `${homeTeamId}-team-PMC`) ||
+            (targetTeamName && s.schoolName?.toLowerCase().includes(targetTeamName)) ||
+            (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
+        ).map(s => s.id);
+    }, [matchData.homePlayers, matchData.homeTeam, homeTeamId, allStudents, year]);
 
     const awayPlayers = useMemo(() => {
         if (matchData.awayPlayers && matchData.awayPlayers.length > 0) return matchData.awayPlayers;
-        return allStudents.filter(s => s.teamAssignments?.[year] === awayTeamId).map(s => s.id);
-    }, [matchData.awayPlayers, allStudents, awayTeamId, year]);
+        const targetTeamName = (matchData.awayTeam || '').toLowerCase();
+        return allStudents.filter(s => 
+            (awayTeamId && s.schoolId === awayTeamId) || 
+            (awayTeamId && s.teamAssignments?.[year] === awayTeamId) ||
+            (awayTeamId && s.teamAssignments?.[year] === `${awayTeamId}-team-PMC`) ||
+            (targetTeamName && s.schoolName?.toLowerCase().includes(targetTeamName)) ||
+            (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
+        ).map(s => s.id);
+    }, [matchData.awayPlayers, matchData.awayTeam, awayTeamId, allStudents, year]);
 
     // Starters and Bench players from Coach selection (with fallbacks if none submitted)
     const homeStarters = useMemo(() => {
@@ -375,8 +392,33 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
         return map;
     }, [allStudents]);
 
-    const home = useMemo(() => teamMeta(homeTeamId), [homeTeamId]);
-    const away = useMemo(() => teamMeta(awayTeamId), [awayTeamId]);
+    const resolveTeamMeta = useCallback((teamId, fallbackName) => {
+        if (!teamId && !fallbackName) return { name: 'Unknown Team', school: null };
+        
+        // 1. Look up in schools prop
+        const foundSchool = (schools || []).find(s => s.id === teamId || s.rawId === teamId);
+        if (foundSchool) {
+            return { name: foundSchool.name, school: foundSchool };
+        }
+
+        // 2. Look up in mock TEAMS & SCHOOLS
+        const mockTeam = TEAMS.find(t => t.id === teamId);
+        if (mockTeam) {
+            const mockSchool = SCHOOLS.find(s => s.id === mockTeam.schoolId);
+            return { name: `${mockSchool?.name ?? ''} ${mockTeam.ageGroup}`.trim(), school: mockSchool };
+        }
+
+        // 3. Fallback to direct name string
+        if (fallbackName) {
+            const schoolByName = (schools || []).find(s => s.name?.toLowerCase() === fallbackName.toLowerCase());
+            return { name: fallbackName, school: schoolByName || null };
+        }
+
+        return { name: teamId || 'Team', school: null };
+    }, [schools]);
+
+    const home = useMemo(() => resolveTeamMeta(homeTeamId, matchData.homeTeam), [resolveTeamMeta, homeTeamId, matchData.homeTeam]);
+    const away = useMemo(() => resolveTeamMeta(awayTeamId, matchData.awayTeam), [resolveTeamMeta, awayTeamId, matchData.awayTeam]);
 
     /* derived scores */
     const homeScore = useMemo(() => {
@@ -483,6 +525,24 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
             } else if (result === 'saved') {
                 s['Shots on Target'] += 1;
                 s.Shots += 1;
+
+                // Auto-attribute save to opposing team's Goalkeeper
+                const oppPlayers = isHome ? awayPlayers : homePlayers;
+                const oppGkId = oppPlayers.find(id => studentsById[id]?.position === 'Goalkeeper');
+                if (oppGkId && studentsById[oppGkId]) {
+                    const oppGk = studentsById[oppGkId];
+                    if (!oppGk.saveLogs) oppGk.saveLogs = [];
+                    oppGk.saveLogs.push({
+                        id: `gk-sv-${Date.now()}`,
+                        year: '2024-2025',
+                        term: 'Matchday 3',
+                        result: 'save',
+                        saveType: goalType === 'penalty' ? 'penalty' : goalType === 'freekick' ? 'freekick' : 'normal',
+                        x: Math.round(x),
+                        y: Math.round(y),
+                        timestamp: Date.now()
+                    });
+                }
             } else {
                 s.Shots += 1;
             }
@@ -527,7 +587,30 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
 
         setTimeline(prev => [...prev, newEvent]);
 
-        // Update goalkeeper statistics
+        // Update goalkeeper statistics and saveLogs
+        const gk = studentsById[playerId];
+        if (gk) {
+            if (!gk.saveLogs) gk.saveLogs = [];
+            const cornerCoords = {
+                'top-left': { x: 25, y: 35 },
+                'top-right': { x: 75, y: 35 },
+                'center': { x: 50, y: 57 },
+                'bottom-left': { x: 25, y: 80 },
+                'bottom-right': { x: 75, y: 80 }
+            };
+            const coords = cornerCoords[corner] || { x: 50, y: 50 };
+            gk.saveLogs.push({
+                id: `gk-sv-${Date.now()}`,
+                year: '2024-2025',
+                term: 'Matchday 3',
+                result: 'save',
+                saveType: saveType,
+                x: coords.x,
+                y: coords.y,
+                timestamp: Date.now()
+            });
+        }
+
         setPlayerStats(prev => {
             const ps = { ...prev };
             if (!ps[playerId]) ps[playerId] = initPlayerStats([playerId], isHome ? 'home' : 'away')[playerId];
@@ -636,6 +719,7 @@ export default function LiveMatch({ matchData, allStudents, year, onUpdateMatch,
             homeScore, awayScore,
             playerStats,
             timeline,
+            status: 'completed',
             startTime: startTimeRef.current,
             endTime: Date.now(),
             date: new Date().toISOString(),

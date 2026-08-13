@@ -23,6 +23,7 @@ const DEFAULT_OFFICIALS = [
 export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches }) {
     const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'scheduling'
     const [selectedMatch, setSelectedMatch] = useState(null);
+    const [isExpanded, setIsExpanded] = useState(false);
     
     // Commissioner Approval Form States
     const [incidentRating, setIncidentRating] = useState('1'); // 1 = peaceful, 5 = severe incidents
@@ -101,6 +102,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
         setGeneralRemarks('');
         setCommissionerSignature('');
         setApprovalSuccess(false);
+        setIsExpanded(false);
     };
 
     // Auto round-robin fixture generator
@@ -209,6 +211,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
 
         setApprovalSuccess(true);
         setSelectedMatch(null); // return to list view
+        setIsExpanded(false);
         setTimeout(() => setApprovalSuccess(false), 3000);
     };
 
@@ -340,9 +343,25 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                             {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)}
                                         </span>
                                     </div>
-                                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-light)', background: 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
-                                        Pending Review
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsExpanded(true)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                                background: 'rgba(99,102,241,0.15)', color: 'var(--primary-light)',
+                                                border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.25)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.15)'}
+                                        >
+                                            ⛶ Expand Panel
+                                        </button>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-light)', background: 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+                                            Pending Review
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -766,10 +785,200 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                 <LeagueTable matches={matches} teams={allTeams} schools={schools} />
             )}
 
-            {mainTab === 'knockouts' && (
-                <KnockoutBrackets matches={matches} teams={allTeams} schools={schools} onAddMatches={onAddMatches} />
-            )}
+            {/* Expanded Verification Modal Overlay */}
+            {isExpanded && selectedMatch && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 10000,
+                    background: 'rgba(3, 7, 18, 0.92)', backdropFilter: 'blur(16px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '24px'
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '100%', maxWidth: '1080px', maxHeight: '92vh',
+                        display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
+                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85)'
+                    }}>
+                        <form onSubmit={e => { handleApproveMatch(e); }} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                            {/* Modal Header */}
+                            <div style={{ padding: '20px 28px', borderBottom: 'var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 255, 255, 0.02)' }}>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        Match Commissioner Verification & Sign-Off (Expanded View)
+                                    </h2>
+                                    <span style={{ fontSize: '13px', color: 'var(--primary-light)', fontWeight: '600' }}>
+                                        {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)} · {selectedMatch.matchday || 'Matchday 1'} · Venue: {selectedMatch.venue || 'TBD'}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsExpanded(false)}
+                                    style={{
+                                        padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                                        background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-primary)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)', cursor: 'pointer',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+                                >
+                                    ✕ Close Expanded View
+                                </button>
+                            </div>
 
+                            {/* Modal Body */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                
+                                {/* Discrepancy Analysis Banner */}
+                                {discrepancies.length === 0 ? (
+                                    <div style={{ padding: '16px 20px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <span style={{ fontSize: '22px' }}>✅</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--success)' }}>Data Verified: No Discrepancies</span>
+                                            <span style={{ fontSize: '13px', color: 'rgba(16, 185, 129, 0.9)' }}>The Referee's official log matches the Statistician's live event logging. Ready for authorization.</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '16px 20px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <span style={{ fontSize: '22px' }}>⚠️</span>
+                                            <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--danger)' }}>Data Conflict Detected</span>
+                                        </div>
+                                        <ul style={{ margin: 0, paddingLeft: '28px', fontSize: '13px', color: 'var(--danger)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {discrepancies.map((issue, idx) => <li key={idx}>{issue}</li>)}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {/* Side-by-Side Live vs Official Logs */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                    {/* Statistician stats */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📊 Live Event Log (Statistician)</h4>
+                                        <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: 'var(--border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>Score:</span>
+                                                <span style={{ fontWeight: '800', color: 'var(--text-primary)', fontSize: '16px' }}>{selectedMatch.homeScore} - {selectedMatch.awayScore}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '700' }}>Logged Event Timeline:</span>
+                                                {selectedMatch.timeline?.length === 0 ? (
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No live events logged.</span>
+                                                ) : (
+                                                    selectedMatch.timeline?.map((ev, i) => (
+                                                        <div key={i} style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px' }}>
+                                                            ⚽ Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Referee Report */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>📋 Official Event Log (Referee)</h4>
+                                        <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: 'var(--border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '700' }}>Referee Logged Events:</span>
+                                                {selectedMatch.refereeLiveState?.timeline?.length === 0 ? (
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No referee events logged.</span>
+                                                ) : (
+                                                    selectedMatch.refereeLiveState?.timeline?.map((ev, i) => (
+                                                        <div key={i} style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '4px 8px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px' }}>
+                                                            ⏱️ Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>Pitch / Weather:</span>
+                                                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{selectedMatch.refereeReport?.pitchCondition || 'Good'} / {selectedMatch.refereeReport?.weatherCondition || 'Clear'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '700' }}>Referee Summary:</span>
+                                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', fontStyle: 'italic', background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: '6px' }}>
+                                                    "{selectedMatch.refereeReport?.refereeSummary || 'Match completed without major incident.'}"
+                                                </p>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
+                                                <span style={{ color: 'var(--text-muted)' }}>Referee Signature:</span>
+                                                <span style={{ fontWeight: '800', color: 'var(--primary-light)' }}>✍ {selectedMatch.refereeReport?.refereeSignature || selectedMatch.referee || 'Gavin Corbin'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Commissioner approval fields */}
+                                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Incident Assessment</label>
+                                        <select
+                                            value={incidentRating}
+                                            onChange={e => setIncidentRating(e.target.value)}
+                                            style={{ padding: '10px 14px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.4)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', cursor: 'pointer' }}
+                                        >
+                                            <option value="1">1 - Safe / Peaceful</option>
+                                            <option value="2">2 - Minor incidents</option>
+                                            <option value="3">3 - Crowd warning issued</option>
+                                            <option value="4">4 - High risk / Misconduct</option>
+                                            <option value="5">5 - Critical issues / Interrupted</option>
+                                        </select>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Commissioner Summary Remarks</label>
+                                        <textarea
+                                            value={generalRemarks}
+                                            onChange={e => setGeneralRemarks(e.target.value)}
+                                            placeholder="Write detailed review notes and authorization remarks..."
+                                            required
+                                            style={{ height: '110px', padding: '12px 14px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.4)', color: 'var(--text-primary)', fontSize: '14px', resize: 'none', outline: 'none', lineHeight: '1.5' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Digital Authorization Signature</label>
+                                        <input
+                                            type="text"
+                                            value={commissionerSignature}
+                                            onChange={e => setCommissionerSignature(e.target.value)}
+                                            placeholder="Type your full official name to sign off..."
+                                            required
+                                            style={{ padding: '12px 14px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.4)', color: 'var(--text-primary)', fontSize: '15px', fontWeight: 'bold', outline: 'none' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div style={{ padding: '20px 28px', borderTop: 'var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '14px', background: 'rgba(255,255,255,0.02)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsExpanded(false)}
+                                    style={{
+                                        padding: '10px 24px', borderRadius: '24px', background: 'transparent',
+                                        color: 'var(--text-muted)', border: 'var(--border)', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={!commissionerSignature.trim() || !generalRemarks.trim()}
+                                    style={{
+                                        padding: '12px 36px', borderRadius: '24px', background: 'var(--success)', color: '#ffffff', border: 'none',
+                                        fontWeight: '800', fontSize: '14px', cursor: 'pointer', opacity: (commissionerSignature.trim() && generalRemarks.trim()) ? 1 : 0.5,
+                                        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+                                    }}
+                                >
+                                    Authorize Score & Approve Standings
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

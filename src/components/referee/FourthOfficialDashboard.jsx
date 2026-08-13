@@ -1,19 +1,19 @@
 import { useState, useMemo } from 'react';
 
-export default function FourthOfficialDashboard({ matches, schools, allPlayers, onUpdateMatch }) {
-    // We want matches that are currently live.
-    const liveMatches = useMemo(() => {
-        return matches.filter(m => m.status === 'live');
-    }, [matches]);
+export default function FourthOfficialDashboard({ matches = [], schools = [], allPlayers = [], onUpdateMatch }) {
+    // Live matches and upcoming scheduled matches
+    const liveMatches = useMemo(() => matches.filter(m => m.status === 'live'), [matches]);
+    const upcomingMatches = useMemo(() => matches.filter(m => m.status === 'upcoming' || m.status === 'scheduled'), [matches]);
 
-    const getSchoolName = (schoolId) => {
-        const sc = schools?.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+    const getSchoolName = (schoolId, fallbackName) => {
+        const sc = schools?.find(s => s.id === schoolId || s.rawId === schoolId);
+        if (sc) return sc.name;
+        return fallbackName || schoolId || 'Team';
     };
 
     const getPlayerName = (playerId) => {
         const p = allPlayers?.find(p => p.id === playerId);
-        return p ? p.name : 'Unknown Player';
+        return p ? p.name : `Player #${playerId}`;
     };
 
     const getPlayerNumber = (playerId) => {
@@ -23,6 +23,8 @@ export default function FourthOfficialDashboard({ matches, schools, allPlayers, 
 
     const [approvingReqId, setApprovingReqId] = useState(null);
     const [subMinute, setSubMinute] = useState('');
+
+    // Removed: handleStartMatch — Referee is the sole authority to start a match
 
     const handleApproveSub = (reqId) => {
         setApprovingReqId(reqId);
@@ -61,15 +63,15 @@ export default function FourthOfficialDashboard({ matches, schools, allPlayers, 
             benchPlayers: (match.awayPlayers || []).slice(11)
         };
 
-        if (req.teamId === match.homeTeamId) {
+        let isMatchHome = req.teamId === match.homeTeamId || String(match.homeTeamId).toLowerCase().includes(String(req.teamId).toLowerCase().replace('-team-pmc', ''));
+
+        if (isMatchHome) {
             const newXI = newHomeSquad.startingXI.map(pid => pid === req.playerOff ? req.playerOn : pid);
-            const newBench = newHomeSquad.benchPlayers.filter(pid => pid !== req.playerOn);
-            newBench.push(req.playerOff);
+            const newBench = newHomeSquad.benchPlayers.filter(pid => pid !== req.playerOn && pid !== req.playerOff);
             newHomeSquad = { ...newHomeSquad, startingXI: newXI, benchPlayers: newBench };
-        } else if (req.teamId === match.awayTeamId) {
+        } else {
             const newXI = newAwaySquad.startingXI.map(pid => pid === req.playerOff ? req.playerOn : pid);
-            const newBench = newAwaySquad.benchPlayers.filter(pid => pid !== req.playerOn);
-            newBench.push(req.playerOff);
+            const newBench = newAwaySquad.benchPlayers.filter(pid => pid !== req.playerOn && pid !== req.playerOff);
             newAwaySquad = { ...newAwaySquad, startingXI: newXI, benchPlayers: newBench };
         }
 
@@ -93,39 +95,48 @@ export default function FourthOfficialDashboard({ matches, schools, allPlayers, 
         });
     };
 
-    if (liveMatches.length === 0) {
-        return (
-            <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'var(--text-muted)' }}>
-                <h2>No live matches currently in progress.</h2>
-            </div>
-        );
-    }
-
     return (
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', overflowY: 'auto' }}>
             <div>
-                <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px' }}>Fourth Official Dashboard</h2>
-                <p style={{ color: 'var(--text-secondary)' }}>Manage live substitution requests from coaches.</p>
+                <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px', color: 'var(--text-primary)' }}>Fourth Official Touchline Portal</h2>
+                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '13px' }}>
+                    Monitor active fixtures and process real-time live substitution requests from team coaches.
+                </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {liveMatches.map(match => {
-                    const matchName = `${getSchoolName(match.homeTeamId)} vs ${getSchoolName(match.awayTeamId)}`;
-                    const pendingSubs = (match.substitutionRequests || []).filter(r => r.status === 'pending');
-                    const processedSubs = (match.substitutionRequests || []).filter(r => r.status !== 'pending');
+            {/* 1. Active Live Matches Section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 10px #4ade80' }}></span>
+                    <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                        Active Matches In Progress ({liveMatches.length})
+                    </h3>
+                </div>
 
-                    return (
-                        <div key={match.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>{matchName}</h3>
-                                    <span style={{ fontSize: '12px', color: 'var(--primary-light)' }}>{match.division || match.ageGroup} • {match.venue || 'Unknown Venue'}</span>
+                {liveMatches.length === 0 ? (
+                    <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)', color: 'var(--text-muted)', fontSize: '13px' }}>
+                        No active live matches currently in progress. The Referee will kick off scheduled matches when both teams' squads are submitted.
+                    </div>
+                ) : (
+                    liveMatches.map(match => {
+                        const matchName = `${getSchoolName(match.homeTeamId, match.homeTeam)} vs ${getSchoolName(match.awayTeamId, match.awayTeam)}`;
+                        const pendingSubs = (match.substitutionRequests || []).filter(r => r.status === 'pending');
+                        const processedSubs = (match.substitutionRequests || []).filter(r => r.status !== 'pending');
+
+                        return (
+                            <div key={match.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(34,197,94,0.04)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>{matchName}</h3>
+                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{match.round || match.division || match.ageGroup} • {match.venue || 'Unknown Venue'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
+                                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#4ade80' }}>LIVE NOW</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 8px var(--success)' }}></span>
-                                    <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--success)' }}>LIVE</span>
-                                </div>
-                            </div>
 
                             {/* Pending Requests */}
                             <div>
@@ -209,8 +220,59 @@ export default function FourthOfficialDashboard({ matches, schools, allPlayers, 
                             )}
                         </div>
                     );
-                })}
+                }))
+            }
             </div>
+
+            {/* 2. Registered Upcoming Fixtures Section — Read-Only (Referee starts matches) */}
+            {upcomingMatches.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px' }}>📅</span>
+                        <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                            Registered Upcoming Fixtures ({upcomingMatches.length})
+                        </h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
+                        {upcomingMatches.map(m => {
+                            const matchName = `${getSchoolName(m.homeTeamId, m.homeTeam)} vs ${getSchoolName(m.awayTeamId, m.awayTeam)}`;
+                            const homeSquadReady = !!m.homeSquadSelection;
+                            const awaySquadReady = !!m.awaySquadSelection;
+                            return (
+                                <div key={m.id} className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>{matchName}</h4>
+                                        <span style={{ fontSize: '11px', color: '#60a5fa', background: 'rgba(96,165,250,0.12)', padding: '4px 10px', borderRadius: '20px', fontWeight: '700' }}>
+                                            {m.time || '18:00'}
+                                        </span>
+                                    </div>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.round || m.division} · {m.venue || 'Turf Location'}</span>
+                                    
+                                    {/* Squad Readiness Badges */}
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+                                            {homeSquadReady ? '✅' : '⏳'} Home Squad
+                                        </span>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+                                            {awaySquadReady ? '✅' : '⏳'} Away Squad
+                                        </span>
+                                    </div>
+
+                                    <div style={{
+                                        padding: '10px 16px', borderRadius: '8px',
+                                        background: 'rgba(99,102,241,0.08)', color: 'var(--text-muted)',
+                                        border: '1px solid rgba(99,102,241,0.15)',
+                                        fontSize: '12px', fontWeight: '600', textAlign: 'center'
+                                    }}>
+                                        ⏳ Awaiting Referee Kick-Off
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
