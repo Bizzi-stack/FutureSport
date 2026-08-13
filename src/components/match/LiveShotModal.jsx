@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import CustomSelect from '../CustomSelect';
 
-export default function LiveShotModal({ player, teammates, defaultOutcome, onSave, onClose }) {
-    const [result, setResult] = useState(defaultOutcome || 'goal'); // 'goal' | 'saved' | 'miss'
+export default function LiveShotModal({ player, teammates, defaultOutcome, defaultGoalType, onSave, onClose }) {
+    const [result, setResult] = useState(defaultOutcome || 'goal'); // 'goal' | 'saved'
     const [coords, setCoords] = useState(null); // { x, y }
-    const [goalType, setGoalType] = useState('foot'); // 'foot' | 'header' | 'freekick' | 'penalty' | 'own-goal'
+    const [goalType, setGoalType] = useState(defaultGoalType || 'foot'); // 'foot' | 'header' | 'freekick' | 'penalty' | 'own-goal'
     const [assistPlayerId, setAssistPlayerId] = useState(''); // player ID
     const goalRef = useRef(null);
 
@@ -143,18 +143,16 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, onSav
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                             1. Outcome
                         </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                             <button
                                 onClick={() => handleResultChange('goal')}
-                                disabled={coords && !isInsideGoal}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '10px', borderRadius: '10px', border: '1px solid',
+                                    padding: '12px', borderRadius: '10px', border: '1px solid',
                                     borderColor: result === 'goal' ? '#22c55e' : 'rgba(255,255,255,0.08)',
-                                    background: result === 'goal' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255,255,255,0.02)',
+                                    background: result === 'goal' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255,255,255,0.02)',
                                     color: result === 'goal' ? '#4ade80' : 'var(--text-muted)',
-                                    fontWeight: '700', fontSize: '13px', cursor: (coords && !isInsideGoal) ? 'not-allowed' : 'pointer',
-                                    opacity: (coords && !isInsideGoal) ? 0.4 : 1,
+                                    fontWeight: '800', fontSize: '14px', cursor: 'pointer',
                                     fontFamily: 'inherit',
                                     transition: 'all 0.15s ease'
                                 }}
@@ -163,82 +161,44 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, onSav
                             </button>
                             <button
                                 onClick={() => handleResultChange('saved')}
-                                disabled={coords && !isInsideGoal}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '10px', borderRadius: '10px', border: '1px solid',
+                                    padding: '12px', borderRadius: '10px', border: '1px solid',
                                     borderColor: result === 'saved' ? '#6366f1' : 'rgba(255,255,255,0.08)',
-                                    background: result === 'saved' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255,255,255,0.02)',
+                                    background: result === 'saved' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.02)',
                                     color: result === 'saved' ? '#a5b4fc' : 'var(--text-muted)',
-                                    fontWeight: '700', fontSize: '13px', cursor: (coords && !isInsideGoal) ? 'not-allowed' : 'pointer',
-                                    opacity: (coords && !isInsideGoal) ? 0.4 : 1,
+                                    fontWeight: '800', fontSize: '14px', cursor: 'pointer',
                                     fontFamily: 'inherit',
                                     transition: 'all 0.15s ease'
                                 }}
                             >
                                 🧤 Saved
                             </button>
-                            <button
-                                onClick={() => handleResultChange('miss')}
-                                disabled={coords && isInsideGoal}
-                                style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '10px', borderRadius: '10px', border: '1px solid',
-                                    borderColor: result === 'miss' ? '#ef4444' : 'rgba(255,255,255,0.08)',
-                                    background: result === 'miss' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255,255,255,0.02)',
-                                    color: result === 'miss' ? '#f87171' : 'var(--text-muted)',
-                                    fontWeight: '700', fontSize: '13px', cursor: (coords && isInsideGoal) ? 'not-allowed' : 'pointer',
-                                    opacity: (coords && isInsideGoal) ? 0.4 : 1,
-                                    fontFamily: 'inherit',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                ❌ Missed
-                            </button>
                         </div>
                     </div>
 
-                    {/* Shot details - Type and Assists */}
-                    <div style={{ display: 'grid', gridTemplateColumns: result === 'goal' ? '1fr 1fr' : '1fr', gap: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', padding: '14px', borderRadius: '12px' }}>
-                        {/* Shot/Goal Type */}
-                        <div>
+                    {/* Assist player selection (Only for goals) */}
+                    {result === 'goal' && (
+                        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', padding: '14px', borderRadius: '12px' }}>
                             <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                                {result === 'goal' ? 'Goal Type' : 'Shot Type'}
+                                {goalType === 'own-goal' ? 'Assisted By' : 'Assist (Teammate)'}
                             </label>
                             <CustomSelect
-                                value={goalType}
-                                onChange={e => setGoalType(e.target.value)}
+                                value={assistPlayerId}
+                                onChange={e => setAssistPlayerId(e.target.value)}
+                                disabled={goalType === 'own-goal'}
+                                placeholder="— No Assist —"
                                 style={{ width: '100%' }}
-                                options={goalTypes
-                                    .filter(gt => result === 'goal' || gt.key !== 'own-goal')
-                                    .map(gt => ({ value: gt.key, label: gt.label }))
+                                options={(teammates || [])
+                                    .filter(t => t.id !== player.id)
+                                    .map(t => ({
+                                        value: t.id,
+                                        label: `${t.jerseyNumber ? `#${t.jerseyNumber} ` : ''}${t.name}`
+                                    }))
                                 }
                             />
                         </div>
-
-                        {/* Assist player selection (Only for goals) */}
-                        {result === 'goal' && (
-                            <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-                                    {goalType === 'own-goal' ? 'Assisted By' : 'Assist (Teammate)'}
-                                </label>
-                                <CustomSelect
-                                    value={assistPlayerId}
-                                    onChange={e => setAssistPlayerId(e.target.value)}
-                                    disabled={goalType === 'own-goal'}
-                                    placeholder="— No Assist —"
-                                    style={{ width: '100%' }}
-                                    options={teammates
-                                        .filter(t => t.id !== player.id)
-                                        .map(t => ({
-                                            value: t.id,
-                                            label: `${t.jerseyNumber ? `#${t.jerseyNumber} ` : ''}${t.name}`
-                                        }))
-                                    }
-                                />
-                            </div>
-                        )}
-                    </div>
+                    )}
 
                     {/* Goalmouth Map */}
                     <div>
