@@ -1282,10 +1282,138 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 />
             )}
 
-            {/* ── Three-column layout ─────────────────────────────────── */}
-            <div style={styles.columns} className="live-match-columns">
-                {/* Home column */}
-                <div style={{ ...styles.column, display: (window.innerWidth <= 900 && mobileTab !== 'home') ? 'none' : 'flex' }}>
+            {/* ── Full-Width Live Match Timeline Stream (Tile Mode) ─────── */}
+            {!isRefereeMode && captureViewMode === 'tile' && (
+                <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(15,23,42,0.85)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '18px' }}>⏱️</span>
+                            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Live Match Timeline Stream ({timeline.length} Events)
+                            </h3>
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Chronological match feed · Click ✕ on any event to undo
+                        </span>
+                    </div>
+
+                    {timeline.length === 0 ? (
+                        <div style={{ padding: '24px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)', color: 'var(--text-muted)', fontSize: '13px' }}>
+                            No match events logged yet. Tap any stat tile above to begin registering live play events.
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'flex', gap: '12px', overflowX: 'auto', padding: '4px 4px 12px 4px',
+                            scrollSnapType: 'x mandatory'
+                        }}>
+                            {timeline.slice().reverse().map(event => {
+                                let icon = '⚡';
+                                let clr = '#fff';
+                                let desc = '';
+
+                                if (event.type === 'goal') {
+                                    icon = '⚽';
+                                    clr = '#22c55e';
+                                    let goalLabel = 'Goal';
+                                    if (event.goalType === 'header') goalLabel = 'Header Goal';
+                                    if (event.goalType === 'penalty') goalLabel = 'Penalty Goal';
+                                    if (event.goalType === 'freekick') goalLabel = 'Free Kick Goal';
+                                    if (event.goalType === 'own-goal') {
+                                        goalLabel = 'Own Goal ⚠️';
+                                        clr = '#ef4444';
+                                    }
+                                    desc = `${goalLabel} by ${event.playerName}`;
+                                    if (event.assistingPlayerName) desc += ` (Assist: ${event.assistingPlayerName})`;
+                                } else if (event.type === 'shotOnTarget') {
+                                    icon = '🎯';
+                                    clr = '#14b8a6';
+                                    desc = `Shot Saved - ${event.playerName}`;
+                                } else if (event.type === 'shotMissed') {
+                                    icon = '❌';
+                                    clr = '#6b7280';
+                                    desc = `Shot Missed - ${event.playerName}`;
+                                } else if (event.type === 'yellowCard') {
+                                    icon = '🟨';
+                                    clr = '#f59e0b';
+                                    desc = `Yellow Card - ${event.playerName}`;
+                                } else if (event.type === 'redCard') {
+                                    icon = '🟥';
+                                    clr = '#ef4444';
+                                    desc = `Red Card - ${event.playerName}`;
+                                } else if (event.type === 'possession') {
+                                    icon = '⏱️';
+                                    clr = event.team === 'home' ? '#22c55e' : '#6366f1';
+                                    desc = event.playerName || `Ball Possession: ${event.teamName}`;
+                                } else if (event.type === 'foul') {
+                                    icon = '🛑';
+                                    clr = '#ea580c';
+                                    desc = `Foul - ${event.playerName}`;
+                                } else if (event.type === 'corner') {
+                                    icon = '🚩';
+                                    clr = '#3b82f6';
+                                    desc = `Corner Kick - ${event.playerName}`;
+                                } else if (event.type === 'penalty') {
+                                    icon = '🎯';
+                                    clr = '#8b5cf6';
+                                    desc = `Penalty Kick - ${event.playerName}`;
+                                } else if (event.type === 'offside') {
+                                    icon = '🚩';
+                                    clr = '#64748b';
+                                    desc = `Offside - ${event.playerName}`;
+                                }
+
+                                return (
+                                    <div
+                                        key={event.id}
+                                        style={{
+                                            flexShrink: 0,
+                                            padding: '10px 16px', borderRadius: '12px',
+                                            background: 'rgba(255,255,255,0.03)',
+                                            borderLeft: `4px solid ${clr}`,
+                                            borderTop: '1px solid rgba(255,255,255,0.08)',
+                                            borderRight: '1px solid rgba(255,255,255,0.08)',
+                                            borderBottom: '1px solid rgba(255,255,255,0.08)',
+                                            display: 'flex', alignItems: 'center', gap: '10px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                            scrollSnapAlign: 'start'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-light)', background: 'rgba(99,102,241,0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                                            {formatEventTime(event.elapsed, event.period)}
+                                        </span>
+                                        <span style={{ fontSize: '15px' }}>{icon}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                                            {desc}
+                                        </span>
+                                        <button
+                                            title="Undo this event"
+                                            onClick={() => handleUndoEvent(event.id)}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                color: '#f87171',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                borderRadius: '50%',
+                                                width: '20px', height: '20px',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '11px', fontWeight: 'bold', cursor: 'pointer',
+                                                marginLeft: '4px'
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ── Three-column layout (Classic View / Referee View) ─────── */}
+            {(isRefereeMode || captureViewMode === 'roster') && (
+                <div style={styles.columns} className="live-match-columns">
+                    {/* Home column */}
+                    <div style={{ ...styles.column, display: (window.innerWidth <= 900 && mobileTab !== 'home') ? 'none' : 'flex' }}>
                     <div style={styles.columnHeader}>
                         <span style={styles.columnHeaderDot('#22c55e')} />
                         <span style={{ flex: 1 }}>Home Roster</span>
@@ -1498,6 +1626,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     )}
                 </div>
             </div>
+            )}
 
             {/* ── Bottom bar ─────────────────────────────────────────── */}
             <div style={styles.bottomBar}>
