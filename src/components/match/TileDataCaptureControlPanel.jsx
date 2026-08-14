@@ -1,5 +1,43 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
+const JerseyBadge = ({ number, isHome }) => (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg viewBox="0 0 100 90" style={{ width: '64px', height: '58px', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }}>
+            <defs>
+                <linearGradient id={`shirtGrad-${isHome ? 'home' : 'away'}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor={isHome ? "#22c55e" : "#6366f1"} />
+                    <stop offset="100%" stopColor={isHome ? "#15803d" : "#4338ca"} />
+                </linearGradient>
+            </defs>
+            {/* Football Jersey Shirt Silhouette */}
+            <path 
+                d="M 30,10 C 40,20 60,20 70,10 L 92,28 L 80,48 L 74,44 L 74,84 L 26,84 L 26,44 L 20,48 L 8,28 Z" 
+                fill={`url(#shirtGrad-${isHome ? 'home' : 'away'})`}
+                stroke={isHome ? "#86efac" : "#c7d2fe"}
+                strokeWidth="3"
+            />
+            {/* V-Neck Collar */}
+            <path d="M 30,10 C 40,22 60,22 70,10" fill="none" stroke="#ffffff" strokeWidth="2.5" />
+            {/* Sleeve Detail Trim */}
+            <line x1="8" y1="28" x2="20" y2="48" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+            <line x1="92" y1="28" x2="80" y2="48" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+            {/* Bold Centered Jersey Number */}
+            <text 
+                x="50" 
+                y="59" 
+                textAnchor="middle" 
+                fill="#ffffff" 
+                fontSize="32" 
+                fontWeight="900" 
+                fontFamily="system-ui, -apple-system, sans-serif"
+                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+            >
+                {number}
+            </text>
+        </svg>
+    </div>
+);
+
 export default function TileDataCaptureControlPanel({
     match,
     home,
@@ -339,8 +377,8 @@ export default function TileDataCaptureControlPanel({
                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>
                                     Select Player for {pendingAction.label}
                                 </h3>
-                                <span style={{ fontSize: '12px', opacity: 0.9 }}>
-                                    Tap player name to log event immediately
+                                <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: '600' }}>
+                                    Tap player jersey number to log event immediately
                                 </span>
                             </div>
                             <button
@@ -379,42 +417,47 @@ export default function TileDataCaptureControlPanel({
                             </button>
                         </div>
 
-                        {/* Roster Selection Grid */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
-                            {(pickerTeamTab === 'home' ? homeRoster : awayRoster).map(p => (
-                                <button
-                                    key={p.id}
-                                    type="button"
-                                    onClick={() => executeLogForPlayer({ id: p.id, name: p.name, team: pickerTeamTab }, pendingAction.key)}
-                                    style={{
-                                        padding: '12px 14px', borderRadius: '10px',
-                                        background: 'rgba(255,255,255,0.03)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        color: '#ffffff', cursor: 'pointer', textAlign: 'left',
-                                        display: 'flex', alignItems: 'center', gap: '10px',
-                                        transition: 'all 0.15s ease'
-                                    }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                                >
-                                    <span style={{
-                                        width: '28px', height: '28px', borderRadius: '50%',
-                                        background: pickerTeamTab === 'home' ? '#22c55e' : '#6366f1',
-                                        color: '#fff', fontSize: '11px', fontWeight: '900',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        {p.jerseyNumber || (p.id % 22) + 1}
-                                    </span>
-                                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                            {p.name}
-                                        </span>
-                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                                            {p.position || 'Player'}
-                                        </span>
-                                    </div>
-                                </button>
-                            ))}
+                        {/* Roster Selection Jersey Grid */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))', gap: '14px' }}>
+                            {(pickerTeamTab === 'home' ? homeRoster : awayRoster).map(p => {
+                                const jerseyNum = p.jerseyNumber || (p.id % 22) + 1;
+                                return (
+                                    <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => executeLogForPlayer({ id: p.id, name: p.name, team: pickerTeamTab }, pendingAction.key)}
+                                        style={{
+                                            padding: '14px 10px', borderRadius: '14px',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            color: '#ffffff', cursor: 'pointer',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = pickerTeamTab === 'home' ? 'rgba(34, 197, 94, 0.18)' : 'rgba(99, 102, 241, 0.18)';
+                                            e.currentTarget.style.borderColor = pickerTeamTab === 'home' ? '#22c55e' : '#6366f1';
+                                            e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)';
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                        }}
+                                    >
+                                        <JerseyBadge number={jerseyNum} isHome={pickerTeamTab === 'home'} />
+                                        <div style={{ textAlign: 'center', width: '100%', overflow: 'hidden' }}>
+                                            <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                                {p.name}
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600', marginTop: '2px' }}>
+                                                {p.position || 'Player'}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
