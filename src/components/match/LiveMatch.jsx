@@ -1195,45 +1195,8 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 </button>
             </div>
 
-            {/* ── Mode Switcher for Data Entry Mode ───────────────────── */}
-            {!isRefereeMode && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', background: 'rgba(15,23,42,0.6)', borderRadius: '12px', border: 'var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '700' }}>Data Entry Layout:</span>
-                        <button
-                            type="button"
-                            onClick={() => setCaptureViewMode('tile')}
-                            style={{
-                                padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
-                                background: captureViewMode === 'tile' ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.06)',
-                                color: '#ffffff', border: captureViewMode === 'tile' ? '1px solid #22c55e' : '1px solid rgba(255,255,255,0.15)',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                                boxShadow: captureViewMode === 'tile' ? '0 4px 14px rgba(16,185,129,0.3)' : 'none'
-                            }}
-                        >
-                            ⚡ Rapid Tile Capture (Direct Tiles)
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setCaptureViewMode('roster')}
-                            style={{
-                                padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
-                                background: captureViewMode === 'roster' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'rgba(255,255,255,0.06)',
-                                color: '#ffffff', border: captureViewMode === 'roster' ? '1px solid #818cf8' : '1px solid rgba(255,255,255,0.15)',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                            }}
-                        >
-                            📋 Classic Roster View
-                        </button>
-                    </div>
-                    <span style={{ fontSize: '12px', color: '#4ade80', fontWeight: '700' }}>
-                        {captureViewMode === 'tile' ? '● Active: Direct Action Tiles & Team Possession Logging' : '● Active: Classic View'}
-                    </span>
-                </div>
-            )}
-
             {/* ── Render Rapid Tile Capture Control Panel ────────────── */}
-            {!isRefereeMode && captureViewMode === 'tile' && (
+            {!isRefereeMode && (
                 <TileDataCaptureControlPanel
                     match={matchData}
                     home={home}
@@ -1282,8 +1245,8 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 />
             )}
 
-            {/* ── Full-Width Live Match Timeline Stream (Tile Mode) ─────── */}
-            {!isRefereeMode && captureViewMode === 'tile' && (
+            {/* ── Full-Width Live Match Timeline Stream ───────────────── */}
+            {!isRefereeMode && (
                 <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(15,23,42,0.85)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1409,8 +1372,8 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 </div>
             )}
 
-            {/* ── Three-column layout (Classic View / Referee View) ─────── */}
-            {(isRefereeMode || captureViewMode === 'roster') && (
+            {/* ── Three-column layout (Referee View) ─────────────────── */}
+            {isRefereeMode && (
                 <div style={styles.columns} className="live-match-columns">
                     {/* Home column */}
                     <div style={{ ...styles.column, display: (window.innerWidth <= 900 && mobileTab !== 'home') ? 'none' : 'flex' }}>
