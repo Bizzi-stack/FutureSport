@@ -444,11 +444,25 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             ? homePlayers.map(id => studentsById[id]).filter(Boolean)
             : awayPlayers.map(id => studentsById[id]).filter(Boolean);
 
-        if (actionKey === 'goal') {
-            // Open LiveShotModal
+        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+
+        if (isShotAction) {
+            let defaultGoalType = 'foot';
+            let defaultOutcome = 'goal';
+
+            if (actionKey === 'headerShot') defaultGoalType = 'header';
+            if (actionKey === 'penaltyShot') defaultGoalType = 'penalty';
+            if (actionKey === 'freekickShot') defaultGoalType = 'freekick';
+            if (actionKey === 'ownGoal') defaultGoalType = 'own-goal';
+
+            if (actionKey === 'shotOnTarget') defaultOutcome = 'saved';
+            if (actionKey === 'shotMissed') defaultOutcome = 'miss';
+
+            // Open LiveShotModal to place shot on goalmouth map
             setShotModalData({
                 player: { id: playerId, name },
-                defaultOutcome: 'goal',
+                defaultOutcome: defaultOutcome,
+                defaultGoalType: defaultGoalType,
                 teammates
             });
         } else {
@@ -534,6 +548,20 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         };
 
         setTimeline(prev => [...prev, newEvent]);
+
+        // Push shot log to student profile for shot map history
+        const shooter = studentsById[playerId];
+        if (shooter) {
+            if (!shooter.shotLogs) shooter.shotLogs = [];
+            shooter.shotLogs.push({
+                id: `shot-${Date.now()}`,
+                result: result,
+                goalType: goalType,
+                x: Math.round(x),
+                y: Math.round(y),
+                timestamp: Date.now()
+            });
+        }
 
         // Update player statistics
         setPlayerStats(prev => {
@@ -1227,14 +1255,14 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                         }
                         handleQuickAction(logData.playerId, logData.type);
                     }}
-                    onShotModal={(player, defaultGoalType) => {
+                    onShotModal={(player, defaultGoalType, defaultResult) => {
                         const isHome = homePlayers.includes(player.id);
                         const teammates = isHome 
                             ? homePlayers.map(id => studentsById[id]).filter(Boolean)
                             : awayPlayers.map(id => studentsById[id]).filter(Boolean);
                         setShotModalData({
                             player,
-                            defaultOutcome: 'goal',
+                            defaultOutcome: defaultResult || 'goal',
                             defaultGoalType: defaultGoalType || 'foot',
                             teammates
                         });
