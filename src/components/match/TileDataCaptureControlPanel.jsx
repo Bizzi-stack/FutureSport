@@ -145,13 +145,21 @@ export default function TileDataCaptureControlPanel({
         const student = studentsById[player.id];
         const name = student?.name || player.name || `Player #${player.id}`;
 
-        if ((actionKey === 'goal' || actionKey === 'headerShot' || actionKey === 'penaltyShot' || actionKey === 'freekickShot' || actionKey === 'ownGoal') && onShotModal) {
-            let defaultOutcome = 'goal';
-            if (actionKey === 'headerShot') defaultOutcome = 'header';
-            if (actionKey === 'penaltyShot') defaultOutcome = 'penalty';
-            if (actionKey === 'freekickShot') defaultOutcome = 'freekick';
-            if (actionKey === 'ownGoal') defaultOutcome = 'own-goal';
-            onShotModal(player, defaultOutcome);
+        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+
+        if (isShotAction && onShotModal) {
+            let defaultGoalType = 'foot';
+            let defaultResult = 'goal';
+
+            if (actionKey === 'headerShot') defaultGoalType = 'header';
+            if (actionKey === 'penaltyShot') defaultGoalType = 'penalty';
+            if (actionKey === 'freekickShot') defaultGoalType = 'freekick';
+            if (actionKey === 'ownGoal') defaultGoalType = 'own-goal';
+
+            if (actionKey === 'shotOnTarget') defaultResult = 'saved';
+            if (actionKey === 'shotMissed') defaultResult = 'miss';
+
+            onShotModal(player, defaultGoalType, defaultResult);
             setPendingAction(null);
             return;
         }

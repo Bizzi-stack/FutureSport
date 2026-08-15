@@ -141,18 +141,19 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
                     {/* Outcome Choice */}
                     <div>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                            1. Outcome
+                            1. Shot Outcome
                         </label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                             <button
+                                type="button"
                                 onClick={() => handleResultChange('goal')}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '12px', borderRadius: '10px', border: '1px solid',
+                                    padding: '10px 6px', borderRadius: '10px', border: '1px solid',
                                     borderColor: result === 'goal' ? '#22c55e' : 'rgba(255,255,255,0.08)',
-                                    background: result === 'goal' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255,255,255,0.02)',
+                                    background: result === 'goal' ? 'rgba(34, 197, 94, 0.18)' : 'rgba(255,255,255,0.02)',
                                     color: result === 'goal' ? '#4ade80' : 'var(--text-muted)',
-                                    fontWeight: '800', fontSize: '14px', cursor: 'pointer',
+                                    fontWeight: '800', fontSize: '13px', cursor: 'pointer',
                                     fontFamily: 'inherit',
                                     transition: 'all 0.15s ease'
                                 }}
@@ -160,19 +161,36 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
                                 ⚽ Goal
                             </button>
                             <button
+                                type="button"
                                 onClick={() => handleResultChange('saved')}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '12px', borderRadius: '10px', border: '1px solid',
+                                    padding: '10px 6px', borderRadius: '10px', border: '1px solid',
                                     borderColor: result === 'saved' ? '#6366f1' : 'rgba(255,255,255,0.08)',
-                                    background: result === 'saved' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.02)',
+                                    background: result === 'saved' ? 'rgba(99, 102, 241, 0.18)' : 'rgba(255,255,255,0.02)',
                                     color: result === 'saved' ? '#a5b4fc' : 'var(--text-muted)',
-                                    fontWeight: '800', fontSize: '14px', cursor: 'pointer',
+                                    fontWeight: '800', fontSize: '13px', cursor: 'pointer',
                                     fontFamily: 'inherit',
                                     transition: 'all 0.15s ease'
                                 }}
                             >
                                 🧤 Saved
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleResultChange('miss')}
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    padding: '10px 6px', borderRadius: '10px', border: '1px solid',
+                                    borderColor: result === 'miss' ? '#ef4444' : 'rgba(255,255,255,0.08)',
+                                    background: result === 'miss' ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255,255,255,0.02)',
+                                    color: result === 'miss' ? '#f87171' : 'var(--text-muted)',
+                                    fontWeight: '800', fontSize: '13px', cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                💥 Off-Target
                             </button>
                         </div>
                     </div>
