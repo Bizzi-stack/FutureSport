@@ -121,7 +121,6 @@ export default function TileDataCaptureControlPanel({
         { key: 'ownGoal', label: '⚠️ Own Goal', subtitle: 'Accidental Goal against Own Team', color: 'linear-gradient(135deg, #dc2626, #991b1b)', border: 'rgba(220, 38, 38, 0.4)' },
         { key: 'yellowCard', label: '🟨 Yellow Card', subtitle: 'Caution / Warning', color: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'rgba(245, 158, 11, 0.4)' },
         { key: 'redCard', label: '🟥 Red Card', subtitle: 'Ejection / Send-off', color: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'rgba(239, 68, 68, 0.4)' },
-        { key: 'assist', label: '🅰️ Goal Assist', subtitle: 'Key Pass Scorer Assist', color: 'linear-gradient(135deg, #6366f1, #4f46e5)', border: 'rgba(99, 102, 241, 0.4)' },
         { key: 'foul', label: '🛑 Foul Committed', subtitle: 'Tactical or Free Kick Foul', color: 'linear-gradient(135deg, #ea580c, #c2410c)', border: 'rgba(234, 88, 12, 0.4)' },
         { key: 'corner', label: '🚩 Corner Kick', subtitle: 'Set Piece Corner', color: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'rgba(59, 130, 246, 0.4)' },
         { key: 'sub', label: '🔄 Substitution', subtitle: 'Player Tactical Swap', color: 'linear-gradient(135deg, #4b5563, #374151)', border: 'rgba(75, 85, 99, 0.4)' },
