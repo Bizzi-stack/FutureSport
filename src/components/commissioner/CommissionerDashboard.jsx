@@ -64,36 +64,52 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
         const statTimeline = selectedMatch.timeline || [];
         const refTimeline = selectedMatch.refereeLiveState?.timeline || [];
 
-        const statGoals = statTimeline.filter(e => e.type === 'Goal');
-        const refGoals = refTimeline.filter(e => e.type === 'Goal');
-        if (statGoals.length !== refGoals.length) {
+        const isGoalEvent = (e) => String(e?.type || '').toLowerCase().trim() === 'goal';
+        const isYellowEvent = (e) => {
+            const t = String(e?.type || '').toLowerCase().replace(/[\s_-]/g, '');
+            return t === 'yellowcard' || t === 'yellow';
+        };
+        const isRedEvent = (e) => {
+            const t = String(e?.type || '').toLowerCase().replace(/[\s_-]/g, '');
+            return t === 'redcard' || t === 'red';
+        };
+
+        const statGoals = statTimeline.filter(isGoalEvent);
+        const refGoals = refTimeline.filter(isGoalEvent);
+        if (statGoals.length !== refGoals.length && refGoals.length > 0) {
             issues.push(`Goal count mismatch: Statistician logged ${statGoals.length}, Referee logged ${refGoals.length}.`);
-        } else {
-            const statScorers = statGoals.map(g => String(g.playerId)).sort().join(',');
-            const refScorers = refGoals.map(g => String(g.playerId)).sort().join(',');
-            if (statScorers !== refScorers && statGoals.length > 0) {
+        } else if (statGoals.length > 0 && refGoals.length > 0) {
+            const statScorers = statGoals.map(g => String(g.playerId || '')).sort().join(',');
+            const refScorers = refGoals.map(g => String(g.playerId || '')).sort().join(',');
+            if (statScorers !== refScorers) {
                 issues.push(`Goal scorers mismatch between Statistician and Referee logs.`);
             }
         }
 
-        const statYellow = statTimeline.filter(e => e.type === 'Yellow Card');
-        const refYellow = refTimeline.filter(e => e.type === 'Yellow Card');
-        if (statYellow.length !== refYellow.length) {
+        const statYellow = statTimeline.filter(isYellowEvent);
+        const refYellow = refTimeline.filter(isYellowEvent);
+        if (statYellow.length !== refYellow.length && refYellow.length > 0) {
             issues.push(`Yellow Card count mismatch: Statistician logged ${statYellow.length}, Referee logged ${refYellow.length}.`);
         }
 
-        const statRed = statTimeline.filter(e => e.type === 'Red Card');
-        const refRed = refTimeline.filter(e => e.type === 'Red Card');
-        if (statRed.length !== refRed.length) {
+        const statRed = statTimeline.filter(isRedEvent);
+        const refRed = refTimeline.filter(isRedEvent);
+        if (statRed.length !== refRed.length && refRed.length > 0) {
             issues.push(`Red Card count mismatch: Statistician logged ${statRed.length}, Referee logged ${refRed.length}.`);
         }
 
         return issues;
     }, [selectedMatch]);
 
-    const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+    const getSchoolName = (schoolId, matchObj) => {
+        if (!schoolId && !matchObj) return 'Unknown Team';
+        const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
+        if (sc) return sc.name;
+        if (matchObj) {
+            if (matchObj.homeTeamId === schoolId && matchObj.homeTeam) return matchObj.homeTeam;
+            if (matchObj.awayTeamId === schoolId && matchObj.awayTeam) return matchObj.awayTeam;
+        }
+        return schoolId || 'Unknown Team';
     };
 
     const handleSelectMatch = (match) => {

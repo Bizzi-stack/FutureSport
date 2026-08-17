@@ -396,6 +396,11 @@ export default function CoachPostGameStatsHub({
         return students.filter(s => s.name.toLowerCase().includes(q) || (s.position && s.position.toLowerCase().includes(q)));
     }, [students, playerSearch]);
 
+    const handleOpenMatchDetail = (m) => {
+        setSelectedMatchDetail(m);
+        setNoteDraft(coachNotes[m.id] || '');
+    };
+
     // Handle Saving Coach's Tactical Note for a Match
     const handleSaveNote = (matchId) => {
         const updated = { ...coachNotes, [matchId]: noteDraft };

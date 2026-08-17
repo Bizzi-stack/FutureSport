@@ -14,7 +14,10 @@ function CloseIcon() {
 }
 
 function getInitials(name) {
-    return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    if (!name || typeof name !== 'string') return 'PL';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'PL';
+    return parts.map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'PL';
 }
 
 function Card({ title, children, style, headerExtra }) {
@@ -35,6 +38,7 @@ function Card({ title, children, style, headerExtra }) {
 function ContactModal({ student, onClose, onSend }) {
     const [method, setMethod] = useState('Email');
     const [msg, setMsg] = useState('');
+    const guardianSurname = (student?.name || '').split(' ').slice(1).join(' ') || student?.name || 'Guardian';
 
     return (
         <div style={{
@@ -47,13 +51,13 @@ function ContactModal({ student, onClose, onSend }) {
                 background: 'var(--bg-surface)', borderRadius: '16px', padding: '24px', width: '400px',
                 boxShadow: 'var(--shadow-lg)', border: 'var(--border)'
             }}>
-                <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>Contact Parent</h2>
+                <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>Contact Parent / Guardian</h2>
                 
                 <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>To:</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255, 255, 255, 0.05)', padding: '4px 12px', borderRadius: '20px' }}>
                         <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>👩🏽</div>
-                        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Sarah {student.name.split(' ')[1]} (Mother)</span>
+                        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Guardian ({guardianSurname})</span>
                     </div>
                 </div>
 
@@ -125,16 +129,17 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
 
     const handleSendMessage = (method, msg) => {
         setShowContactModal(false);
-        // Simulate network delay
+        const guardianSurname = (student?.name || '').split(' ').slice(1).join(' ') || student?.name || 'Guardian';
         setTimeout(() => {
-            setToastMessage(`Message sent to Sarah ${student.name.split(' ')[1]}`);
+            setToastMessage(`Message sent to Guardian (${guardianSurname})`);
         }, 500);
     };
 
     // Best subjects across all terms
     const latestYear = selectedYear || YEARS[YEARS.length - 1];
     const avgPerSubject = {};
-    (subjects.length ? subjects : SUBJECTS).forEach(sub => {
+    const safeSubjects = Array.isArray(subjects) && subjects.length ? subjects : SUBJECTS;
+    safeSubjects.forEach(sub => {
         const vals = TERMS.map(t => student.performance?.[latestYear]?.[t]?.[sub]).filter(v => v !== undefined);
         if (vals.length) avgPerSubject[sub] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     });
@@ -144,7 +149,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
         ? (sortedSubjects.reduce((s, [, v]) => s + v, 0) / sortedSubjects.length)
         : null;
 
-    const studentClass = TEAMS.find(c => c.id === student.teamAssignments[latestYear]);
+    const studentClass = TEAMS.find(c => c.id === student?.teamAssignments?.[latestYear]);
     
     // Determine standing based on overallAvg
 
