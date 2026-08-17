@@ -1,21 +1,24 @@
 import { useState, useMemo } from 'react';
 
 export default function LeagueTable({ matches, teams, schools }) {
-    const [selectedDivision, setSelectedDivision] = useState('U14');
+    const [selectedDivision, setSelectedDivision] = useState(() => {
+        const hasPmc = (teams || []).some(t => t?.ageGroup === 'PMC' || (typeof t?.name === 'string' && t.name.includes('PMC')));
+        return hasPmc ? 'PMC' : 'U14';
+    });
 
     const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+        const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
+        return sc ? sc.name : 'Unknown Team';
     };
 
-    // Calculate standings for the selected division U14, U16, U19
+    // Calculate standings for the selected division U14, U16, U19, PMC
     const standings = useMemo(() => {
         // Filter teams that belong to the selected division
         const divisionTeams = (teams || []).filter(t => t && (t.ageGroup === selectedDivision || (typeof t.name === 'string' && t.name.includes(selectedDivision))));
 
         const stats = divisionTeams.map(team => ({
             id: team.id,
-            name: team.customName || `${getSchoolName(team.schoolId)} ${team.name}`,
+            name: team.customName || team.name || `${getSchoolName(team.schoolId)} ${team.name || ''}`,
             schoolId: team.schoolId,
             played: 0,
             won: 0,
@@ -27,13 +30,13 @@ export default function LeagueTable({ matches, teams, schools }) {
             points: 0
         }));
 
-        // Filter approved matches for this division
-        const approvedMatches = (matches || []).filter(m => 
-            m.status === 'approved' && 
-            (m.ageGroup === selectedDivision || (m.ageGroup === undefined && teams.find(t => t.id === m.homeTeamId)?.ageGroup === selectedDivision))
+        // Filter approved or completed matches for this division
+        const finishedMatches = (matches || []).filter(m => 
+            (m.status === 'approved' || m.status === 'completed' || m.status === 'refereed') && 
+            (m.ageGroup === selectedDivision || (m.ageGroup === undefined && (teams || []).find(t => t.id === m.homeTeamId)?.ageGroup === selectedDivision))
         );
 
-        approvedMatches.forEach(match => {
+        finishedMatches.forEach(match => {
             const homeStand = stats.find(s => s.id === match.homeTeamId);
             const awayStand = stats.find(s => s.id === match.awayTeamId);
 
@@ -85,7 +88,7 @@ export default function LeagueTable({ matches, teams, schools }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>📊 Live Division Standings</h3>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dynamically calculated from official approved fixtures</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dynamically calculated from official tournament fixtures</span>
                 </div>
                 <select
                     value={selectedDivision}
@@ -95,6 +98,7 @@ export default function LeagueTable({ matches, teams, schools }) {
                         background: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer'
                     }}
                 >
+                    <option value="PMC">Prime Minister's Cup (PMC)</option>
                     <option value="U14">U14 Division</option>
                     <option value="U16">U16 Division</option>
                     <option value="U19">U19 Division</option>

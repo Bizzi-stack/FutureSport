@@ -427,7 +427,8 @@ export default function TileDataCaptureControlPanel({
                         {/* Roster Selection Jersey Grid */}
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))', gap: '14px' }}>
                             {(pickerTeamTab === 'home' ? homeRoster : awayRoster).map(p => {
-                                const jerseyNum = p.jerseyNumber || (p.id % 22) + 1;
+                                const rawNumeric = parseInt(String(p.id || '').replace(/\D/g, ''), 10);
+                                const jerseyNum = p.jerseyNumber ?? (Number.isFinite(rawNumeric) && rawNumeric > 0 ? (rawNumeric % 22) + 1 : 10);
                                 return (
                                     <button
                                         key={p.id}

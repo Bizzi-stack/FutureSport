@@ -67,11 +67,11 @@ export default function FourthOfficialDashboard({ matches = [], schools = [], al
 
         if (isMatchHome) {
             const newXI = newHomeSquad.startingXI.map(pid => pid === req.playerOff ? req.playerOn : pid);
-            const newBench = newHomeSquad.benchPlayers.filter(pid => pid !== req.playerOn && pid !== req.playerOff);
+            const newBench = [...newHomeSquad.benchPlayers.filter(pid => pid !== req.playerOn && pid !== req.playerOff), req.playerOff];
             newHomeSquad = { ...newHomeSquad, startingXI: newXI, benchPlayers: newBench };
         } else {
             const newXI = newAwaySquad.startingXI.map(pid => pid === req.playerOff ? req.playerOn : pid);
-            const newBench = newAwaySquad.benchPlayers.filter(pid => pid !== req.playerOn && pid !== req.playerOff);
+            const newBench = [...newAwaySquad.benchPlayers.filter(pid => pid !== req.playerOn && pid !== req.playerOff), req.playerOff];
             newAwaySquad = { ...newAwaySquad, startingXI: newXI, benchPlayers: newBench };
         }
 

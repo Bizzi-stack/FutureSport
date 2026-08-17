@@ -18,6 +18,9 @@ export function playRefereeWhistleSound() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
 
         // 1st Short Whistle Chirp
         const osc1 = ctx.createOscillator();

@@ -18,7 +18,10 @@ const OFFICIALS = [
 ];
 
 export default function KnockoutBrackets({ matches, teams, schools, onAddMatches }) {
-    const [selectedDivision, setSelectedDivision] = useState('U14');
+    const [selectedDivision, setSelectedDivision] = useState(() => {
+        const hasPmc = (teams || []).some(t => t?.ageGroup === 'PMC' || (typeof t?.name === 'string' && t.name.includes('PMC')));
+        return hasPmc ? 'PMC' : 'U14';
+    });
     
     // Form States for Semifinals
     const [sfDate, setSfDate] = useState('2026-07-20');
@@ -35,8 +38,8 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
     const [fComm, setFComm] = useState(OFFICIALS[5].name);
 
     const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+        const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
+        return sc ? sc.name : 'Unknown Team';
     };
 
     // Calculate standings to identify top 4 teams
@@ -45,7 +48,7 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
 
         const stats = divisionTeams.map(team => ({
             id: team.id,
-            name: team.customName || `${getSchoolName(team.schoolId)} ${team.name}`,
+            name: team.customName || team.name || `${getSchoolName(team.schoolId)} ${team.name || ''}`,
             schoolId: team.schoolId,
             points: 0,
             goalsFor: 0,
@@ -54,8 +57,8 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
         }));
 
         const approvedMatches = (matches || []).filter(m => 
-            m.status === 'approved' && 
-            (m.ageGroup === selectedDivision || (m.ageGroup === undefined && teams.find(t => t.id === m.homeTeamId)?.ageGroup === selectedDivision)) &&
+            (m.status === 'approved' || m.status === 'completed' || m.status === 'refereed') && 
+            (m.ageGroup === selectedDivision || (m.ageGroup === undefined && (teams || []).find(t => t.id === m.homeTeamId)?.ageGroup === selectedDivision)) &&
             m.stage !== 'knockout'
         );
 
@@ -218,6 +221,7 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
                         background: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer'
                     }}
                 >
+                    <option value="PMC">Prime Minister's Cup (PMC)</option>
                     <option value="U14">U14 Division</option>
                     <option value="U16">U16 Division</option>
                     <option value="U19">U19 Division</option>

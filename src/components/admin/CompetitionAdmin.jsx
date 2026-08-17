@@ -38,8 +38,8 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
     }, [teams]);
 
     const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+        const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
+        return sc ? sc.name : 'Team';
     };
 
     const handleGenerateFixtures = () => {
@@ -58,8 +58,8 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                 const home = divisionTeams[i];
                 const away = divisionTeams[j];
 
-                const ref = referees[(i + j) % referees.length].name;
-                const comm = commissioners[(i + j) % commissioners.length].name;
+                const ref = referees.length > 0 ? referees[(i + j) % referees.length].name : 'Official Referee';
+                const comm = commissioners.length > 0 ? commissioners[(i + j) % commissioners.length].name : 'Match Commissioner';
 
                 newFixtures.push({
                     id: `scheduled-${Date.now()}-${matchIndex++}`,
