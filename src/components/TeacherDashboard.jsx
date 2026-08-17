@@ -6,6 +6,7 @@ import CreateSquadModal from './CreateSquadModal';
 import MatchdaySquadSelection from './MatchdaySquadSelection';
 import LeagueTable from './LeagueTable';
 import CoachLiveManagement from './match/CoachLiveManagement';
+import CoachPostGameStatsHub from './coach/CoachPostGameStatsHub';
 
 export default function TeacherDashboard({ 
     students, year, term, subjects, settings,
@@ -16,7 +17,7 @@ export default function TeacherDashboard({
 }) {
     const [alerts, setAlerts] = useState([]);
     const [dismissedIds, setDismissedIds] = useState(new Set());
-    const [mainTab, setMainTab] = useState('overview'); // 'overview' | 'registration' | 'data' | 'matchday'
+    const [mainTab, setMainTab] = useState('stats_hub'); // 'stats_hub' | 'overview' | 'registration' | 'data' | 'matchday'
 
     const [showRegisterPlayer, setShowRegisterPlayer] = useState(false);
     const [showCreateSquad, setShowCreateSquad] = useState(false);
@@ -156,6 +157,23 @@ export default function TeacherDashboard({
             {/* Top-level Tabs for Coach View */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={() => setMainTab('stats_hub')}
+                        style={{
+                            padding: '10px 24px',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            background: mainTab === 'stats_hub' ? 'rgba(34, 197, 94, 0.18)' : 'transparent',
+                            color: mainTab === 'stats_hub' ? '#4ade80' : 'var(--text-secondary)',
+                            border: mainTab === 'stats_hub' ? '1px solid rgba(34, 197, 94, 0.4)' : 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex', alignItems: 'center', gap: '6px'
+                        }}
+                    >
+                        <span>📈</span> Post-Game Stats Hub
+                    </button>
                     <button
                         onClick={() => setMainTab('overview')}
                         style={{
@@ -599,6 +617,20 @@ export default function TeacherDashboard({
                         onOpenLogShotModal={onOpenLogShotModal}
                     />
                 </div>
+            )}
+
+            {mainTab === 'stats_hub' && (
+                <CoachPostGameStatsHub
+                    schoolId={schoolId}
+                    selectedClassroom={selectedClassroom}
+                    matches={matches}
+                    students={students}
+                    allTeams={allTeams}
+                    schools={schools}
+                    allPlayers={allPlayers}
+                    year={year}
+                    term={term}
+                />
             )}
 
             {mainTab === 'matchday' && userRole === 'coach' && (
