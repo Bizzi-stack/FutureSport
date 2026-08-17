@@ -172,23 +172,7 @@ export default function TeacherDashboard({
                             display: 'flex', alignItems: 'center', gap: '6px'
                         }}
                     >
-                        <span>📈</span> Post-Game Stats Hub
-                    </button>
-                    <button
-                        onClick={() => setMainTab('overview')}
-                        style={{
-                            padding: '10px 24px',
-                            borderRadius: '20px',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            background: mainTab === 'overview' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                            color: mainTab === 'overview' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            border: mainTab === 'overview' ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        Squad Overview & Analytics
+                        <span>📈</span> Stats &amp; Analytics Hub
                     </button>
                     <button
                         onClick={() => setMainTab('registration')}
@@ -293,237 +277,21 @@ export default function TeacherDashboard({
                 )}
             </div>
 
-            {mainTab === 'overview' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-                    {/* Team Insights & Stats Overview Panel */}
-                    <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '18px' }}>📈</span>
-                                <h2 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
-                                    Team Performance Insights & Stats Overview
-                                </h2>
-                            </div>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#FFC726', background: 'rgba(255,199,38,0.12)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(255,199,38,0.3)' }}>
-                                {year} · {term}
-                            </span>
-                        </div>
-
-                        {/* Stat Metric Cards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Squad Goals</div>
-                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#4ade80', marginTop: '4px' }}>{squadStats.totalGoals}</div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.totalAssists} Assists</div>
-                            </div>
-
-                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shot Accuracy</div>
-                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#60a5fa', marginTop: '4px' }}>{squadStats.shotAcc}%</div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.convRate}% Conversion</div>
-                            </div>
-
-                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Defensive Saves</div>
-                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#f59e0b', marginTop: '4px' }}>{squadStats.totalSaves}</div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.totalCleanSheets} Clean Sheets</div>
-                            </div>
-
-                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
-                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Roster</div>
-                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#a78bfa', marginTop: '4px' }}>{students.length}</div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Registered Players</div>
-                            </div>
-                        </div>
-
-                        {/* Top Performers Banner */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginTop: '4px' }}>
-                            <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '20px' }}>⚽</span>
-                                <div>
-                                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#4ade80', textTransform: 'uppercase' }}>Top Goalscorer</div>
-                                    <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                        {squadStats.topScorer ? `${squadStats.topScorer.name} (#${squadStats.topScorer.jerseyNumber || '-'})` : 'No goals logged'}
-                                    </div>
-                                    {squadStats.topScorer && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{squadStats.topScorer.goals} Goals</div>}
-                                </div>
-                            </div>
-
-                            <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '20px' }}>🅰️</span>
-                                <div>
-                                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#818cf8', textTransform: 'uppercase' }}>Assist Leader</div>
-                                    <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                        {squadStats.topAssist ? `${squadStats.topAssist.name} (#${squadStats.topAssist.jerseyNumber || '-'})` : 'No assists logged'}
-                                    </div>
-                                    {squadStats.topAssist && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{squadStats.topAssist.assists} Assists</div>}
-                                </div>
-                            </div>
-
-                            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '10px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ fontSize: '20px' }}>🧤</span>
-                                <div>
-                                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#fbbf24', textTransform: 'uppercase' }}>Defensive / Save Anchor</div>
-                                    <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                        {squadStats.topSaves ? `${squadStats.topSaves.name} (#${squadStats.topSaves.jerseyNumber || '-'})` : 'No saves logged'}
-                                    </div>
-                                    {squadStats.topSaves && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{squadStats.topSaves.saves} Saves</div>}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={{ 
-                        width: '100%', 
-                        display: 'grid', 
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-                        gap: '24px'
-                    }}>
-                    
-                    {/* Active Intervention Alerts */}
-                    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div style={{ 
-                            padding: '20px 24px', 
-                            borderBottom: 'var(--border)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between' 
-                        }}>
-                            <h2 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
-                                Active Tactical Alerts
-                            </h2>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: '600' }}>
-                                {activeAlerts.length} Warnings
-                            </span>
-                        </div>
-
-                        <div style={{ padding: '16px 24px 24px', flex: 1 }}>
-                            {activeAlerts.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px', background: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                                    <span style={{ fontSize: '24px' }}>✅</span>
-                                    <div style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', marginTop: '12px' }}>Roster looks stable!</div>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>No warnings or intervention alerts currently active.</div>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {activeAlerts.map(alert => {
-                                        const isHigh = alert.priority === 'high';
-                                        const bgIcon = isHigh ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)';
-
-                                        return (
-                                            <div key={alert.id} style={{
-                                                display: 'flex', 
-                                                gap: '16px', 
-                                                alignItems: 'center',
-                                                paddingBottom: '12px',
-                                                borderBottom: 'var(--border)'
-                                            }}>
-                                                <div style={{ 
-                                                    width: '36px', height: '36px', borderRadius: '50%', background: bgIcon, 
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 
-                                                }}>
-                                                    {alert.type === 'gamesPlayed' ? '⚠️' : alert.type === 'class-anomaly' ? '📉' : '🔔'}
-                                                </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '13px' }}>
-                                                            {alert.type === 'gamesPlayed' ? 'Stat Discrepancy' : 'Performance Shift'}
-                                                        </span>
-                                                        <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
-                                                        {alert.studentId && (
-                                                            <button 
-                                                                onClick={() => onStudentClick(students.find(s => String(s.id) === String(alert.studentId)))}
-                                                                style={{ background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: '13px', cursor: 'pointer', padding: 0, fontWeight: '600' }}
-                                                            >
-                                                                View Profile
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                                                        {alert.message}
-                                                    </p>
-                                                </div>
-                                                <button 
-                                                    onClick={() => handleDismiss(alert.id)}
-                                                    style={{
-                                                        padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '700',
-                                                        background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', border: 'var(--border)', cursor: 'pointer',
-                                                        transition: 'background 0.2s'
-                                                    }}
-                                                >
-                                                    Dismiss
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Squad Roster Overview */}
-                    <div className="glass-panel" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ 
-                            padding: '20px 24px', 
-                            borderBottom: 'var(--border)'
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Roster Quick Overview</h3>
-                        </div>
-                        <div style={{ padding: '0', flex: 1, overflowY: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: 'var(--border)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase', background: 'rgba(255,255,255,0.02)' }}>
-                                        <th style={{ padding: '12px 24px', fontWeight: '600' }}>Player</th>
-                                        <th style={{ padding: '12px 24px', fontWeight: '600', textAlign: 'center' }}>Squad Status</th>
-                                        <th style={{ padding: '12px 24px', fontWeight: '600', textAlign: 'center' }}>Match Games</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {students.map(s => {
-                                        const att = s.matchStats?.[year]?.[term]?.gamesPlayed;
-                                        const attLabel = att === undefined ? '0' : `${att}`;
-                                        const status = s.status || 'approved';
-
-                                        return (
-                                            <tr key={s.id} style={{ borderBottom: 'var(--border)', cursor: 'pointer', transition: 'background 0.2s' }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                                onClick={() => onStudentClick(s)}
-                                            >
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <span style={{
-                                                            width: '24px', height: '24px', borderRadius: '50%',
-                                                            background: 'rgba(37,99,235,0.1)',
-                                                            border: '1px solid rgba(37,99,235,0.2)',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            fontSize: '10px', fontWeight: '800', color: 'var(--primary-light)',
-                                                            flexShrink: 0
-                                                        }}>
-                                                            {s.jerseyNumber || '--'}
-                                                        </span>
-                                                        {s.name}
-                                                    </div>
-                                                </td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', textAlign: 'center' }}>
-                                                    <span style={{
-                                                        fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px',
-                                                        background: status === 'approved' ? 'var(--success-dim)' : status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
-                                                        color: status === 'approved' ? 'var(--success)' : status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
-                                                    }}>
-                                                        {status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '16px 24px', fontSize: '13px', color: 'var(--text-primary)', textAlign: 'center' }}>
-                                                    {attLabel}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {mainTab === 'stats_hub' && (
+                <CoachPostGameStatsHub
+                    schoolId={schoolId}
+                    selectedClassroom={selectedClassroom}
+                    matches={matches}
+                    students={students}
+                    allTeams={allTeams}
+                    schools={schools}
+                    allPlayers={allPlayers}
+                    year={year}
+                    term={term}
+                    onStudentClick={onStudentClick}
+                    activeAlerts={activeAlerts}
+                    handleDismiss={handleDismiss}
+                />
             )}
 
             {mainTab === 'registration' && (
@@ -617,20 +385,6 @@ export default function TeacherDashboard({
                         onOpenLogShotModal={onOpenLogShotModal}
                     />
                 </div>
-            )}
-
-            {mainTab === 'stats_hub' && (
-                <CoachPostGameStatsHub
-                    schoolId={schoolId}
-                    selectedClassroom={selectedClassroom}
-                    matches={matches}
-                    students={students}
-                    allTeams={allTeams}
-                    schools={schools}
-                    allPlayers={allPlayers}
-                    year={year}
-                    term={term}
-                />
             )}
 
             {mainTab === 'matchday' && userRole === 'coach' && (

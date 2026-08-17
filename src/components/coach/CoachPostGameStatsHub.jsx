@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-// ── Icons (Inline SVG) ──────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────
 const TrophyIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -8,12 +8,6 @@ const TrophyIcon = () => (
         <path d="M4 22h16" />
         <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1h10c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-2c-.55 0-1-.45-1-1v-2.34" />
         <path d="M6 5v4a6 6 0 0 0 12 0V5H6Z" />
-    </svg>
-);
-
-const ChartIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
     </svg>
 );
 
@@ -34,7 +28,7 @@ const NoteIcon = () => (
 );
 
 // ── Comparative Stat Bar ──────────────────────────────────────────────
-function ComparativeStatBar({ label, teamVal, oppVal, teamName, oppName, isPercentage = false }) {
+function ComparativeStatBar({ label, teamVal, oppVal, isPercentage = false }) {
     const numTeam = Number(teamVal) || 0;
     const numOpp = Number(oppVal) || 0;
     const total = numTeam + numOpp;
@@ -66,7 +60,7 @@ function ComparativeStatBar({ label, teamVal, oppVal, teamName, oppName, isPerce
 }
 
 // ── Interactive Goalmouth Visual Shot Map ──────────────────────────────
-function GoalmouthShotMap({ shots = [], teamName }) {
+function GoalmouthShotMap({ shots = [] }) {
     const [hoveredShot, setHoveredShot] = useState(null);
 
     return (
@@ -91,7 +85,6 @@ function GoalmouthShotMap({ shots = [], teamName }) {
                 border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: '12px', overflow: 'hidden', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.8)'
             }}>
-                {/* Visual Goal Frame Post Structure (10% to 90% X, 20% to 95% Y) */}
                 <div style={{
                     position: 'absolute', left: '10%', right: '10%', top: '20%', bottom: '5%',
                     border: '4px solid rgba(255,255,255,0.9)', borderBottom: 'none',
@@ -104,10 +97,8 @@ function GoalmouthShotMap({ shots = [], teamName }) {
                     </div>
                 </div>
 
-                {/* Turf Grass */}
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '5%', background: '#144626', borderTop: '1px solid #166534' }} />
 
-                {/* Shot Plot Points */}
                 {shots.map((sh, idx) => {
                     const isGoal = sh.type === 'goal' || sh.result === 'goal';
                     const isSaved = sh.type === 'shotOnTarget' || sh.result === 'saved' || sh.result === 'save';
@@ -136,7 +127,6 @@ function GoalmouthShotMap({ shots = [], teamName }) {
                     );
                 })}
 
-                {/* Hover Tooltip */}
                 {hoveredShot && (
                     <div style={{
                         position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
@@ -157,7 +147,7 @@ function GoalmouthShotMap({ shots = [], teamName }) {
     );
 }
 
-// ── Main Coach Post-Game Stats Hub Component ──────────────────────────
+// ── Unified Coach Post-Game & Squad Stats Hub Component ────────────────
 export default function CoachPostGameStatsHub({
     schoolId,
     selectedClassroom,
@@ -167,11 +157,16 @@ export default function CoachPostGameStatsHub({
     schools = [],
     allPlayers = [],
     year,
-    term
+    term,
+    onStudentClick = () => {},
+    activeAlerts = [],
+    handleDismiss = () => {}
 }) {
+    const [hubView, setHubView] = useState('match_reports'); // 'match_reports' | 'squad_analytics' | 'player_matrix' | 'tactical_alerts'
     const [recentRange, setRecentRange] = useState('5'); // '3' | '5' | 'all'
     const [resultFilter, setResultFilter] = useState('all'); // 'all' | 'win' | 'draw' | 'loss'
     const [selectedMatchDetail, setSelectedMatchDetail] = useState(null);
+    const [playerSearch, setPlayerSearch] = useState('');
     const [coachNotes, setCoachNotes] = useState(() => {
         try {
             const saved = localStorage.getItem('eduvision-coach-match-notes');
@@ -223,7 +218,6 @@ export default function CoachPostGameStatsHub({
             return isHome || isAway;
         });
 
-        // Sort latest first
         return teamMatches.sort((a, b) => new Date(b.date || Date.now()) - new Date(a.date || Date.now()));
     }, [matches, schoolId, selectedClassroom, schoolObj, teamObj]);
 
@@ -249,6 +243,62 @@ export default function CoachPostGameStatsHub({
         }
         return list;
     }, [coachTeamMatches, recentRange, resultFilter, schoolId, schoolObj]);
+
+    // Aggregated Squad Analytics & Top Performers
+    const squadStats = useMemo(() => {
+        let totalGoals = 0;
+        let totalAssists = 0;
+        let totalShots = 0;
+        let totalShotsOnTarget = 0;
+        let totalSaves = 0;
+        let totalCleanSheets = 0;
+        let topScorer = null;
+        let topAssist = null;
+        let topSaves = null;
+
+        students.forEach(s => {
+            const perf = s.performance?.[year]?.[term] || {};
+            const g = perf['Goals'] || 0;
+            const a = perf['Assists'] || 0;
+            const sh = perf['Shots'] || 0;
+            const sot = perf['Shots on Target'] || 0;
+            const sv = perf['Saves'] || 0;
+            const cs = perf['Clean Sheets'] || 0;
+
+            totalGoals += g;
+            totalAssists += a;
+            totalShots += sh;
+            totalShotsOnTarget += sot;
+            totalSaves += sv;
+            totalCleanSheets += cs;
+
+            if (g > 0 && (!topScorer || g > topScorer.goals)) {
+                topScorer = { name: s.name, jerseyNumber: s.jerseyNumber, goals: g, position: s.position, id: s.id };
+            }
+            if (a > 0 && (!topAssist || a > topAssist.assists)) {
+                topAssist = { name: s.name, jerseyNumber: s.jerseyNumber, assists: a, position: s.position, id: s.id };
+            }
+            if (sv > 0 && (!topSaves || sv > topSaves.saves)) {
+                topSaves = { name: s.name, jerseyNumber: s.jerseyNumber, saves: sv, position: s.position, id: s.id };
+            }
+        });
+
+        const shotAcc = totalShots > 0 ? Math.round((totalShotsOnTarget / totalShots) * 100) : 0;
+        const convRate = totalShotsOnTarget > 0 ? Math.round((totalGoals / totalShotsOnTarget) * 100) : 0;
+
+        return {
+            totalGoals,
+            totalAssists,
+            totalShots,
+            totalSaves,
+            totalCleanSheets,
+            shotAcc,
+            convRate,
+            topScorer,
+            topAssist,
+            topSaves
+        };
+    }, [students, year, term]);
 
     // Calculate Aggregated Metrics across the selected games
     const aggregatedStats = useMemo(() => {
@@ -301,7 +351,6 @@ export default function CoachPostGameStatsHub({
 
             if (oppScore === 0) cleanSheets++;
 
-            // Count playerStats for team
             const teamPlayerIds = isHome ? (m.homePlayers || []) : (m.awayPlayers || []);
             let matchShots = 0;
             let matchSot = 0;
@@ -319,7 +368,6 @@ export default function CoachPostGameStatsHub({
             totalShots += matchShots;
             totalShotsOnTarget += matchSot;
 
-            // Possession
             const teamPoss = isHome ? (m.possession?.homePct || 50) : (m.possession?.awayPct || 50);
             totalPossessionSum += teamPoss;
         });
@@ -342,6 +390,12 @@ export default function CoachPostGameStatsHub({
         };
     }, [rangeFilteredMatches, schoolId, schoolObj]);
 
+    const filteredSquadMembers = useMemo(() => {
+        if (!playerSearch.trim()) return students;
+        const q = playerSearch.toLowerCase();
+        return students.filter(s => s.name.toLowerCase().includes(q) || (s.position && s.position.toLowerCase().includes(q)));
+    }, [students, playerSearch]);
+
     // Handle Saving Coach's Tactical Note for a Match
     const handleSaveNote = (matchId) => {
         const updated = { ...coachNotes, [matchId]: noteDraft };
@@ -356,7 +410,7 @@ export default function CoachPostGameStatsHub({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', width: '100%' }}>
 
-            {/* ── 1. Header Banner & Filter Strip ───────────────────────── */}
+            {/* ── 1. Top Header Banner & Sub-View Switcher ───────────────── */}
             <div className="glass-panel" style={{
                 padding: '24px', borderRadius: '16px',
                 background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85))',
@@ -365,60 +419,79 @@ export default function CoachPostGameStatsHub({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '24px' }}>📊</span>
-                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.3px' }}>
-                                Post-Game Statistics &amp; Performance Hub
-                            </h2>
+                            <span style={{ fontSize: '26px' }}>📊</span>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.3px' }}>
+                                    {teamDisplayName} · Stats &amp; Analytics Hub
+                                </h2>
+                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    Comprehensive tactical insights, historical match performance, squad metrics, and player box scores.
+                                </span>
+                            </div>
                             <span style={{
                                 fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34, 197, 94, 0.15)',
-                                padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(34, 197, 94, 0.3)'
+                                padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(34, 197, 94, 0.3)', marginLeft: '6px'
                             }}>
-                                🔒 {teamDisplayName} Data Scoped
+                                🔒 Team Scoped
                             </span>
                         </div>
-                        <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                            Review historical match performances, aggregated form indices, and tactical breakdown over recent fixtures.
-                        </p>
                     </div>
 
-                    {/* Range Selectors */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.04)', padding: '4px', borderRadius: '10px', border: 'var(--border)' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', paddingLeft: '8px' }}>Range:</span>
+                    {/* Sub-View Switcher Tabs */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '4px', borderRadius: '12px', border: 'var(--border)' }}>
                         <button
                             type="button"
-                            onClick={() => setRecentRange('3')}
+                            onClick={() => setHubView('match_reports')}
                             style={{
-                                padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
-                                background: recentRange === '3' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                                color: recentRange === '3' ? '#a5b4fc' : 'var(--text-secondary)',
-                                border: recentRange === '3' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                background: hubView === 'match_reports' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                                color: hubView === 'match_reports' ? '#a5b4fc' : 'var(--text-secondary)',
+                                border: hubView === 'match_reports' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
                             }}
                         >
-                            Last 3 Games
+                            🏟️ Match History &amp; Reports
                         </button>
                         <button
                             type="button"
-                            onClick={() => setRecentRange('5')}
+                            onClick={() => setHubView('squad_analytics')}
                             style={{
-                                padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
-                                background: recentRange === '5' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                                color: recentRange === '5' ? '#a5b4fc' : 'var(--text-secondary)',
-                                border: recentRange === '5' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                background: hubView === 'squad_analytics' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                                color: hubView === 'squad_analytics' ? '#a5b4fc' : 'var(--text-secondary)',
+                                border: hubView === 'squad_analytics' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
                             }}
                         >
-                            Last 5 Games
+                            ⭐ Squad Analytics &amp; Leaders
                         </button>
                         <button
                             type="button"
-                            onClick={() => setRecentRange('all')}
+                            onClick={() => setHubView('player_matrix')}
                             style={{
-                                padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
-                                background: recentRange === 'all' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                                color: recentRange === 'all' ? '#a5b4fc' : 'var(--text-secondary)',
-                                border: recentRange === 'all' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                background: hubView === 'player_matrix' ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                                color: hubView === 'player_matrix' ? '#a5b4fc' : 'var(--text-secondary)',
+                                border: hubView === 'player_matrix' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
                             }}
                         >
-                            All Matches ({coachTeamMatches.length})
+                            👥 Player Performance Matrix
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setHubView('tactical_alerts')}
+                            style={{
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                background: hubView === 'tactical_alerts' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                                color: hubView === 'tactical_alerts' ? '#fca5a5' : 'var(--text-secondary)',
+                                border: hubView === 'tactical_alerts' ? '1px solid #ef4444' : 'none', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                            <span>⚠️ Alerts</span>
+                            {activeAlerts.length > 0 && (
+                                <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: '900' }}>
+                                    {activeAlerts.length}
+                                </span>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -454,164 +527,434 @@ export default function CoachPostGameStatsHub({
                 )}
             </div>
 
-            {/* ── 2. Aggregated Performance KPI Metric Cards ─────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Goals Per Game (GPG)</div>
-                    <div style={{ fontSize: '26px', fontWeight: '900', color: '#4ade80', marginTop: '4px' }}>{aggregatedStats.gpg}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.goalsScored} Total Goals Scored</div>
-                </div>
+            {/* ── 2. VIEW 1: MATCH HISTORY & POST-GAME REPORTS ───────────── */}
+            {hubView === 'match_reports' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {/* Aggregated KPI Row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Goals Per Game (GPG)</div>
+                            <div style={{ fontSize: '26px', fontWeight: '900', color: '#4ade80', marginTop: '4px' }}>{aggregatedStats.gpg}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.goalsScored} Total Goals Scored</div>
+                        </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Conceded Per Game</div>
-                    <div style={{ fontSize: '26px', fontWeight: '900', color: '#f87171', marginTop: '4px' }}>{aggregatedStats.gaa}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.goalsConceded} Total Conceded</div>
-                </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Conceded Per Game</div>
+                            <div style={{ fontSize: '26px', fontWeight: '900', color: '#f87171', marginTop: '4px' }}>{aggregatedStats.gaa}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.goalsConceded} Total Conceded</div>
+                        </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shot Accuracy</div>
-                    <div style={{ fontSize: '26px', fontWeight: '900', color: '#818cf8', marginTop: '4px' }}>{aggregatedStats.shotAccuracy}%</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.totalShotsOnTarget} on target / {aggregatedStats.totalShots} shots</div>
-                </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shot Accuracy</div>
+                            <div style={{ fontSize: '26px', fontWeight: '900', color: '#818cf8', marginTop: '4px' }}>{aggregatedStats.shotAccuracy}%</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.totalShotsOnTarget} on target / {aggregatedStats.totalShots} shots</div>
+                        </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Avg Ball Possession</div>
-                    <div style={{ fontSize: '26px', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>{aggregatedStats.avgPossession}%</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Across played matches</div>
-                </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Avg Ball Possession</div>
+                            <div style={{ fontSize: '26px', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>{aggregatedStats.avgPossession}%</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Across played matches</div>
+                        </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Clean Sheet Ratio</div>
-                    <div style={{ fontSize: '26px', fontWeight: '900', color: '#fbbf24', marginTop: '4px' }}>{aggregatedStats.cleanSheetPct}%</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.cleanSheets} Shutouts recorded</div>
-                </div>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Clean Sheet Ratio</div>
+                            <div style={{ fontSize: '26px', fontWeight: '900', color: '#fbbf24', marginTop: '4px' }}>{aggregatedStats.cleanSheetPct}%</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{aggregatedStats.cleanSheets} Shutouts recorded</div>
+                        </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GK Saves Recorded</div>
-                    <div style={{ fontSize: '26px', fontWeight: '900', color: '#a78bfa', marginTop: '4px' }}>{aggregatedStats.totalSaves}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Defensive stops logged</div>
-                </div>
-            </div>
-
-            {/* ── 3. Past Games History Grid ─────────────────────────────── */}
-            <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>⚽</span>
-                        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Individual Match Performance Log ({rangeFilteredMatches.length} Fixtures)
-                        </h3>
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '16px' }}>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GK Saves Recorded</div>
+                            <div style={{ fontSize: '26px', fontWeight: '900', color: '#a78bfa', marginTop: '4px' }}>{aggregatedStats.totalSaves}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Defensive stops logged</div>
+                        </div>
                     </div>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        Click any match card to open detailed post-game report &amp; shot map
-                    </span>
-                </div>
 
-                {rangeFilteredMatches.length === 0 ? (
-                    <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)' }}>
-                        No completed matches found for this filter range. Play a live match or adjust the range filter above.
-                    </div>
-                ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
-                        {rangeFilteredMatches.map(m => {
-                            const cleanSchoolId = String(schoolId || '').toLowerCase();
-                            const schoolName = String(schoolObj?.name || '').toLowerCase();
-                            const isHome = String(m.homeTeamId || '').toLowerCase().includes(cleanSchoolId) || String(m.homeTeam || '').toLowerCase().includes(schoolName);
-                            const teamScore = isHome ? (m.homeScore || 0) : (m.awayScore || 0);
-                            const oppScore = isHome ? (m.awayScore || 0) : (m.homeScore || 0);
-                            const oppName = isHome ? m.awayTeam : m.homeTeam;
-                            const isWin = teamScore > oppScore;
-                            const isDraw = teamScore === oppScore;
-
-                            // Extract goals scored by team
-                            const teamGoalEvents = (m.timeline || []).filter(e => e.type === 'goal' && (isHome ? e.team === 'home' : e.team === 'away'));
-
-                            return (
-                                <div
-                                    key={m.id}
-                                    onClick={() => {
-                                        setSelectedMatchDetail(m);
-                                        setNoteDraft(coachNotes[m.id] || '');
-                                    }}
-                                    style={{
-                                        background: 'rgba(255,255,255,0.03)',
-                                        border: isWin ? '1px solid rgba(34, 197, 94, 0.3)' : isDraw ? '1px solid rgba(234, 179, 8, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                                        borderRadius: '14px', padding: '16px 18px',
-                                        display: 'flex', flexDirection: 'column', gap: '12px',
-                                        cursor: 'pointer', transition: 'all 0.2s ease',
-                                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
-                                    }}
-                                    onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                    }}
-                                    onMouseLeave={e => {
-                                        e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                    }}
+                    {/* Past Games Grid */}
+                    <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '18px' }}>⚽</span>
+                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Match History &amp; Fixtures ({rangeFilteredMatches.length} Fixtures)
+                                </h3>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                    onClick={() => setRecentRange('3')}
+                                    style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: recentRange === '3' ? 'rgba(99,102,241,0.2)' : 'transparent', color: recentRange === '3' ? '#a5b4fc' : 'var(--text-muted)', border: 'none', cursor: 'pointer' }}
                                 >
-                                    {/* Card Header */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-light)', background: 'rgba(99,102,241,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
-                                            {m.matchday || 'Matchday'}
-                                        </span>
-                                        <span style={{
-                                            fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '6px',
-                                            background: isWin ? 'rgba(34, 197, 94, 0.15)' : isDraw ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                            color: isWin ? '#4ade80' : isDraw ? '#fde047' : '#f87171'
-                                        }}>
-                                            {isWin ? '🏆 VICTORY' : isDraw ? '🤝 DRAW' : '❌ DEFEAT'}
-                                        </span>
-                                    </div>
+                                    Last 3
+                                </button>
+                                <button
+                                    onClick={() => setRecentRange('5')}
+                                    style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: recentRange === '5' ? 'rgba(99,102,241,0.2)' : 'transparent', color: recentRange === '5' ? '#a5b4fc' : 'var(--text-muted)', border: 'none', cursor: 'pointer' }}
+                                >
+                                    Last 5
+                                </button>
+                                <button
+                                    onClick={() => setRecentRange('all')}
+                                    style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700', background: recentRange === 'all' ? 'rgba(99,102,241,0.2)' : 'transparent', color: recentRange === 'all' ? '#a5b4fc' : 'var(--text-muted)', border: 'none', cursor: 'pointer' }}
+                                >
+                                    All ({coachTeamMatches.length})
+                                </button>
+                            </div>
+                        </div>
 
-                                    {/* Scoreline */}
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '120px' }}>
-                                            <span style={{ fontSize: '14px', fontWeight: '800', color: isHome ? '#4ade80' : '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {m.homeTeam}
-                                            </span>
-                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Home</span>
+                        {rangeFilteredMatches.length === 0 ? (
+                            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                                No completed matches found for this filter range.
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+                                {rangeFilteredMatches.map(m => {
+                                    const cleanSchoolId = String(schoolId || '').toLowerCase();
+                                    const schoolName = String(schoolObj?.name || '').toLowerCase();
+                                    const isHome = String(m.homeTeamId || '').toLowerCase().includes(cleanSchoolId) || String(m.homeTeam || '').toLowerCase().includes(schoolName);
+                                    const teamScore = isHome ? (m.homeScore || 0) : (m.awayScore || 0);
+                                    const oppScore = isHome ? (m.awayScore || 0) : (m.homeScore || 0);
+                                    const isWin = teamScore > oppScore;
+                                    const isDraw = teamScore === oppScore;
+                                    const teamGoalEvents = (m.timeline || []).filter(e => e.type === 'goal' && (isHome ? e.team === 'home' : e.team === 'away'));
+
+                                    return (
+                                        <div
+                                            key={m.id}
+                                            onClick={() => {
+                                                setSelectedMatchDetail(m);
+                                                setNoteDraft(coachNotes[m.id] || '');
+                                            }}
+                                            style={{
+                                                background: 'rgba(255,255,255,0.03)',
+                                                border: isWin ? '1px solid rgba(34, 197, 94, 0.3)' : isDraw ? '1px solid rgba(234, 179, 8, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                                                borderRadius: '14px', padding: '16px 18px',
+                                                display: 'flex', flexDirection: 'column', gap: '12px',
+                                                cursor: 'pointer', transition: 'all 0.2s ease',
+                                                boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--primary-light)', background: 'rgba(99,102,241,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                                                    {m.matchday || 'Matchday'}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '11px', fontWeight: '800', padding: '3px 8px', borderRadius: '6px',
+                                                    background: isWin ? 'rgba(34, 197, 94, 0.15)' : isDraw ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                    color: isWin ? '#4ade80' : isDraw ? '#fde047' : '#f87171'
+                                                }}>
+                                                    {isWin ? '🏆 VICTORY' : isDraw ? '🤝 DRAW' : '❌ DEFEAT'}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '120px' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: isHome ? '#4ade80' : '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {m.homeTeam}
+                                                    </span>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Home</span>
+                                                </div>
+
+                                                <div style={{
+                                                    fontSize: '22px', fontWeight: '900', color: '#ffffff',
+                                                    background: 'rgba(0,0,0,0.4)', padding: '4px 14px', borderRadius: '10px',
+                                                    border: '1px solid rgba(255,255,255,0.1)'
+                                                }}>
+                                                    {m.homeScore ?? 0} - {m.awayScore ?? 0}
+                                                </div>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '120px' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: !isHome ? '#4ade80' : '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {m.awayTeam}
+                                                    </span>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Away</span>
+                                                </div>
+                                            </div>
+
+                                            {teamGoalEvents.length > 0 && (
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
+                                                    <span>⚽</span>
+                                                    <span>{teamGoalEvents.map(e => e.playerName).join(', ')}</span>
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
+                                                <span>📍 {m.venue || 'National Stadium'}</span>
+                                                <span style={{ color: 'var(--primary-light)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    Open Report <ArrowRight />
+                                                </span>
+                                            </div>
                                         </div>
-
-                                        <div style={{
-                                            fontSize: '22px', fontWeight: '900', color: '#ffffff',
-                                            background: 'rgba(0,0,0,0.4)', padding: '4px 14px', borderRadius: '10px',
-                                            border: '1px solid rgba(255,255,255,0.1)'
-                                        }}>
-                                            {m.homeScore ?? 0} - {m.awayScore ?? 0}
-                                        </div>
-
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '120px' }}>
-                                            <span style={{ fontSize: '14px', fontWeight: '800', color: !isHome ? '#4ade80' : '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {m.awayTeam}
-                                            </span>
-                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Away</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Goal Scorers Preview */}
-                                    {teamGoalEvents.length > 0 && (
-                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
-                                            <span>⚽</span>
-                                            <span>{teamGoalEvents.map(e => e.playerName).join(', ')}</span>
-                                        </div>
-                                    )}
-
-                                    {/* Venue & Action Link */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
-                                        <span>📍 {m.venue || 'National Stadium'}</span>
-                                        <span style={{ color: 'var(--primary-light)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            View Report <ArrowRight />
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
 
-            {/* ── 4. Detailed Post-Game Match Report Modal ───────────────── */}
+            {/* ── 3. VIEW 2: SQUAD ANALYTICS & LEADERS ────────────────────── */}
+            {hubView === 'squad_analytics' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '18px' }}>⭐</span>
+                                <h2 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                                    Squad Overall Season Analytics &amp; Key Totals
+                                </h2>
+                            </div>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#FFC726', background: 'rgba(255,199,38,0.12)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(255,199,38,0.3)' }}>
+                                {year} · {term}
+                            </span>
+                        </div>
+
+                        {/* Stat Metric Cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Squad Goals</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#4ade80', marginTop: '4px' }}>{squadStats.totalGoals}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.totalAssists} Total Assists</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Shot Accuracy</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#60a5fa', marginTop: '4px' }}>{squadStats.shotAcc}%</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.convRate}% Conversion Rate</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Defensive Saves</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#f59e0b', marginTop: '4px' }}>{squadStats.totalSaves}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{squadStats.totalCleanSheets} Clean Sheets</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Roster</div>
+                                <div style={{ fontSize: '24px', fontWeight: '800', color: '#a78bfa', marginTop: '4px' }}>{students.length}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Registered Players</div>
+                            </div>
+                        </div>
+
+                        {/* Top Performers Banner */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginTop: '6px' }}>
+                            <div 
+                                onClick={() => squadStats.topScorer && onStudentClick(students.find(s => s.id === squadStats.topScorer.id))}
+                                style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                            >
+                                <span style={{ fontSize: '24px' }}>⚽</span>
+                                <div>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', textTransform: 'uppercase' }}>Top Goalscorer</div>
+                                    <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        {squadStats.topScorer ? `${squadStats.topScorer.name} (#${squadStats.topScorer.jerseyNumber || '-'})` : 'No goals logged'}
+                                    </div>
+                                    {squadStats.topScorer && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{squadStats.topScorer.goals} Goals Scored · Click profile</div>}
+                                </div>
+                            </div>
+
+                            <div 
+                                onClick={() => squadStats.topAssist && onStudentClick(students.find(s => s.id === squadStats.topAssist.id))}
+                                style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                            >
+                                <span style={{ fontSize: '24px' }}>🅰️</span>
+                                <div>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#818cf8', textTransform: 'uppercase' }}>Assist Leader</div>
+                                    <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        {squadStats.topAssist ? `${squadStats.topAssist.name} (#${squadStats.topAssist.jerseyNumber || '-'})` : 'No assists logged'}
+                                    </div>
+                                    {squadStats.topAssist && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{squadStats.topAssist.assists} Assists Made · Click profile</div>}
+                                </div>
+                            </div>
+
+                            <div 
+                                onClick={() => squadStats.topSaves && onStudentClick(students.find(s => s.id === squadStats.topSaves.id))}
+                                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                            >
+                                <span style={{ fontSize: '24px' }}>🧤</span>
+                                <div>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#fbbf24', textTransform: 'uppercase' }}>Goalkeeper Wall</div>
+                                    <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        {squadStats.topSaves ? `${squadStats.topSaves.name} (#${squadStats.topSaves.jerseyNumber || '-'})` : 'No saves logged'}
+                                    </div>
+                                    {squadStats.topSaves && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{squadStats.topSaves.saves} Saves Recorded · Click profile</div>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 4. VIEW 3: FULL SQUAD PERFORMANCE MATRIX ───────────────── */}
+            {hubView === 'player_matrix' && (
+                <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                Full Squad Player Performance Matrix ({students.length} Players)
+                            </h3>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                Click on any row to view the player's full tactical profile &amp; shot breakdown
+                            </span>
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Filter player name or position..."
+                            value={playerSearch}
+                            onChange={e => setPlayerSearch(e.target.value)}
+                            style={{
+                                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '10px', padding: '8px 14px', color: '#ffffff', fontSize: '12px', outline: 'none'
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <th style={{ padding: '12px 16px' }}>Jersey # &amp; Player</th>
+                                    <th style={{ padding: '12px' }}>Position</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Appearances</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Goals</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Assists</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Shots (On Target)</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Shot Acc %</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Pass Acc %</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Saves</th>
+                                    <th style={{ padding: '12px', textAlign: 'center' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredSquadMembers.map(s => {
+                                    const perf = s.performance?.[year]?.[term] || {};
+                                    const ms = s.matchStats?.[year]?.[term] || {};
+                                    const goals = perf['Goals'] || 0;
+                                    const assists = perf['Assists'] || 0;
+                                    const shots = perf['Shots'] || 0;
+                                    const sot = perf['Shots on Target'] || 0;
+                                    const shotAcc = perf['Shot Accuracy'] || (shots > 0 ? Math.round((sot / shots) * 100) : 0);
+                                    const passComp = perf['Pass Completed'] || 75;
+                                    const saves = perf['Saves'] || 0;
+                                    const apps = ms.gamesPlayed || (goals > 0 || shots > 0 ? 2 : 1);
+
+                                    return (
+                                        <tr
+                                            key={s.id}
+                                            onClick={() => onStudentClick(s)}
+                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'background 0.2s' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <td style={{ padding: '12px 16px', fontWeight: '700', color: '#ffffff' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800' }}>
+                                                        {s.jerseyNumber || '--'}
+                                                    </span>
+                                                    <span>{s.name}</span>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{s.position || 'Player'}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center', color: '#ffffff' }}>{apps}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center', color: goals > 0 ? '#4ade80' : '#ffffff', fontWeight: goals > 0 ? '800' : '500' }}>{goals}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center', color: assists > 0 ? '#818cf8' : '#ffffff', fontWeight: assists > 0 ? '800' : '500' }}>{assists}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>{shots} ({sot})</td>
+                                            <td style={{ padding: '12px', textAlign: 'center', color: '#60a5fa' }}>{shotAcc}%</td>
+                                            <td style={{ padding: '12px', textAlign: 'center', color: '#38bdf8' }}>{passComp}%</td>
+                                            <td style={{ padding: '12px', textAlign: 'center', color: saves > 0 ? '#fbbf24' : '#ffffff' }}>{saves}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <span style={{ fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+                                                    {s.status || 'Active'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 5. VIEW 4: TACTICAL ALERTS & READINESS ──────────────────── */}
+            {hubView === 'tactical_alerts' && (
+                <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '18px' }}>⚠️</span>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                Tactical Alerts &amp; Intervention Notices ({activeAlerts.length})
+                            </h3>
+                        </div>
+                    </div>
+
+                    {activeAlerts.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px', background: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            <span style={{ fontSize: '28px' }}>✅</span>
+                            <div style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', marginTop: '12px' }}>Roster looks stable!</div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>No warnings or intervention alerts currently active for this squad.</div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {activeAlerts.map(alert => {
+                                const isHigh = alert.priority === 'high';
+                                const bgIcon = isHigh ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)';
+
+                                return (
+                                    <div key={alert.id} style={{
+                                        display: 'flex', gap: '16px', alignItems: 'center',
+                                        padding: '14px 18px', background: 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px'
+                                    }}>
+                                        <div style={{
+                                            width: '36px', height: '36px', borderRadius: '50%', background: bgIcon,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                        }}>
+                                            {alert.type === 'gamesPlayed' ? '⚠️' : alert.type === 'class-anomaly' ? '📉' : '🔔'}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                                <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '13px' }}>
+                                                    {alert.type === 'gamesPlayed' ? 'Stat Discrepancy' : 'Performance Shift'}
+                                                </span>
+                                                <span style={{ color: 'rgba(255,255,255,0.15)' }}>·</span>
+                                                {alert.studentId && (
+                                                    <button
+                                                        onClick={() => onStudentClick(students.find(s => String(s.id) === String(alert.studentId)))}
+                                                        style={{ background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: '13px', cursor: 'pointer', padding: 0, fontWeight: '600' }}
+                                                    >
+                                                        View Profile
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                                {alert.message}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDismiss(alert.id)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '700',
+                                                background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', border: 'var(--border)', cursor: 'pointer',
+                                                transition: 'background 0.2s'
+                                            }}
+                                        >
+                                            Dismiss
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ── 6. DETAILED POST-GAME MATCH REPORT MODAL ────────────────── */}
             {selectedMatchDetail && (() => {
                 const m = selectedMatchDetail;
                 const cleanSchoolId = String(schoolId || '').toLowerCase();
@@ -621,13 +964,9 @@ export default function CoachPostGameStatsHub({
                 const teamName = isHome ? m.homeTeam : m.awayTeam;
                 const oppName = isHome ? m.awayTeam : m.homeTeam;
 
-                const teamScore = isHome ? (m.homeScore || 0) : (m.awayScore || 0);
-                const oppScore = isHome ? (m.awayScore || 0) : (m.homeScore || 0);
-
                 const teamPlayerIds = isHome ? (m.homePlayers || []) : (m.awayPlayers || []);
                 const oppPlayerIds = isHome ? (m.awayPlayers || []) : (m.homePlayers || []);
 
-                // Calculate Match Head-to-Head Statistics
                 let teamShots = 0;
                 let teamSot = 0;
                 let teamFouls = 0;
@@ -672,8 +1011,6 @@ export default function CoachPostGameStatsHub({
 
                 const teamPoss = isHome ? (m.possession?.homePct || 52) : (m.possession?.awayPct || 48);
                 const oppPoss = 100 - teamPoss;
-
-                // Extract all shots for Goalmouth map
                 const teamShotsEvents = (m.timeline || []).filter(e => (isHome ? e.team === 'home' : e.team === 'away') && (e.type === 'goal' || e.type === 'shotOnTarget' || e.type === 'shotMissed'));
 
                 return (
@@ -697,7 +1034,6 @@ export default function CoachPostGameStatsHub({
                             gap: '20px',
                             boxShadow: '0 25px 60px rgba(0,0,0,0.8)'
                         }}>
-                            {/* Modal Header */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '14px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span style={{ fontSize: '20px' }}>📋</span>
@@ -722,7 +1058,6 @@ export default function CoachPostGameStatsHub({
                                 </button>
                             </div>
 
-                            {/* Match Result Banner */}
                             <div style={{
                                 background: 'linear-gradient(135deg, rgba(30,41,59,0.8), rgba(15,23,42,0.9))',
                                 border: '1px solid rgba(255,255,255,0.08)',
@@ -761,7 +1096,6 @@ export default function CoachPostGameStatsHub({
                                 </div>
                             </div>
 
-                            {/* Comparative Statistics Grid */}
                             <div style={{
                                 background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
                                 borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px'
@@ -781,10 +1115,9 @@ export default function CoachPostGameStatsHub({
                                 <ComparativeStatBar label="Yellow &amp; Red Cards" teamVal={teamYc + teamRc} oppVal={oppYc + oppRc} />
                             </div>
 
-                            {/* Goalmouth Visual Shot Map */}
-                            <GoalmouthShotMap shots={teamShotsEvents} teamName={teamName} />
+                            <GoalmouthShotMap shots={teamShotsEvents} />
 
-                            {/* Match Event Timeline Stream */}
+                            {/* Timeline */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                     Match Event Chronology ({(m.timeline || []).length} Events)
@@ -879,7 +1212,7 @@ export default function CoachPostGameStatsHub({
                                 </div>
                             </div>
 
-                            {/* Coach's Post-Match Tactical Notes Section */}
+                            {/* Coach's Notes */}
                             <div style={{
                                 background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)',
                                 borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px'
