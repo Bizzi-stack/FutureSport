@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { sendRefereeSquadNotification, getRefereeContactSettings } from '../services/refereeNotificationService';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 // Each row has: y position (% from top), count of players, role, and position labels
@@ -158,6 +159,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     const [searchQuery, setSearchQuery] = useState('');
     
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [notificationInfo, setNotificationInfo] = useState(null);
 
     const schoolName = useMemo(() => {
         const sc = schools?.find(s => s.id === schoolId);
@@ -240,18 +242,15 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const getSchoolName = (teamId, matchObj) => {
         if (!teamId && !matchObj) return 'Unknown Team';
-        // 1. Direct match in schools/clubs list (e.g. pmc-club-10 -> WOTTON)
         const sc = (schools || []).find(s => s.id === teamId || s.rawId === teamId);
         if (sc) return sc.name;
 
-        // 2. Direct match in teams list
         const team = (allTeams || []).find(t => t.id === teamId || t.schoolId === teamId);
         if (team) {
             const sc2 = (schools || []).find(s => s.id === team.schoolId);
             return sc2 ? sc2.name : team.name;
         }
 
-        // 3. Fallback to matchObj property
         if (matchObj) {
             if (matchObj.homeTeamId === teamId && matchObj.homeTeam) return matchObj.homeTeam;
             if (matchObj.awayTeamId === teamId && matchObj.awayTeam) return matchObj.awayTeam;
@@ -264,8 +263,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const handleSelectMatch = (matchId) => {
         setSelectedMatchId(matchId);
+        setNotificationInfo(null);
         
-        // Find if this match has pre-existing squad selection to restore
         const match = matches.find(m => m.id === matchId);
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
         const savedSquad = match?.[squadKey];
@@ -273,11 +272,9 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         if (savedSquad) {
             setFormation(savedSquad.formation || '4-3-3');
             setBenchPlayers(savedSquad.benchPlayers || []);
-            // Map savedStartingXI back to slots
             if (Array.isArray(savedSquad.startingXI) && savedSquad.startingXI.length === 11) {
                 setStartingXI(savedSquad.startingXI);
             } else {
-                // If saved format was a dynamic flat array, pad/recreate it
                 const restored = Array(11).fill(null);
                 (savedSquad.startingXI || []).forEach((id, index) => {
                     if (index < 11) restored[index] = id;
@@ -299,7 +296,6 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         if (activeSlotIndex === null) return;
         
         const newXI = [...startingXI];
-        // If this player was already in another slot, clear that slot first
         const existingSlotIdx = newXI.indexOf(playerId);
         if (existingSlotIdx !== -1) {
             newXI[existingSlotIdx] = null;
@@ -330,19 +326,48 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     const handleSubmitSquad = () => {
         if (selectedStartingXIIds.length !== 11 || !selectedMatch) return;
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+        const opponentSquadKey = isHome ? 'awaySquadSelection' : 'homeSquadSelection';
+        const opponentAlreadySubmitted = !!selectedMatch[opponentSquadKey];
+
+        const squadPayload = {
+            formation,
+            startingXI,
+            benchPlayers,
+            submittedAt: new Date().toISOString(),
+            submittedBy: schoolName
+        };
+
         const updatedMatch = {
             ...selectedMatch,
-            [squadKey]: {
-                formation,
-                startingXI, // submitting the mapped array of 11 ids
-                benchPlayers,
-                submittedAt: new Date().toISOString(),
-                submittedBy: schoolName
-            }
+            [squadKey]: squadPayload
         };
+
         onUpdateMatch(updatedMatch);
         setSubmitSuccess(true);
-        setTimeout(() => setSubmitSuccess(false), 4000);
+
+        const homeName = getSchoolName(selectedMatch.homeTeamId, selectedMatch);
+        const awayName = getSchoolName(selectedMatch.awayTeamId, selectedMatch);
+
+        if (opponentAlreadySubmitted) {
+            sendRefereeSquadNotification(updatedMatch, homeName, awayName, allPlayers);
+            setNotificationInfo({
+                bothReady: true,
+                refereeEmail: getRefereeContactSettings().refereeEmail,
+                homeName,
+                awayName
+            });
+        } else {
+            setNotificationInfo({
+                bothReady: false,
+                refereeEmail: getRefereeContactSettings().refereeEmail,
+                homeName,
+                awayName
+            });
+        }
+
+        setTimeout(() => {
+            setSubmitSuccess(false);
+        }, 6000);
     };
 
     const alreadySubmitted = useMemo(() => {
@@ -367,6 +392,39 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                 <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>⚽ Matchday Squad Selection</h2>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Configure formation, click pitch positions to select players, and fill your bench.</span>
             </div>
+
+            {/* Referee Email & Kick-off Notification Banner */}
+            {notificationInfo && (
+                <div style={{
+                    padding: '12px 18px', borderRadius: '12px',
+                    background: notificationInfo.bothReady ? 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.12))' : 'rgba(99,102,241,0.12)',
+                    border: `1px solid ${notificationInfo.bothReady ? '#22c55e' : '#6366f1'}`,
+                    color: notificationInfo.bothReady ? '#4ade80' : '#a5b4fc',
+                    fontSize: '12.5px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '18px' }}>{notificationInfo.bothReady ? '📢' : '⏳'}</span>
+                        <div>
+                            <div>
+                                {notificationInfo.bothReady
+                                    ? `Both squads submitted! Match is ready for blow-off. Official notification & team sheets dispatched to Referee via Gmail (${notificationInfo.refereeEmail}).`
+                                    : `Your squad is submitted. Waiting for opponent squad submission before referee kick-off alert is dispatched.`
+                                }
+                            </div>
+                            <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '2px' }}>
+                                {notificationInfo.bothReady ? `Referee assigned can blow the whistle from the Referee Dashboard.` : `Referee will be alerted automatically as soon as the opposing coach submits.`}
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setNotificationInfo(null)}
+                        style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#ffffff', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
 
             {myMatches.length === 0 ? (
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '60px 24px' }}>
