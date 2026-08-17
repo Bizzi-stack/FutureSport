@@ -29,6 +29,7 @@ import RefereeDashboard from './components/referee/RefereeDashboard';
 import CommissionerDashboard from './components/commissioner/CommissionerDashboard';
 import FourthOfficialDashboard from './components/referee/FourthOfficialDashboard';
 import StatisticianDashboard from './components/statistician/StatisticianDashboard';
+import { sendRefereeSquadNotification } from './services/refereeNotificationService';
 
 // ── Icons (inline SVG) ──────────────────────────────────────────────
 const DownloadIcon = () => (
@@ -664,6 +665,18 @@ function App() {
 
   // ── Dynamic Match Update & Standings Propagation ───────────────────
   const handleUpdateMatch = (updatedMatch) => {
+    const prevMatch = (pmcMatches || []).find(m => m.id === updatedMatch.id);
+    const wasBothReady = !!prevMatch?.homeSquadSelection && !!prevMatch?.awaySquadSelection;
+    const isNowBothReady = !!updatedMatch?.homeSquadSelection && !!updatedMatch?.awaySquadSelection;
+
+    if (!wasBothReady && isNowBothReady) {
+      const homeSc = schools.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
+      const awaySc = schools.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
+      const homeName = homeSc?.name || updatedMatch.homeTeam || 'Home Team';
+      const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
+      sendRefereeSquadNotification(updatedMatch, homeName, awayName, allStudents);
+    }
+
     const updateFn = prev => {
       const next = prev.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
       pushMatchesToCloud(next);

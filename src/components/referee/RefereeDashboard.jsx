@@ -1,6 +1,12 @@
-import { useState, useMemo } from 'react';
-
+import { useState, useMemo, useEffect } from 'react';
 import LiveMatch from '../match/LiveMatch';
+import {
+    getRefereeContactSettings,
+    saveRefereeContactSettings,
+    sendTestRefereeNotification,
+    requestRefereeNotificationPermission,
+    playRefereeWhistleSound
+} from '../../services/refereeNotificationService';
 
 export default function RefereeDashboard({ matches, schools, allPlayers, year, onUpdateMatch }) {
     const [selectedMatch, setSelectedMatch] = useState(null);
@@ -13,6 +19,37 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
     const [refereeSummary, setRefereeSummary] = useState('');
     const [refereeSignature, setRefereeSignature] = useState('');
     const [reportSaved, setReportSaved] = useState(false);
+
+    // Referee Contact & Notification Settings State
+    const [refereeSettings, setRefereeSettings] = useState(getRefereeContactSettings);
+    const [emailInput, setEmailInput] = useState(() => getRefereeContactSettings().refereeEmail || '');
+    const [isEditingEmail, setIsEditingEmail] = useState(false);
+    const [pushPermission, setPushPermission] = useState('default');
+    const [testAlertToast, setTestAlertToast] = useState(null);
+
+    useEffect(() => {
+        if ('Notification' in window) {
+            setPushPermission(Notification.permission);
+        }
+    }, []);
+
+    const handleSaveEmail = (e) => {
+        e.preventDefault();
+        const updated = saveRefereeContactSettings({ refereeEmail: emailInput });
+        setRefereeSettings(updated);
+        setIsEditingEmail(false);
+    };
+
+    const handleEnablePush = async () => {
+        const res = await requestRefereeNotificationPermission();
+        setPushPermission(res.status);
+    };
+
+    const handleSendTestAlert = async () => {
+        const res = await sendTestRefereeNotification(emailInput);
+        setTestAlertToast(`🧪 Test alert & whistle delivered to ${res.email}!`);
+        setTimeout(() => setTestAlertToast(null), 4000);
+    };
 
     // Get scheduled matches (Referee can kick these off)
     const scheduledMatches = useMemo(() => {
@@ -47,7 +84,6 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
             setViewMode('live');
         } else {
             setViewMode('list');
-            // Pre-fill if already edited
             setMisconductNotes(match.refereeReport?.misconductNotes || '');
             setPitchCondition(match.refereeReport?.pitchCondition || 'Excellent');
             setWeatherCondition(match.refereeReport?.weatherCondition || 'Sunny');
@@ -66,9 +102,8 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
             return;
         }
 
-        if (!window.confirm(`Blow the whistle and KICK OFF:\n${getSchoolName(match.homeTeamId, match)} vs ${getSchoolName(match.awayTeamId, match)}?`)) {
-            return;
-        }
+        // Blow whistle audio on kick-off
+        playRefereeWhistleSound();
 
         onUpdateMatch({
             ...match,
@@ -90,7 +125,7 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
 
         const updatedMatch = {
             ...selectedMatch,
-            status: 'refereed', // transitions match to refereed state
+            status: 'refereed',
             refereeReport: {
                 misconductNotes,
                 pitchCondition,
@@ -103,12 +138,113 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
 
         onUpdateMatch(updatedMatch);
         setReportSaved(true);
-        setSelectedMatch(null); // return to list view
+        setSelectedMatch(null);
         setTimeout(() => setReportSaved(false), 3000);
     };
 
     return (
-        <div style={{ display: 'flex', gap: '20px', width: '100%', height: '100%', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', height: '100%', minHeight: 0 }}>
+
+            {/* ── Top Referee Notification & Gmail Dispatch Control Center ── */}
+            <div className="glass-panel" style={{
+                padding: '16px 20px', borderRadius: '14px',
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85))',
+                border: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+                        📧
+                    </div>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff' }}>
+                                Referee Direct Notification &amp; Gmail Alert Dispatcher
+                            </span>
+                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                ● Live Dispatch Active
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            <span>Target Gmail:</span>
+                            {isEditingEmail ? (
+                                <form onSubmit={handleSaveEmail} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <input
+                                        type="email"
+                                        value={emailInput}
+                                        onChange={e => setEmailInput(e.target.value)}
+                                        placeholder="Enter your Gmail..."
+                                        style={{
+                                            background: 'rgba(0,0,0,0.4)', border: '1px solid #6366f1',
+                                            borderRadius: '6px', padding: '3px 10px', color: '#ffffff', fontSize: '12px', outline: 'none'
+                                        }}
+                                        autoFocus
+                                    />
+                                    <button type="submit" style={{ padding: '3px 10px', borderRadius: '6px', background: '#10b981', color: '#fff', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                                        Save
+                                    </button>
+                                    <button type="button" onClick={() => setIsEditingEmail(false)} style={{ padding: '3px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', border: 'none', fontSize: '11px', cursor: 'pointer' }}>
+                                        Cancel
+                                    </button>
+                                </form>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <strong style={{ color: '#a5b4fc' }}>{refereeSettings.refereeEmail}</strong>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsEditingEmail(true)}
+                                        style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}
+                                    >
+                                        ✏️ Change Gmail
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {testAlertToast && (
+                        <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700' }}>
+                            {testAlertToast}
+                        </span>
+                    )}
+
+                    {pushPermission !== 'granted' ? (
+                        <button
+                            type="button"
+                            onClick={handleEnablePush}
+                            style={{
+                                padding: '6px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                            <span>🔔</span> Enable Phone Screen Push
+                        </button>
+                    ) : (
+                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.12)', padding: '4px 10px', borderRadius: '8px' }}>
+                            ✓ Phone Push Enabled
+                        </span>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handleSendTestAlert}
+                        style={{
+                            padding: '6px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#ffffff', border: 'none', cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: '6px'
+                        }}
+                    >
+                        <span>🧪</span> Send Test Alert
+                    </button>
+                </div>
+            </div>
+
+            {/* ── Main Layout: Schedule + Match Area ───────────────────────── */}
+            <div style={{ display: 'flex', gap: '20px', width: '100%', flex: 1, minHeight: 0 }}>
             
             {/* Left side: Pending matches list */}
             <div className="glass-panel" style={{ width: '380px', display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
@@ -158,14 +294,21 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                                             <span>{getSchoolName(m.awayTeamId, m)}</span>
                                         </div>
 
-                                        {/* Squad Readiness Badges */}
-                                        <div style={{ display: 'flex', gap: '6px' }}>
-                                            <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                                {homeSquadReady ? '✅' : '⏳'} Home
-                                            </span>
-                                            <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                                {awaySquadReady ? '✅' : '⏳'} Away
-                                            </span>
+                                        {/* Squad Readiness Badges & Notification Indicator */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+                                                    {homeSquadReady ? '✅' : '⏳'} Home
+                                                </span>
+                                                <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+                                                    {awaySquadReady ? '✅' : '⏳'} Away
+                                                </span>
+                                            </div>
+                                            {bothReady && (
+                                                <span style={{ fontSize: '10px', color: '#4ade80', fontWeight: '800', background: 'rgba(34,197,94,0.12)', padding: '2px 6px', borderRadius: '6px' }}>
+                                                    📨 Alert Sent
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Kick Off Button */}
@@ -400,6 +543,7 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                 )}
             </div>
 
+            </div>
         </div>
     );
 }
