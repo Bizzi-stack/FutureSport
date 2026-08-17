@@ -155,7 +155,7 @@ function getClubPlayerIds(clubId) {
     return PMC_STUDENTS.filter(s => s.schoolId === clubId).map(s => s.id);
 }
 
-// 4. Generate clean upcoming fixtures across 4 Matchdays for ALL 24 PMC teams
+// 4. Generate clean fixtures across 4 Matchdays with completed Matchday 1 & 2 fixtures for all 24 PMC teams
 const VENUES = [
     'Kensington Oval, Bridgetown',
     'Wildey Turf, St. Michael',
@@ -164,14 +164,259 @@ const VENUES = [
     'Speightstown Playing Field, St. Peter'
 ];
 
+function generateCompletedPmcMatch(matchId, homeClub, awayClub, homeP, awayP, mdNum, date, venue, rng) {
+    const homeScore = Math.floor(rng() * 4); // 0 to 3
+    const awayScore = Math.floor(rng() * 3); // 0 to 2
+    const homePlayersList = PMC_STUDENTS.filter(s => s.schoolId === homeClub.id);
+    const awayPlayersList = PMC_STUDENTS.filter(s => s.schoolId === awayClub.id);
+
+    const playerStats = {};
+    const timeline = [];
+
+    // Initialize base stats for players
+    homeP.forEach(id => {
+        playerStats[id] = {
+            Goals: 0, Assists: 0, Shots: 0, 'Shots on Target': 0,
+            Saves: 0, 'Fouls Committed': Math.floor(rng() * 3), 'Corners Taken': 0,
+            yellowCards: 0, redCards: 0, ownGoals: 0,
+            minutesPlayed: 90, passesCompleted: Math.floor(rng() * 30) + 20,
+            tackles: Math.floor(rng() * 6)
+        };
+    });
+    awayP.forEach(id => {
+        playerStats[id] = {
+            Goals: 0, Assists: 0, Shots: 0, 'Shots on Target': 0,
+            Saves: 0, 'Fouls Committed': Math.floor(rng() * 3), 'Corners Taken': 0,
+            yellowCards: 0, redCards: 0, ownGoals: 0,
+            minutesPlayed: 90, passesCompleted: Math.floor(rng() * 30) + 20,
+            tackles: Math.floor(rng() * 6)
+        };
+    });
+
+    // Home goals
+    for (let g = 0; g < homeScore; g++) {
+        const scorer = homePlayersList[Math.floor(rng() * Math.min(11, homePlayersList.length))] || homePlayersList[0];
+        const assister = rng() > 0.3 ? (homePlayersList.find(p => p.id !== scorer.id) || null) : null;
+        const minute = Math.floor(rng() * 85) + 5;
+        const period = minute <= 45 ? '1H' : '2H';
+        const elapsed = minute * 60;
+        const goalType = rng() > 0.8 ? 'header' : rng() > 0.9 ? 'penalty' : 'foot';
+        const x = Math.floor(rng() * 70) + 15;
+        const y = Math.floor(rng() * 60) + 30;
+
+        if (scorer && playerStats[scorer.id]) {
+            playerStats[scorer.id].Goals += 1;
+            playerStats[scorer.id].Shots += 1;
+            playerStats[scorer.id]['Shots on Target'] += 1;
+        }
+        if (assister && playerStats[assister.id]) {
+            playerStats[assister.id].Assists += 1;
+        }
+
+        timeline.push({
+            id: `ev-${matchId}-g-h-${g}`,
+            elapsed,
+            period,
+            type: 'goal',
+            playerId: scorer.id,
+            playerName: scorer.name,
+            team: 'home',
+            teamName: homeClub.name,
+            x, y,
+            goalType,
+            assistingPlayerId: assister?.id || null,
+            assistingPlayerName: assister?.name || null
+        });
+    }
+
+    // Away goals
+    for (let g = 0; g < awayScore; g++) {
+        const scorer = awayPlayersList[Math.floor(rng() * Math.min(11, awayPlayersList.length))] || awayPlayersList[0];
+        const assister = rng() > 0.3 ? (awayPlayersList.find(p => p.id !== scorer.id) || null) : null;
+        const minute = Math.floor(rng() * 85) + 5;
+        const period = minute <= 45 ? '1H' : '2H';
+        const elapsed = minute * 60;
+        const goalType = rng() > 0.8 ? 'header' : rng() > 0.9 ? 'freekick' : 'foot';
+        const x = Math.floor(rng() * 70) + 15;
+        const y = Math.floor(rng() * 60) + 30;
+
+        if (scorer && playerStats[scorer.id]) {
+            playerStats[scorer.id].Goals += 1;
+            playerStats[scorer.id].Shots += 1;
+            playerStats[scorer.id]['Shots on Target'] += 1;
+        }
+        if (assister && playerStats[assister.id]) {
+            playerStats[assister.id].Assists += 1;
+        }
+
+        timeline.push({
+            id: `ev-${matchId}-g-a-${g}`,
+            elapsed,
+            period,
+            type: 'goal',
+            playerId: scorer.id,
+            playerName: scorer.name,
+            team: 'away',
+            teamName: awayClub.name,
+            x, y,
+            goalType,
+            assistingPlayerId: assister?.id || null,
+            assistingPlayerName: assister?.name || null
+        });
+    }
+
+    // Extra shots for home
+    const extraShotsHome = Math.floor(rng() * 6) + 3;
+    for (let s = 0; s < extraShotsHome; s++) {
+        const shooter = homePlayersList[Math.floor(rng() * Math.min(11, homePlayersList.length))];
+        const isSaved = rng() > 0.4;
+        const minute = Math.floor(rng() * 88) + 2;
+        const period = minute <= 45 ? '1H' : '2H';
+        const elapsed = minute * 60;
+        const x = isSaved ? Math.floor(rng() * 70) + 15 : (rng() > 0.5 ? Math.floor(rng() * 9) : Math.floor(rng() * 9) + 91);
+        const y = isSaved ? Math.floor(rng() * 60) + 25 : Math.floor(rng() * 15);
+
+        if (shooter && playerStats[shooter.id]) {
+            playerStats[shooter.id].Shots += 1;
+            if (isSaved) playerStats[shooter.id]['Shots on Target'] += 1;
+        }
+
+        timeline.push({
+            id: `ev-${matchId}-sh-h-${s}`,
+            elapsed,
+            period,
+            type: isSaved ? 'shotOnTarget' : 'shotMissed',
+            playerId: shooter.id,
+            playerName: shooter.name,
+            team: 'home',
+            teamName: homeClub.name,
+            x, y,
+            goalType: 'foot'
+        });
+    }
+
+    // Extra shots for away
+    const extraShotsAway = Math.floor(rng() * 5) + 2;
+    for (let s = 0; s < extraShotsAway; s++) {
+        const shooter = awayPlayersList[Math.floor(rng() * Math.min(11, awayPlayersList.length))];
+        const isSaved = rng() > 0.4;
+        const minute = Math.floor(rng() * 88) + 2;
+        const period = minute <= 45 ? '1H' : '2H';
+        const elapsed = minute * 60;
+        const x = isSaved ? Math.floor(rng() * 70) + 15 : (rng() > 0.5 ? Math.floor(rng() * 9) : Math.floor(rng() * 9) + 91);
+        const y = isSaved ? Math.floor(rng() * 60) + 25 : Math.floor(rng() * 15);
+
+        if (shooter && playerStats[shooter.id]) {
+            playerStats[shooter.id].Shots += 1;
+            if (isSaved) playerStats[shooter.id]['Shots on Target'] += 1;
+        }
+
+        timeline.push({
+            id: `ev-${matchId}-sh-a-${s}`,
+            elapsed,
+            period,
+            type: isSaved ? 'shotOnTarget' : 'shotMissed',
+            playerId: shooter.id,
+            playerName: shooter.name,
+            team: 'away',
+            teamName: awayClub.name,
+            x, y,
+            goalType: 'foot'
+        });
+    }
+
+    // Yellow cards
+    if (rng() > 0.3) {
+        const carded = homePlayersList[Math.floor(rng() * homePlayersList.length)];
+        const min = Math.floor(rng() * 70) + 10;
+        if (carded && playerStats[carded.id]) {
+            playerStats[carded.id].yellowCards += 1;
+            timeline.push({
+                id: `ev-${matchId}-yc-h`,
+                elapsed: min * 60,
+                period: min <= 45 ? '1H' : '2H',
+                type: 'yellowCard',
+                playerId: carded.id,
+                playerName: carded.name,
+                team: 'home'
+            });
+        }
+    }
+    if (rng() > 0.3) {
+        const carded = awayPlayersList[Math.floor(rng() * awayPlayersList.length)];
+        const min = Math.floor(rng() * 70) + 10;
+        if (carded && playerStats[carded.id]) {
+            playerStats[carded.id].yellowCards += 1;
+            timeline.push({
+                id: `ev-${matchId}-yc-a`,
+                elapsed: min * 60,
+                period: min <= 45 ? '1H' : '2H',
+                type: 'yellowCard',
+                playerId: carded.id,
+                playerName: carded.name,
+                team: 'away'
+            });
+        }
+    }
+
+    // Goalkeeper saves
+    const homeGk = homePlayersList.find(p => p.position === 'Goalkeeper') || homePlayersList[0];
+    const awayGk = awayPlayersList.find(p => p.position === 'Goalkeeper') || awayPlayersList[0];
+    if (homeGk && playerStats[homeGk.id]) {
+        playerStats[homeGk.id].Saves = Math.max(1, Math.floor(rng() * 6) + 2);
+    }
+    if (awayGk && playerStats[awayGk.id]) {
+        playerStats[awayGk.id].Saves = Math.max(1, Math.floor(rng() * 6) + 2);
+    }
+
+    timeline.sort((a, b) => (a.elapsed || 0) - (b.elapsed || 0));
+
+    const homePossession = Math.floor(rng() * 26) + 40; // 40% to 65%
+    const awayPossession = 100 - homePossession;
+
+    return {
+        id: `pmc-fixture-${matchId}`,
+        homeTeam: homeClub.name,
+        awayTeam: awayClub.name,
+        homeTeamId: homeClub.id,
+        awayTeamId: awayClub.id,
+        homeScore,
+        awayScore,
+        status: 'approved',
+        venue: venue,
+        date: date,
+        time: '18:00',
+        round: `Matchday ${mdNum} · ${homeClub.division || 'PMC Group Stage'}`,
+        matchday: `Matchday ${mdNum}`,
+        ageGroup: 'PMC',
+        homePlayers: homeP,
+        awayPlayers: awayP,
+        homeSquadSelection: {
+            startingXI: homeP.slice(0, 11),
+            benchPlayers: homeP.slice(11, 18),
+            formation: '4-3-3'
+        },
+        awaySquadSelection: {
+            startingXI: awayP.slice(0, 11),
+            benchPlayers: awayP.slice(11, 18),
+            formation: '4-2-3-1'
+        },
+        playerStats,
+        timeline,
+        possession: { homePct: homePossession, awayPct: awayPossession },
+        referee: 'Adrian Hunte',
+        commissioner: 'Sarah Rollins (Verified Official)'
+    };
+}
+
 const generatedMatches = [];
 let matchIdCount = 1;
 
 const MATCHDAYS = [
-    { num: 1, date: '2026-08-10', offset: 1 },
-    { num: 2, date: '2026-08-12', offset: 3 },
-    { num: 3, date: '2026-08-15', offset: 5 },
-    { num: 4, date: '2026-08-18', offset: 7 }
+    { num: 1, date: '2026-08-10', offset: 1, isCompleted: true },
+    { num: 2, date: '2026-08-12', offset: 3, isCompleted: true },
+    { num: 3, date: '2026-08-15', offset: 5, isCompleted: false },
+    { num: 4, date: '2026-08-18', offset: 7, isCompleted: false }
 ];
 
 MATCHDAYS.forEach(md => {
@@ -190,28 +435,35 @@ MATCHDAYS.forEach(md => {
 
         const homeP = getClubPlayerIds(homeClub.id);
         const awayP = getClubPlayerIds(awayClub.id);
+        const venue = VENUES[matchIdCount % VENUES.length];
+        const matchId = matchIdCount++;
+        const rng = mulberry32(matchId * 777 + md.num * 333);
 
-        generatedMatches.push({
-            id: `pmc-fixture-${matchIdCount++}`,
-            homeTeam: homeClub.name,
-            awayTeam: awayClub.name,
-            homeTeamId: homeClub.id,
-            awayTeamId: awayClub.id,
-            homeScore: 0,
-            awayScore: 0,
-            status: 'upcoming',
-            venue: VENUES[matchIdCount % VENUES.length],
-            date: md.date,
-            time: `${15 + (matchIdCount % 5)}:00`,
-            round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'}`,
-            matchday: `Matchday ${md.num}`,
-            ageGroup: 'PMC',
-            homePlayers: homeP,
-            awayPlayers: awayP,
-            homeSquadSelection: null,
-            awaySquadSelection: null,
-            substitutionRequests: []
-        });
+        if (md.isCompleted) {
+            generatedMatches.push(generateCompletedPmcMatch(matchId, homeClub, awayClub, homeP, awayP, md.num, md.date, venue, rng));
+        } else {
+            generatedMatches.push({
+                id: `pmc-fixture-${matchId}`,
+                homeTeam: homeClub.name,
+                awayTeam: awayClub.name,
+                homeTeamId: homeClub.id,
+                awayTeamId: awayClub.id,
+                homeScore: 0,
+                awayScore: 0,
+                status: 'upcoming',
+                venue: venue,
+                date: md.date,
+                time: `${15 + (matchId % 5)}:00`,
+                round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'}`,
+                matchday: `Matchday ${md.num}`,
+                ageGroup: 'PMC',
+                homePlayers: homeP,
+                awayPlayers: awayP,
+                homeSquadSelection: null,
+                awaySquadSelection: null,
+                substitutionRequests: []
+            });
+        }
     });
 });
 
