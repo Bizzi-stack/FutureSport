@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS = {
     enableEmail: true,
     enableDevicePush: true,
     enableSoundAlert: true,
-    customWebhookUrl: ''
+    customWebhookUrl: 'https://formspree.io/f/xrpzoljb'
 };
 
 // ── Web Audio API Whistle Sound Synthesizer ──────────────────────────
@@ -56,7 +56,14 @@ export function playRefereeWhistleSound() {
 export function getRefereeContactSettings() {
     try {
         const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-        if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            return {
+                ...DEFAULT_SETTINGS,
+                ...parsed,
+                customWebhookUrl: parsed.customWebhookUrl || DEFAULT_SETTINGS.customWebhookUrl
+            };
+        }
     } catch { /* ignored */ }
     return DEFAULT_SETTINGS;
 }
@@ -90,34 +97,26 @@ function appendNotificationLog(entry) {
     } catch { /* ignored */ }
 }
 
-// ── Request Browser / Device Push Permission ─────────────────────────
+// ── Phone / Desktop Native Web Push Notification ─────────────────────
 export async function requestRefereeNotificationPermission() {
     if (!('Notification' in window)) {
         return { supported: false, status: 'unsupported' };
     }
-
-    if (Notification.permission === 'granted') {
-        return { supported: true, status: 'granted' };
-    }
-
     try {
-        const perm = await Notification.requestPermission();
-        return { supported: true, status: perm };
+        const permission = await Notification.requestPermission();
+        return { supported: true, status: permission };
     } catch (err) {
-        console.error('Error requesting notification permission:', err);
+        console.error('Notification permission request error:', err);
         return { supported: true, status: 'denied' };
     }
 }
 
-// ── Trigger Device Lockscreen / Browser Notification ─────────────────
 export function triggerDeviceNotification(title, options = {}) {
-    if (!('Notification' in window)) return false;
-
-    if (Notification.permission === 'granted') {
+    if ('Notification' in window && Notification.permission === 'granted') {
         try {
             const notif = new Notification(title, {
-                icon: '/favicon.ico',
-                badge: '/favicon.ico',
+                icon: '/favicon.png',
+                badge: '/favicon.png',
                 vibrate: [200, 100, 200, 100, 400],
                 ...options
             });
@@ -146,6 +145,7 @@ function formatPlayerList(playerIds = [], allPlayers = []) {
 export async function sendRefereeSquadNotification(match, homeName, awayName, allPlayers = []) {
     const settings = getRefereeContactSettings();
     const recipientEmail = settings.refereeEmail || 'referee.pmcup@gmail.com';
+    const webhookUrl = settings.customWebhookUrl || 'https://formspree.io/f/xrpzoljb';
     const timestamp = new Date().toLocaleString();
 
     const homeXI = match.homeSquadSelection?.startingXI || [];
@@ -195,30 +195,44 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
         });
     }
 
-    // 3. Dispatch Email to Gmail
+    // 3. Dispatch Real Email to Gmail via Formspree Relay
     let emailStatus = 'dispatched';
     try {
-        // Attempt sending via custom webhook or formspree/email relay if configured
-        if (settings.customWebhookUrl) {
-            await fetch(settings.customWebhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: recipientEmail,
-                    subject,
-                    text: bodyText,
-                    matchId: match.id,
-                    timestamp
-                })
-            });
-            emailStatus = 'delivered_via_webhook';
-        } else {
-            // Simulated instant cloud relay to referee Gmail
-            console.log(`[REFEREE EMAIL DISPATCHER] Delivered to ${recipientEmail}:\n`, { subject, bodyText });
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                _subject: subject,
+                subject: subject,
+                to: recipientEmail,
+                message: bodyText,
+                match: `${homeName} vs ${awayName}`,
+                tournament: "Prime Minister's Cup 2026",
+                venue: match.venue || 'National Stadium',
+                matchday: match.matchday || match.round || 'Group Stage',
+                homeTeam: homeName,
+                homeFormation: homeFormation,
+                homeStartingXI: formatPlayerList(homeXI, allPlayers),
+                awayTeam: awayName,
+                awayFormation: awayFormation,
+                awayStartingXI: formatPlayerList(awayXI, allPlayers),
+                time: match.time || '18:00',
+                timestamp: timestamp
+            })
+        });
+
+        if (response.ok) {
+            console.log(`[REFEREE EMAIL DISPATCHER] Real Email delivered to Gmail via Formspree:`, { subject, webhookUrl });
             emailStatus = 'delivered_to_gmail';
+        } else {
+            console.warn('Formspree returned non-200 status:', response.status);
+            emailStatus = `sent_status_${response.status}`;
         }
     } catch (err) {
-        console.warn('Email webhook dispatch notice:', err);
+        console.warn('Formspree email dispatch notice:', err);
         emailStatus = 'queued_for_referee';
     }
 
@@ -247,6 +261,7 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
 export async function sendTestRefereeNotification(targetEmail) {
     const settings = getRefereeContactSettings();
     const email = targetEmail || settings.refereeEmail || 'referee.pmcup@gmail.com';
+    const webhookUrl = settings.customWebhookUrl || 'https://formspree.io/f/xrpzoljb';
     const timestamp = new Date().toLocaleString();
 
     if (settings.enableSoundAlert) {
@@ -258,12 +273,53 @@ export async function sendTestRefereeNotification(targetEmail) {
         tag: 'test-notification'
     });
 
+    const subject = `🧪 [TEST ALERT] Referee Live Notification Test · Prime Minister's Cup`;
+    const bodyText = `
+🧪 TEST REFEREE NOTIFICATION DISPATCH
+==================================================
+Signal Type: Manual Test Alert
+Tournament: Prime Minister's Cup 2026
+Referee Recipient: ${email}
+Timestamp: ${timestamp}
+Delivery Relay: Formspree Live Relay (${webhookUrl})
+Status: SUCCESSFUL LIVE TRANSMISSION
+==================================================
+This is a test notification confirming that the Referee Notification & Email Relay is online and actively delivering team sheet alerts to your device and Gmail inbox.
+`;
+
+    let emailStatus = 'dispatched';
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                _subject: subject,
+                subject: subject,
+                to: email,
+                message: bodyText,
+                type: 'Manual Test Alert',
+                timestamp: timestamp
+            })
+        });
+        if (response.ok) {
+            emailStatus = 'delivered_to_gmail';
+        } else {
+            emailStatus = `sent_status_${response.status}`;
+        }
+    } catch (err) {
+        console.warn('Test email dispatch notice:', err);
+        emailStatus = 'queued';
+    }
+
     const logEntry = {
         id: `notif-test-${Date.now()}`,
         matchId: 'TEST-FIXTURE',
-        matchTitle: 'UWI Blackbirds vs Weymouth Wales (Test)',
+        matchTitle: 'Test Referee Signal',
         recipientEmail: email,
-        status: 'test_delivered',
+        status: emailStatus,
         timestamp,
         homeFormation: '4-3-3',
         awayFormation: '4-2-3-1',
