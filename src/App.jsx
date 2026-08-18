@@ -311,9 +311,21 @@ const DEFAULT_MATCHES = [
 
 // ── Main App ────────────────────────────────────────────────────────
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [selectedTournament, setSelectedTournament] = useState('PMC'); // 'PMC' | 'NSSL'
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return sessionStorage.getItem('eduvision-authenticated') === 'true';
+    } catch { return false; }
+  });
+  const [userRole, setUserRole] = useState(() => {
+    try {
+      return sessionStorage.getItem('eduvision-role') || null;
+    } catch { return null; }
+  });
+  const [selectedTournament, setSelectedTournament] = useState(() => {
+    try {
+      return sessionStorage.getItem('eduvision-tournament') || 'PMC';
+    } catch { return 'PMC'; }
+  });
   const [allStudents, setAllStudents] = useState(() => {
     try {
       const saved = localStorage.getItem('eduvision-students');
@@ -374,14 +386,47 @@ function App() {
   };
 
   const [selectedSchool, setSelectedSchool] = useState(() => {
-    return (allSchools && allSchools.length > 0) ? allSchools[0].id : 's1';
+    try {
+      const saved = sessionStorage.getItem('eduvision-school');
+      if (saved) return saved;
+    } catch {}
+    const initialTourn = (typeof window !== 'undefined' && sessionStorage.getItem('eduvision-tournament')) || 'PMC';
+    const schoolList = initialTourn === 'PMC' ? PMC_SCHOOLS : (allSchools && allSchools.length > 0 ? allSchools : SCHOOLS);
+    return (schoolList && schoolList.length > 0) ? schoolList[0].id : 's1';
   });
+
   const [selectedClassroom, setSelectedClassroom] = useState(() => {
-    const defaultSchool = (allSchools && allSchools.length > 0) ? allSchools[0].id : 's1';
-    return allTeams.find(c => c.schoolId === defaultSchool)?.id || '';
+    try {
+      const saved = sessionStorage.getItem('eduvision-classroom');
+      if (saved) return saved;
+    } catch {}
+    const initialTourn = (typeof window !== 'undefined' && sessionStorage.getItem('eduvision-tournament')) || 'PMC';
+    const teamList = initialTourn === 'PMC' ? PMC_TEAMS : (allTeams && allTeams.length > 0 ? allTeams : TEAMS);
+    const schoolList = initialTourn === 'PMC' ? PMC_SCHOOLS : (allSchools && allSchools.length > 0 ? allSchools : SCHOOLS);
+    const defaultSchool = (schoolList && schoolList.length > 0) ? schoolList[0].id : 's1';
+    return teamList.find(c => c.schoolId === defaultSchool)?.id || '';
   });
-  const [selectedYear, setSelectedYear] = useState(YEARS[YEARS.length - 1]);
-  const [selectedTerm, setSelectedTerm] = useState(TERMS[0]);
+
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return '2026-2027';
+  });
+  const [selectedTerm, setSelectedTerm] = useState('Matchday 1');
+
+  // Session persistence across hard refreshes
+  useEffect(() => {
+    try {
+      if (isAuthenticated && userRole) {
+        sessionStorage.setItem('eduvision-authenticated', 'true');
+        sessionStorage.setItem('eduvision-role', userRole);
+        sessionStorage.setItem('eduvision-tournament', selectedTournament);
+        sessionStorage.setItem('eduvision-school', selectedSchool);
+        sessionStorage.setItem('eduvision-classroom', selectedClassroom);
+      } else {
+        sessionStorage.removeItem('eduvision-authenticated');
+        sessionStorage.removeItem('eduvision-role');
+      }
+    } catch {}
+  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom]);
   const [subjects, setSubjects] = useState(DEFAULT_SUBJECTS);
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
