@@ -670,11 +670,16 @@ function App() {
     const isNowBothReady = !!updatedMatch?.homeSquadSelection && !!updatedMatch?.awaySquadSelection;
 
     if (!wasBothReady && isNowBothReady) {
-      const homeSc = schools.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
-      const awaySc = schools.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
+      const schoolsList = displaySchools || allSchools || [];
+      const homeSc = schoolsList.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
+      const awaySc = schoolsList.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
       const homeName = homeSc?.name || updatedMatch.homeTeam || 'Home Team';
       const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
-      sendRefereeSquadNotification(updatedMatch, homeName, awayName, allStudents);
+      try {
+        sendRefereeSquadNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
+      } catch (err) {
+        console.warn('Referee squad notification warning:', err);
+      }
     }
 
     const updateFn = prev => {

@@ -261,13 +261,11 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const getPlayerById = (id) => eligiblePlayers.find(p => p.id === id);
 
-    const handleSelectMatch = (matchId) => {
-        setSelectedMatchId(matchId);
-        setNotificationInfo(null);
-        
-        const match = matches.find(m => m.id === matchId);
+    // Automatically sync squad state when active match, school, or home/away orientation changes
+    useEffect(() => {
+        if (!selectedMatch) return;
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
-        const savedSquad = match?.[squadKey];
+        const savedSquad = selectedMatch[squadKey];
 
         if (savedSquad) {
             setFormation(savedSquad.formation || '4-3-3');
@@ -290,6 +288,11 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         setActiveSlotIndex(null);
         setSearchQuery('');
         setSubmitSuccess(false);
+    }, [selectedMatch?.id, schoolId, isHome]);
+
+    const handleSelectMatch = (matchId) => {
+        setSelectedMatchId(matchId);
+        setNotificationInfo(null);
     };
 
     const assignPlayerToSlot = (playerId) => {
@@ -349,7 +352,11 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         const awayName = getSchoolName(selectedMatch.awayTeamId, selectedMatch);
 
         if (opponentAlreadySubmitted) {
-            sendRefereeSquadNotification(updatedMatch, homeName, awayName, allPlayers);
+            try {
+                sendRefereeSquadNotification(updatedMatch, homeName, awayName, allPlayers);
+            } catch (e) {
+                console.warn('Referee notification warning:', e);
+            }
             setNotificationInfo({
                 bothReady: true,
                 refereeEmail: getRefereeContactSettings().refereeEmail,
