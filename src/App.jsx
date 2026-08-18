@@ -29,7 +29,7 @@ import RefereeDashboard from './components/referee/RefereeDashboard';
 import CommissionerDashboard from './components/commissioner/CommissionerDashboard';
 import FourthOfficialDashboard from './components/referee/FourthOfficialDashboard';
 import StatisticianDashboard from './components/statistician/StatisticianDashboard';
-import { sendRefereeSquadNotification } from './services/refereeNotificationService';
+import { sendRefereeSquadNotification, sendDataLoggerMatchReadyNotification } from './services/refereeNotificationService';
 
 // ── Icons (inline SVG) ──────────────────────────────────────────────
 const DownloadIcon = () => (
@@ -722,8 +722,9 @@ function App() {
       const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
       try {
         sendRefereeSquadNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
+        sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
       } catch (err) {
-        console.warn('Referee squad notification warning:', err);
+        console.warn('Match ready notifications warning:', err);
       }
     }
 

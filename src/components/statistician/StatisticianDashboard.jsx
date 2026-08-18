@@ -1,12 +1,43 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import LiveMatch from '../match/LiveMatch';
+import {
+    getRefereeContactSettings,
+    saveRefereeContactSettings,
+    sendDataLoggerMatchReadyNotification,
+    playDataLoggerAlertChime,
+    triggerDeviceNotification
+} from '../../services/refereeNotificationService';
 
 export default function StatisticianDashboard({ matches = [], schools = [], allPlayers = [], year = '2026-2027', onUpdateMatch, onEndMatch, onLogout }) {
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [dataLoggerEmail, setDataLoggerEmail] = useState(() => getRefereeContactSettings().refereeEmail || 'statistician.pmcup@gmail.com');
+    const [isEditingEmail, setIsEditingEmail] = useState(false);
+    const [loggerToast, setLoggerToast] = useState(null);
 
     const getSchoolObj = (schoolId) => {
-        return schools?.find(s => s.id === schoolId) || null;
+        return schools?.find(s => s.id === schoolId || s.rawId === schoolId) || null;
+    };
+
+    const handleSendTestLoggerAlert = async () => {
+        try {
+            playDataLoggerAlertChime();
+            triggerDeviceNotification('📡 Data Logger Alert Test: OK', {
+                body: `Test signal delivered to ${dataLoggerEmail}. Real-time event capture alerts online!`,
+                tag: 'logger-test'
+            });
+            await sendDataLoggerMatchReadyNotification(
+                { id: 'TEST-LOGGER', venue: 'National Stadium', matchday: 'Matchday 1', homeSquadSelection: { formation: '4-3-3' }, awaySquadSelection: { formation: '4-2-3-1' } },
+                'UWI Blackbirds',
+                'Weymouth Wales',
+                allPlayers,
+                dataLoggerEmail
+            );
+            setLoggerToast(`🧪 Test alert & signal chime delivered to ${dataLoggerEmail}!`);
+            setTimeout(() => setLoggerToast(null), 4000);
+        } catch (e) {
+            console.warn('Logger test alert warning:', e);
+        }
     };
 
     // Filter matches by search query (team name or venue)
@@ -151,6 +182,42 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                         />
                     </div>
                 </div>
+
+                {/* Data Logger Notification & Email Dispatch Bar */}
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
+                    padding: '12px 16px', borderRadius: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '16px' }}>📬</span>
+                        <div style={{ fontSize: '12px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Live Match Ready Alerts target: </span>
+                            <strong style={{ color: '#a5b4fc' }}>{dataLoggerEmail}</strong>
+                            <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '8px' }}>
+                                ● Active Formspree Relay
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {loggerToast && (
+                            <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700' }}>
+                                {loggerToast}
+                            </span>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleSendTestLoggerAlert}
+                            style={{
+                                padding: '6px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#ffffff',
+                                border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                            <span>🧪</span> Test Logger Alert
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Match Listings */}
@@ -277,16 +344,37 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                             <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
                                                 {awaySquadReady ? '✅' : '⏳'} Away Squad
                                             </span>
+                                            {homeSquadReady && awaySquadReady && (
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                                    🟢 READY TO LOG
+                                                </span>
+                                            )}
                                         </div>
 
-                                        <div style={{
-                                            padding: '10px 16px', borderRadius: '8px',
-                                            background: 'rgba(99,102,241,0.08)', color: 'var(--text-muted)',
-                                            border: '1px solid rgba(99,102,241,0.15)',
-                                            fontSize: '12px', fontWeight: '600', textAlign: 'center'
-                                        }}>
-                                            ⏳ Awaiting Referee Kick-Off
-                                        </div>
+                                        {homeSquadReady && awaySquadReady ? (
+                                            <button
+                                                onClick={() => handleSelectLiveMatch(m)}
+                                                style={{
+                                                    padding: '11px 16px', borderRadius: '8px',
+                                                    background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff',
+                                                    border: 'none', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer',
+                                                    boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                            >
+                                                <span>📡</span> Start Live Match Capture
+                                            </button>
+                                        ) : (
+                                            <div style={{
+                                                padding: '10px 16px', borderRadius: '8px',
+                                                background: 'rgba(99,102,241,0.08)', color: 'var(--text-muted)',
+                                                border: '1px solid rgba(99,102,241,0.15)',
+                                                fontSize: '12px', fontWeight: '600', textAlign: 'center'
+                                            }}>
+                                                ⏳ Awaiting Squad Submissions
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

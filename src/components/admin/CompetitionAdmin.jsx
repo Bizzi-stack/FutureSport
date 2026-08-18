@@ -2,6 +2,11 @@ import { useState, useMemo } from 'react';
 import LeagueTable from '../LeagueTable';
 import KnockoutBrackets from '../KnockoutBrackets';
 import CompetitionStats from '../CompetitionStats';
+import {
+    sendCoachSquadReminderNotification,
+    sendRefereeSquadNotification,
+    sendDataLoggerMatchReadyNotification
+} from '../../services/refereeNotificationService';
 
 const DEFAULT_VENUES = [
     { id: 'v1', name: 'Harrison College Field', status: 'Available' },
@@ -19,7 +24,8 @@ const DEFAULT_OFFICIALS = [
 ];
 
 export default function CompetitionAdmin({ schools, teams, matches, allStudents, year, onAddMatches, selectedTournament }) {
-    const [activeSubTab, setActiveSubTab] = useState('divisions'); // 'divisions' | 'venues' | 'generator' | 'standings' | 'knockout' | 'stats'
+    const [activeSubTab, setActiveSubTab] = useState('divisions'); // 'divisions' | 'venues' | 'generator' | 'standings' | 'knockout' | 'stats' | 'alerts'
+    const [adminAlertToast, setAdminAlertToast] = useState(null);
     
     // Generator states
     const [selectedDivision, setSelectedDivision] = useState(() => selectedTournament === 'PMC' ? 'PMC' : 'U14');
@@ -89,9 +95,10 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', height: '100%', minHeight: 0 }}>
             
             {/* Sub-navigation Tabs */}
-            <div style={{ display: 'flex', gap: '12px', borderBottom: 'var(--border)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', gap: '12px', borderBottom: 'var(--border)', paddingBottom: '10px', flexWrap: 'wrap' }}>
                 {[
                     { key: 'divisions', label: '🛡️ Divisions & Teams' },
+                    { key: 'alerts', label: '📢 Match Operations & Alerts' },
                     { key: 'standings', label: '📊 League Standings' },
                     { key: 'stats', label: '📈 Competition Stats' },
                     { key: 'knockout', label: '🏆 Knockouts' },
@@ -272,6 +279,160 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
 
                 {activeSubTab === 'stats' && (
                     <CompetitionStats matches={matches} teams={teams} schools={schools} allStudents={allStudents} year={year} />
+                )}
+
+                {activeSubTab === 'alerts' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {/* Admin Alert Feedback Toast */}
+                        {adminAlertToast && (
+                            <div style={{
+                                padding: '12px 18px', borderRadius: '10px',
+                                background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)',
+                                color: '#4ade80', fontSize: '13px', fontWeight: '700',
+                                display: 'flex', alignItems: 'center', gap: '10px'
+                            }}>
+                                <span>📬</span> {adminAlertToast}
+                            </div>
+                        )}
+
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        📢 Live Match Operations &amp; Official Notifications
+                                    </h3>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        Monitor team sheet readiness, dispatch coach submission reminders, and trigger official alerts.
+                                    </p>
+                                </div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                    ● Formspree Relay Connected
+                                </span>
+                            </div>
+
+                            {/* Fixtures list with alert action buttons */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {(matches || []).filter(m => m.status === 'upcoming' || m.status === 'scheduled' || m.status === 'live').map(m => {
+                                    const homeName = getSchoolName(m.homeTeamId);
+                                    const awayName = getSchoolName(m.awayTeamId);
+                                    const homeReady = !!m.homeSquadSelection;
+                                    const awayReady = !!m.awaySquadSelection;
+                                    const bothReady = homeReady && awayReady;
+
+                                    return (
+                                        <div key={m.id} style={{
+                                            padding: '16px', borderRadius: '12px',
+                                            background: bothReady ? 'rgba(34,197,94,0.05)' : 'rgba(255,255,255,0.02)',
+                                            border: bothReady ? '1px solid rgba(34,197,94,0.3)' : 'var(--border)',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px'
+                                        }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                                        {homeName} vs {awayName}
+                                                    </span>
+                                                    {m.status === 'live' && (
+                                                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
+                                                            🔴 LIVE
+                                                        </span>
+                                                    )}
+                                                    {bothReady && m.status !== 'live' && (
+                                                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
+                                                            ✓ SQUADS LOCKED
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                                                    {m.matchday || 'Matchday 1'} · {m.venue || 'Stadium'} · Ref: {m.referee || 'Assigned Referee'}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                {/* Home Squad Status / Remind Button */}
+                                                {!homeReady ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await sendCoachSquadReminderNotification(m, homeName, '', `Coach (${homeName})`, awayName);
+                                                                setAdminAlertToast(`✓ Squad reminder dispatched to ${homeName} Coach!`);
+                                                                setTimeout(() => setAdminAlertToast(null), 4000);
+                                                            } catch (e) {
+                                                                console.warn(e);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                                            background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
+                                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                                        }}
+                                                    >
+                                                        <span>⏰</span> Remind {homeName} Coach
+                                                    </button>
+                                                ) : (
+                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
+                                                        ✓ {homeName} Ready
+                                                    </span>
+                                                )}
+
+                                                {/* Away Squad Status / Remind Button */}
+                                                {!awayReady ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await sendCoachSquadReminderNotification(m, awayName, '', `Coach (${awayName})`, homeName);
+                                                                setAdminAlertToast(`✓ Squad reminder dispatched to ${awayName} Coach!`);
+                                                                setTimeout(() => setAdminAlertToast(null), 4000);
+                                                            } catch (e) {
+                                                                console.warn(e);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                                            background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
+                                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                                        }}
+                                                    >
+                                                        <span>⏰</span> Remind {awayName} Coach
+                                                    </button>
+                                                ) : (
+                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
+                                                        ✓ {awayName} Ready
+                                                    </span>
+                                                )}
+
+                                                {/* If both ready, allow manual broadcast alert */}
+                                                {bothReady && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await sendRefereeSquadNotification(m, homeName, awayName, allStudents);
+                                                                await sendDataLoggerMatchReadyNotification(m, homeName, awayName, allStudents);
+                                                                setAdminAlertToast(`✓ Official alerts & team sheets delivered to Referee and Data Loggers!`);
+                                                                setTimeout(() => setAdminAlertToast(null), 4000);
+                                                            } catch (e) {
+                                                                console.warn(e);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                                                            background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff',
+                                                            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                            boxShadow: '0 2px 8px rgba(16,185,129,0.3)'
+                                                        }}
+                                                    >
+                                                        <span>📡</span> Alert Officials
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

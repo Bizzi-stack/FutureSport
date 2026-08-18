@@ -12,7 +12,7 @@ const DEFAULT_SETTINGS = {
     customWebhookUrl: 'https://formspree.io/f/xrpzoljb'
 };
 
-// ── Web Audio API Whistle Sound Synthesizer ──────────────────────────
+// ── Web Audio API Whistle Sound Synthesizer (Referee) ──────────────────
 export function playRefereeWhistleSound() {
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -49,6 +49,63 @@ export function playRefereeWhistleSound() {
         osc2.stop(ctx.currentTime + 0.58);
     } catch (e) {
         console.warn('AudioContext not allowed or supported:', e);
+    }
+}
+
+// ── Web Audio API Coach Reminder Chime ────────────────────────────────
+export function playCoachReminderChime() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+
+        // 3-note melodic chime (C5 -> E5 -> G5)
+        const notes = [523.25, 659.25, 783.99];
+        notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+            gain.gain.setValueAtTime(0.25, ctx.currentTime + idx * 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.4);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + idx * 0.12);
+            osc.stop(ctx.currentTime + idx * 0.12 + 0.4);
+        });
+    } catch (e) {
+        console.warn('Coach chime audio error:', e);
+    }
+}
+
+// ── Web Audio API Data Logger Pulse Chime ─────────────────────────────
+export function playDataLoggerAlertChime() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+
+        // High-tech futuristic double beep (880Hz -> 1760Hz)
+        [880, 1760].forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.14);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime + idx * 0.14);
+            gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + idx * 0.14 + 0.18);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + idx * 0.14);
+            osc.stop(ctx.currentTime + idx * 0.14 + 0.18);
+        });
+    } catch (e) {
+        console.warn('Data logger chime audio error:', e);
     }
 }
 
@@ -241,6 +298,224 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
         id: `notif-${Date.now()}`,
         matchId: match.id,
         matchTitle: `${homeName} vs ${awayName}`,
+        recipientEmail,
+        status: emailStatus,
+        timestamp,
+        homeFormation,
+        awayFormation,
+        subject
+    };
+    appendNotificationLog(logEntry);
+
+    return {
+        success: true,
+        recipientEmail,
+        logEntry
+    };
+}
+
+// ── Coach Squad Submission Reminder Dispatcher ────────────────────────
+export async function sendCoachSquadReminderNotification(match, teamName, coachEmail = '', coachName = 'Coach', opponentName = 'Opponent') {
+    const settings = getRefereeContactSettings();
+    const recipientEmail = coachEmail || 'coach.pmcup@gmail.com';
+    const webhookUrl = settings.customWebhookUrl || 'https://formspree.io/f/xrpzoljb';
+    const timestamp = new Date().toLocaleString();
+
+    // 1. Play Coach Melodic Chime
+    if (settings.enableSoundAlert) {
+        playCoachReminderChime();
+    }
+
+    // 2. Trigger Device Push Notification
+    if (settings.enableDevicePush) {
+        triggerDeviceNotification(`⏰ Matchday Squad Reminder: ${teamName}`, {
+            body: `Match against ${opponentName} is scheduled at ${match?.venue || 'Stadium'}. Please submit your Starting XI now!`,
+            tag: `coach-reminder-${match?.id || 'fixture'}`
+        });
+    }
+
+    // 3. Dispatch Formspree Email to Coach
+    const subject = `⏰ [ACTION REQUIRED] Matchday Squad Submission Reminder: ${teamName} vs ${opponentName}`;
+    const bodyText = `
+MATCHDAY SQUAD SUBMISSION REMINDER
+==================================================
+Team: ${teamName}
+Head Coach: ${coachName}
+Opponent: ${opponentName}
+Tournament: Prime Minister's Cup 2026
+Venue: ${match?.venue || 'National Stadium'}
+Matchday: ${match?.matchday || match?.round || 'Upcoming Fixture'}
+Kickoff Time: ${match?.time || '18:00'}
+Status: SQUAD SUBMISSION PENDING
+==================================================
+
+Dear Coach ${coachName},
+
+This is an official matchday reminder to submit your Starting XI and Bench roster on the EduData Platform. 
+
+Please log into your Coach Portal and submit your matchday lineup so the Match Referee and Data Capture team can verify the team sheets before kickoff.
+
+Direct Portal Actions:
+1. Log in as Coach (${teamName})
+2. Navigate to "Matchday Squad"
+3. Select your formation, pick 11 starters and bench players, and tap "Submit Matchday Squad"
+
+Timestamp: ${timestamp}
+==================================================
+`;
+
+    let emailStatus = 'dispatched';
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                _subject: subject,
+                subject: subject,
+                to: recipientEmail,
+                coachName: coachName,
+                teamName: teamName,
+                opponent: opponentName,
+                venue: match?.venue || 'National Stadium',
+                kickoffTime: match?.time || '18:00',
+                message: bodyText,
+                timestamp: timestamp
+            })
+        });
+
+        if (response.ok) {
+            console.log(`[COACH REMINDER DISPATCHER] Email delivered to Coach via Formspree:`, { subject, recipientEmail });
+            emailStatus = 'delivered_to_coach';
+        } else {
+            emailStatus = `sent_status_${response.status}`;
+        }
+    } catch (err) {
+        console.warn('Coach reminder email dispatch notice:', err);
+        emailStatus = 'queued_for_coach';
+    }
+
+    const logEntry = {
+        id: `notif-coach-${Date.now()}`,
+        matchId: match?.id || 'COACH-REMINDER',
+        matchTitle: `${teamName} vs ${opponentName} (Coach Reminder)`,
+        recipientEmail,
+        status: emailStatus,
+        timestamp,
+        homeFormation: '-',
+        awayFormation: '-',
+        subject
+    };
+    appendNotificationLog(logEntry);
+
+    return {
+        success: true,
+        recipientEmail,
+        logEntry
+    };
+}
+
+// ── Data Logger / Statistician Match Ready Dispatcher ────────────────
+export async function sendDataLoggerMatchReadyNotification(match, homeName, awayName, allPlayers = [], customStatisticianEmail = '') {
+    const settings = getRefereeContactSettings();
+    const recipientEmail = customStatisticianEmail || 'statistician.pmcup@gmail.com';
+    const webhookUrl = settings.customWebhookUrl || 'https://formspree.io/f/xrpzoljb';
+    const timestamp = new Date().toLocaleString();
+
+    const homeXI = match.homeSquadSelection?.startingXI || [];
+    const awayXI = match.awaySquadSelection?.startingXI || [];
+    const homeFormation = match.homeSquadSelection?.formation || '4-3-3';
+    const awayFormation = match.awaySquadSelection?.formation || '4-3-3';
+
+    // 1. Play Data Logger Pulse Audio
+    if (settings.enableSoundAlert) {
+        playDataLoggerAlertChime();
+    }
+
+    // 2. Trigger Device Push Notification
+    if (settings.enableDevicePush) {
+        triggerDeviceNotification(`📡 Match Ready for Live Data Capture: ${homeName} vs ${awayName}`, {
+            body: `Both lineups locked (${homeFormation} vs ${awayFormation}). Open Statistician Panel to log match events!`,
+            tag: `datalogger-ready-${match.id}`
+        });
+    }
+
+    // 3. Dispatch Formspree Email to Statistician / Data Logger
+    const subject = `📡 [START LOGGING] Both Squads Submitted · Ready for Data Capture: ${homeName} vs ${awayName}`;
+    const bodyText = `
+FIELD DATA LOGGER & STATISTICIAN LIVE CAPTURE ALERT
+==================================================
+Match: ${homeName} vs ${awayName}
+Tournament: Prime Minister's Cup 2026
+Venue: ${match.venue || 'National Stadium'}
+Matchday: ${match.matchday || match.round || 'Group Stage'}
+Time: ${match.time || '18:00'}
+Status: BOTH SQUADS VERIFIED · READY FOR LIVE DATA CAPTURE
+
+--------------------------------------------------
+🟢 HOME SQUAD: ${homeName} (${homeFormation})
+--------------------------------------------------
+${formatPlayerList(homeXI, allPlayers)}
+
+--------------------------------------------------
+🔵 AWAY SQUAD: ${awayName} (${awayFormation})
+--------------------------------------------------
+${formatPlayerList(awayXI, allPlayers)}
+
+--------------------------------------------------
+Field Logger Instructions:
+1. Station at turf / scoring desk
+2. Open the "Field Live Data Capturer Portal"
+3. Select this match and tap "🔴 Live Match Event Capture" to log shots, passes, fouls, cards, and goals in real time.
+
+Timestamp: ${timestamp}
+Data Logger Contact: ${recipientEmail}
+==================================================
+`;
+
+    let emailStatus = 'dispatched';
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                _subject: subject,
+                subject: subject,
+                to: recipientEmail,
+                match: `${homeName} vs ${awayName}`,
+                homeTeam: homeName,
+                homeFormation: homeFormation,
+                homeStartingXI: formatPlayerList(homeXI, allPlayers),
+                awayTeam: awayName,
+                awayFormation: awayFormation,
+                awayStartingXI: formatPlayerList(awayXI, allPlayers),
+                venue: match.venue || 'National Stadium',
+                time: match.time || '18:00',
+                message: bodyText,
+                timestamp: timestamp
+            })
+        });
+
+        if (response.ok) {
+            console.log(`[DATA LOGGER DISPATCHER] Real Email delivered to Statistician via Formspree:`, { subject, webhookUrl });
+            emailStatus = 'delivered_to_statistician';
+        } else {
+            emailStatus = `sent_status_${response.status}`;
+        }
+    } catch (err) {
+        console.warn('Data logger email dispatch notice:', err);
+        emailStatus = 'queued_for_statistician';
+    }
+
+    const logEntry = {
+        id: `notif-logger-${Date.now()}`,
+        matchId: match.id,
+        matchTitle: `${homeName} vs ${awayName} (Data Logger Alert)`,
         recipientEmail,
         status: emailStatus,
         timestamp,
