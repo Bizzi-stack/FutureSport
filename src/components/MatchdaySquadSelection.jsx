@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { sendRefereeSquadNotification, getRefereeContactSettings } from '../services/refereeNotificationService';
+import { sendRefereeSquadNotification, sendCoachSquadReminderNotification, getRefereeContactSettings } from '../services/refereeNotificationService';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 // Each row has: y position (% from top), count of players, role, and position labels
@@ -160,6 +160,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [notificationInfo, setNotificationInfo] = useState(null);
+    const [reminderSentToast, setReminderSentToast] = useState(null);
 
     const schoolName = useMemo(() => {
         const sc = schools?.find(s => s.id === schoolId);
@@ -377,6 +378,25 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         }, 6000);
     };
 
+    const handleSendCoachSelfReminder = async () => {
+        if (!selectedMatch) return;
+        const opponentId = isHome ? selectedMatch.awayTeamId : selectedMatch.homeTeamId;
+        const opponentName = getSchoolName(opponentId, selectedMatch);
+        try {
+            await sendCoachSquadReminderNotification(
+                selectedMatch,
+                schoolName,
+                '', // defaults to coach contact
+                `Head Coach (${schoolName})`,
+                opponentName
+            );
+            setReminderSentToast(`✓ Squad submission reminder delivered to Coach email!`);
+            setTimeout(() => setReminderSentToast(null), 5000);
+        } catch (e) {
+            console.warn('Failed to send coach reminder:', e);
+        }
+    };
+
     const alreadySubmitted = useMemo(() => {
         if (!selectedMatch) return false;
         const key = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
@@ -503,20 +523,46 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     ) : alreadySubmitted ? (
                                         <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>✓ Squad Submitted</span>
                                     ) : (
-                                        <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{
-                                            padding: '8px 22px', borderRadius: '10px', fontSize: '12px', fontWeight: '800',
-                                            background: selectedStartingXIIds.length === 11 ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'rgba(255,255,255,0.06)',
-                                            color: selectedStartingXIIds.length === 11 ? '#ffffff' : 'var(--text-muted)',
-                                            border: selectedStartingXIIds.length === 11 ? 'none' : 'var(--border)',
-                                            cursor: selectedStartingXIIds.length === 11 ? 'pointer' : 'not-allowed',
-                                            boxShadow: selectedStartingXIIds.length === 11 ? '0 4px 14px rgba(37,99,235,0.4)' : 'none',
-                                            transition: 'all 0.15s ease'
-                                        }}>
-                                            Submit Squad ({formation})
-                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={handleSendCoachSelfReminder}
+                                                style={{
+                                                    padding: '8px 14px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700',
+                                                    background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                                }}
+                                                title="Send an email reminder to submit this squad before kickoff"
+                                            >
+                                                <span>⏰</span> Send Reminder
+                                            </button>
+                                            <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{
+                                                padding: '8px 22px', borderRadius: '10px', fontSize: '12px', fontWeight: '800',
+                                                background: selectedStartingXIIds.length === 11 ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'rgba(255,255,255,0.06)',
+                                                color: selectedStartingXIIds.length === 11 ? '#ffffff' : 'var(--text-muted)',
+                                                border: selectedStartingXIIds.length === 11 ? 'none' : 'var(--border)',
+                                                cursor: selectedStartingXIIds.length === 11 ? 'pointer' : 'not-allowed',
+                                                boxShadow: selectedStartingXIIds.length === 11 ? '0 4px 14px rgba(37,99,235,0.4)' : 'none',
+                                                transition: 'all 0.15s ease'
+                                            }}>
+                                                Submit Squad ({formation})
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </div>
+
+                            {/* Coach Reminder Toast Notification */}
+                            {reminderSentToast && (
+                                <div style={{
+                                    padding: '10px 16px', borderRadius: '10px',
+                                    background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)',
+                                    color: '#4ade80', fontSize: '12px', fontWeight: '700',
+                                    display: 'flex', alignItems: 'center', gap: '8px'
+                                }}>
+                                    <span>📬</span> {reminderSentToast}
+                                </div>
+                            )}
 
                             {/* Formation selector */}
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
