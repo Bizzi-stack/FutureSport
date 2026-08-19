@@ -7,33 +7,64 @@ import {
     playDataLoggerAlertChime,
     triggerDeviceNotification
 } from '../../services/refereeNotificationService';
+import { getAnalystAccounts } from '../../data/analystAccounts';
 
-export default function StatisticianDashboard({ matches = [], schools = [], allPlayers = [], year = '2026-2027', onUpdateMatch, onEndMatch, onLogout }) {
-    const [selectedMatch, setSelectedMatch] = useState(null);
+export default function StatisticianDashboard({
+    matches = [],
+    schools = [],
+    allPlayers = [],
+    year = '2026-2027',
+    currentAnalyst = null,
+    initialDirectMatchId = null,
+    onClearDirectMatchId = () => {},
+    onUpdateMatch,
+    onEndMatch,
+    onLogout
+}) {
+    const [selectedMatchId, setSelectedMatchId] = useState(() => initialDirectMatchId || null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [dataLoggerEmail, setDataLoggerEmail] = useState(() => getRefereeContactSettings().refereeEmail || 'statistician.pmcup@gmail.com');
-    const [isEditingEmail, setIsEditingEmail] = useState(false);
+    const [filterTab, setFilterTab] = useState('assigned'); // 'assigned' | 'all'
     const [loggerToast, setLoggerToast] = useState(null);
+
+    const activeAnalyst = useMemo(() => {
+        return currentAnalyst || getAnalystAccounts()[0];
+    }, [currentAnalyst]);
+
+    const dataLoggerEmail = activeAnalyst?.email || 'statistician.pmcup@gmail.com';
+
+    // Auto-select match if arriving via deep link (initialDirectMatchId)
+    useEffect(() => {
+        if (initialDirectMatchId) {
+            setSelectedMatchId(initialDirectMatchId);
+            onClearDirectMatchId();
+        }
+    }, [initialDirectMatchId, onClearDirectMatchId]);
 
     const getSchoolObj = (schoolId) => {
         return schools?.find(s => s.id === schoolId || s.rawId === schoolId) || null;
     };
 
+    // Keep live selected match synchronized with latest matches state
+    const selectedMatch = useMemo(() => {
+        if (!selectedMatchId) return null;
+        return matches.find(m => m.id === selectedMatchId) || null;
+    }, [matches, selectedMatchId]);
+
     const handleSendTestLoggerAlert = async () => {
         try {
             playDataLoggerAlertChime();
-            triggerDeviceNotification('📡 Data Logger Alert Test: OK', {
+            triggerDeviceNotification(`📡 Live Data Capture Alert: ${activeAnalyst?.name}`, {
                 body: `Test signal delivered to ${dataLoggerEmail}. Real-time event capture alerts online!`,
                 tag: 'logger-test'
             });
             await sendDataLoggerMatchReadyNotification(
-                { id: 'TEST-LOGGER', venue: 'National Stadium', matchday: 'Matchday 1', homeSquadSelection: { formation: '4-3-3' }, awaySquadSelection: { formation: '4-2-3-1' } },
+                { id: 'TEST-LOGGER', venue: activeAnalyst?.venue || 'National Stadium', matchday: 'Matchday 1', homeSquadSelection: { formation: '4-3-3' }, awaySquadSelection: { formation: '4-2-3-1' } },
                 'UWI Blackbirds',
                 'Weymouth Wales',
                 allPlayers,
                 dataLoggerEmail
             );
-            setLoggerToast(`🧪 Test alert & signal chime delivered to ${dataLoggerEmail}!`);
+            setLoggerToast(`🧪 Alert signal & deep link sent to ${dataLoggerEmail}!`);
             setTimeout(() => setLoggerToast(null), 4000);
         } catch (e) {
             console.warn('Logger test alert warning:', e);
@@ -42,37 +73,79 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
 
     // Filter matches by search query (team name or venue)
     const filteredMatches = useMemo(() => {
-        if (!searchQuery.trim()) return matches;
+        let list = matches;
+
+        if (filterTab === 'assigned' && activeAnalyst) {
+            const assignedIds = activeAnalyst.assignedMatchIds || [];
+            const venueKeyword = activeAnalyst.venue ? activeAnalyst.venue.toLowerCase().split(' ')[0] : '';
+            list = list.filter(m => {
+                if (assignedIds.includes(m.id)) return true;
+                if (venueKeyword && m.venue && m.venue.toLowerCase().includes(venueKeyword)) return true;
+                return false;
+            });
+            // If no matches directly matched assigned venue, show all matches so analyst is never stuck
+            if (list.length === 0) {
+                list = matches;
+            }
+        }
+
+        if (!searchQuery.trim()) return list;
         const q = searchQuery.toLowerCase();
-        return matches.filter(m => {
+        return list.filter(m => {
             const homeName = getSchoolObj(m.homeTeamId)?.name || m.homeTeam || '';
             const awayName = getSchoolObj(m.awayTeamId)?.name || m.awayTeam || '';
             const venue = m.venue || '';
             return homeName.toLowerCase().includes(q) || awayName.toLowerCase().includes(q) || venue.toLowerCase().includes(q);
         });
-    }, [matches, schools, searchQuery]);
+    }, [matches, schools, searchQuery, filterTab, activeAnalyst]);
 
     // Categorize matches
     const liveMatches = useMemo(() => filteredMatches.filter(m => m.status === 'live'), [filteredMatches]);
     const upcomingMatches = useMemo(() => filteredMatches.filter(m => m.status === 'upcoming' || m.status === 'scheduled'), [filteredMatches]);
     const completedMatches = useMemo(() => filteredMatches.filter(m => m.status === 'completed' || m.status === 'refereed'), [filteredMatches]);
 
-    // Statistician can only select already-live matches for data capture — no starting matches
-    const handleSelectLiveMatch = (match) => {
-        setSelectedMatch(match);
+    // When an analyst clicks a match
+    const handleSelectMatch = (match) => {
+        setSelectedMatchId(match.id);
     };
 
+    // Force Start Match (Field Override if referee whistled on pitch)
+    const handleForceStartLiveCapture = (match) => {
+        const updated = {
+            ...match,
+            status: 'live',
+            currentHalf: '1H',
+            matchTime: '00:00',
+            homeScore: match.homeScore || 0,
+            awayScore: match.awayScore || 0,
+            timeline: match.timeline || []
+        };
+        if (onUpdateMatch) onUpdateMatch(updated);
+        setSelectedMatchId(match.id);
+    };
+
+    // ── Selected Match View (Pre-Kickoff Waiting Room OR Active Live Match) ──
     if (selectedMatch) {
+        const isMatchLive = selectedMatch.status === 'live';
+        const homeSchool = getSchoolObj(selectedMatch.homeTeamId);
+        const awaySchool = getSchoolObj(selectedMatch.awayTeamId);
+        const homeName = homeSchool?.name || selectedMatch.homeTeam || 'Home Team';
+        const awayName = awaySchool?.name || selectedMatch.awayTeam || 'Away Team';
+        const homeXI = selectedMatch.homeSquadSelection?.startingXI || [];
+        const awayXI = selectedMatch.awaySquadSelection?.startingXI || [];
+        const homeFormation = selectedMatch.homeSquadSelection?.formation || '4-3-3';
+        const awayFormation = selectedMatch.awaySquadSelection?.formation || '4-3-3';
+
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
-                {/* Back to Match Selection Bar */}
+                {/* Top Navigation Bar */}
                 <div style={{ 
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                    padding: '12px 20px', background: 'rgba(15, 23, 42, 0.8)', borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    padding: '12px 20px', background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid rgba(255,255,255,0.1)',
                     marginBottom: '12px', borderRadius: '12px'
                 }}>
                     <button
-                        onClick={() => setSelectedMatch(null)}
+                        onClick={() => setSelectedMatchId(null)}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '8px 16px', borderRadius: '8px',
@@ -81,13 +154,26 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                             cursor: 'pointer'
                         }}
                     >
-                        ← Back to Match Selection
+                        ← Back to Match Fixtures
                     </button>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)' }}>
-                            🔴 LIVE DATA CAPTURE IN PROGRESS
-                        </span>
+                        {isMatchLive ? (
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
+                                🔴 LIVE DATA CAPTURE ACTIVE
+                            </span>
+                        ) : (
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#fbbf24', background: 'rgba(245,158,11,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>⏳</span> WAITING FOR REFEREE KICK-OFF
+                            </span>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <span style={{ fontSize: '14px' }}>{activeAnalyst.avatar}</span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#38bdf8' }}>{activeAnalyst.name}</span>
+                        </div>
+
                         {onLogout && (
                             <button
                                 onClick={onLogout}
@@ -104,99 +190,274 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                     </div>
                 </div>
 
-                {/* Embedded LiveMatch Engine */}
-                <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-                    <LiveMatch
-                        matchData={selectedMatch}
-                        match={selectedMatch}
-                        schools={schools}
-                        allStudents={allPlayers}
-                        allPlayers={allPlayers}
-                        year={year}
-                        onUpdateMatch={(updated) => {
-                            if (onUpdateMatch) onUpdateMatch(updated);
-                            setSelectedMatch(updated);
-                        }}
-                        onEndMatch={(finalData) => {
-                            if (onEndMatch) onEndMatch(finalData);
-                            setSelectedMatch(null);
-                        }}
-                    />
-                </div>
+                {/* Condition: If Match is LIVE -> Render Live Data Capture Console */}
+                {isMatchLive ? (
+                    <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                        <LiveMatch
+                            matchData={selectedMatch}
+                            match={selectedMatch}
+                            schools={schools}
+                            allStudents={allPlayers}
+                            allPlayers={allPlayers}
+                            year={year}
+                            onUpdateMatch={(updated) => {
+                                if (onUpdateMatch) onUpdateMatch(updated);
+                            }}
+                            onEndMatch={(finalData) => {
+                                if (onEndMatch) onEndMatch(finalData);
+                                setSelectedMatchId(null);
+                            }}
+                        />
+                    </div>
+                ) : (
+                    /* Condition: If Match is NOT LIVE -> Render Pre-Kickoff Waiting Room */
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px' }}>
+                        {/* Waiting Room Hero Banner */}
+                        <div className="glass-panel" style={{
+                            padding: '28px', borderRadius: '16px',
+                            background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,58,138,0.4))',
+                            border: '1px solid rgba(56,189,248,0.3)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px'
+                        }}>
+                            <div style={{
+                                width: '64px', height: '64px', borderRadius: '50%',
+                                background: 'rgba(56,189,248,0.15)', border: '2px solid rgba(56,189,248,0.4)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px'
+                            }}>
+                                📡
+                            </div>
+
+                            <div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                    Match Live Readiness Room · Deep Link Station
+                                </span>
+                                <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#ffffff', margin: '6px 0' }}>
+                                    {homeName} vs {awayName}
+                                </h1>
+                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', maxWidth: '580px', margin: '0 auto' }}>
+                                    Both teams have submitted their Starting XIs. The Match Referee has been notified with the team sheets. As soon as the referee blows the whistle to start the match on their device, this capture console will automatically activate.
+                                </p>
+                            </div>
+
+                            {/* Match Meta Badges */}
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
+                                    📍 Venue: {selectedMatch.venue || activeAnalyst.venue || 'National Stadium'}
+                                </span>
+                                <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
+                                    ⏰ Kickoff: {selectedMatch.time || selectedMatch.kickoff || '18:00'}
+                                </span>
+                                <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', fontSize: '12px', fontWeight: '700', color: '#38bdf8' }}>
+                                    👨🏽‍💻 Assigned Analyst: {activeAnalyst.name} ({activeAnalyst.email})
+                                </span>
+                            </div>
+
+                            {/* Live Pulse Indicator */}
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '10px 20px', borderRadius: '30px',
+                                background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fbbf24', boxShadow: '0 0 10px #fbbf24' }}></span>
+                                <span style={{ fontSize: '12.5px', color: '#fbbf24', fontWeight: '700' }}>
+                                    Stationed pitchside · Live sync listening for referee whistle...
+                                </span>
+                            </div>
+
+                            {/* Manual Override Action for Pitchside Testing */}
+                            <div style={{ marginTop: '8px' }}>
+                                <button
+                                    onClick={() => handleForceStartLiveCapture(selectedMatch)}
+                                    style={{
+                                        padding: '12px 24px', borderRadius: '10px',
+                                        background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#ffffff',
+                                        border: 'none', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
+                                        boxShadow: '0 4px 18px rgba(34, 197, 94, 0.4)',
+                                        display: 'flex', alignItems: 'center', gap: '8px'
+                                    }}
+                                >
+                                    <span>⚽</span> Referee Has Blown Whistle · Begin Live Stat Capture
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Verified Team Sheets Preview */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+                            {/* Home Squad */}
+                            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '4px solid #22c55e' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {homeSchool?.logo && <img src={homeSchool.logo} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />}
+                                        <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>{homeName}</h3>
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+                                        Formation: {homeFormation}
+                                    </span>
+                                </div>
+
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Confirmed Starting XI ({homeXI.length} Players):
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
+                                    {homeXI.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup yet.</div>
+                                    ) : (
+                                        homeXI.map((pId, idx) => {
+                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            return (
+                                                <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#4ade80' }}>#{p.jerseyNumber || '-'}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Away Squad */}
+                            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '4px solid #38bdf8' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {awaySchool?.logo && <img src={awaySchool.logo} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />}
+                                        <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>{awayName}</h3>
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', background: 'rgba(56,189,248,0.15)', color: '#38bdf8' }}>
+                                        Formation: {awayFormation}
+                                    </span>
+                                </div>
+
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Confirmed Starting XI ({awayXI.length} Players):
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
+                                    {awayXI.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup yet.</div>
+                                    ) : (
+                                        awayXI.map((pId, idx) => {
+                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            return (
+                                                <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{p.jerseyNumber || '-'}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
 
+    // ── Main Statistician Match Dashboard ─────────────────────────────────
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', height: '100%', padding: '4px' }}>
-            {/* Header Banner for Live Data Capturer */}
+            {/* Header Banner */}
             <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85))' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '24px' }}>📡</span>
-                            <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '32px' }}>{activeAnalyst.avatar}</span>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
-                                    Field Live Data Capturer Portal
+                                    {activeAnalyst.name}
                                 </h1>
-                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                                    Stationed at Turf / Venue · Select a live match to begin logging match statistics in real time.
-                                </p>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.3)' }}>
+                                    🏟️ {activeAnalyst.venue}
+                                </span>
                             </div>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                                Field Live Data Analyst · Logged in as <strong style={{ color: '#a5b4fc' }}>{dataLoggerEmail}</strong>
+                            </p>
                         </div>
                     </div>
-                    {onLogout && (
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {onLogout && (
+                            <button
+                                onClick={onLogout}
+                                style={{
+                                    padding: '10px 20px', borderRadius: '10px',
+                                    background: 'rgba(244,63,94,0.15)', color: '#f43f5e',
+                                    border: '1px solid rgba(244,63,94,0.3)', fontSize: '13px', fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Switch Account / Log Out
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Filter Tabs & Search Bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
                         <button
-                            onClick={onLogout}
+                            type="button"
+                            onClick={() => setFilterTab('assigned')}
                             style={{
-                                padding: '10px 20px', borderRadius: '10px',
-                                background: 'rgba(244,63,94,0.15)', color: '#f43f5e',
-                                border: '1px solid rgba(244,63,94,0.3)', fontSize: '13px', fontWeight: '700',
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                background: filterTab === 'assigned' ? 'rgba(56,189,248,0.25)' : 'transparent',
+                                color: filterTab === 'assigned' ? '#38bdf8' : 'rgba(255,255,255,0.7)',
+                                border: filterTab === 'assigned' ? '1px solid rgba(56,189,248,0.4)' : 'none',
                                 cursor: 'pointer'
                             }}
                         >
-                            Log Out
+                            ⭐ My Assigned Venue Fixtures
                         </button>
-                    )}
-                </div>
+                        <button
+                            type="button"
+                            onClick={() => setFilterTab('all')}
+                            style={{
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                background: filterTab === 'all' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                                color: filterTab === 'all' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                                border: 'none', cursor: 'pointer'
+                            }}
+                        >
+                            🌐 All Tournament Fixtures ({matches.length})
+                        </button>
+                    </div>
 
-                {/* Match Filter & Search Input */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                    <div style={{ position: 'relative', flex: 1 }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
                         <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, fontSize: '14px' }}>🔍</span>
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Identify match by club / team name (e.g. Wotton, UWI, Notre Dame, Ellerton...)"
+                            placeholder="Search by club, school, or venue..."
                             style={{
                                 width: '100%',
-                                padding: '12px 16px 12px 40px',
+                                padding: '10px 16px 10px 38px',
                                 borderRadius: '10px',
                                 background: 'rgba(3, 7, 18, 0.65)',
                                 border: '1px solid rgba(255, 255, 255, 0.15)',
                                 color: '#ffffff',
-                                fontSize: '14px',
+                                fontSize: '13px',
                                 outline: 'none'
                             }}
                         />
                     </div>
                 </div>
 
-                {/* Data Logger Notification & Email Dispatch Bar */}
+                {/* Email Dispatch Notification Status Bar */}
                 <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
-                    padding: '12px 16px', borderRadius: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)'
+                    padding: '10px 16px', borderRadius: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
                         <span style={{ fontSize: '16px' }}>📬</span>
-                        <div style={{ fontSize: '12px' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Live Match Ready Alerts target: </span>
-                            <strong style={{ color: '#a5b4fc' }}>{dataLoggerEmail}</strong>
-                            <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '8px' }}>
-                                ● Active Formspree Relay
-                            </span>
-                        </div>
+                        <span style={{ color: 'var(--text-muted)' }}>Notification Destination: </span>
+                        <strong style={{ color: '#a5b4fc' }}>{dataLoggerEmail}</strong>
+                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '8px' }}>
+                            ● Formspree Deep-Link Relay Online
+                        </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -214,7 +475,7 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                 border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                         >
-                            <span>🧪</span> Test Logger Alert
+                            <span>🧪</span> Test My Deep-Link Alert
                         </button>
                     </div>
                 </div>
@@ -234,7 +495,7 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
 
                     {liveMatches.length === 0 ? (
                         <div style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                            No active matches currently in progress. The Referee will kick off scheduled matches once both teams' squads are submitted.
+                            No active matches currently in progress. Select an upcoming match below to enter the live waiting room.
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
@@ -270,7 +531,7 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                         </div>
 
                                         <button
-                                            onClick={() => handleSelectLiveMatch(m)}
+                                            onClick={() => handleSelectMatch(m)}
                                             style={{
                                                 width: '100%', padding: '12px', borderRadius: '10px',
                                                 background: '#22c55e', color: '#ffffff', border: 'none',
@@ -279,7 +540,7 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                             }}
                                         >
-                                            ⚽ Capture Live Stats
+                                            ⚽ Enter Live Data Capture Console
                                         </button>
                                     </div>
                                 );
@@ -288,18 +549,18 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                     )}
                 </div>
 
-                {/* 2. Registered Scheduled Matches Section — Read Only */}
+                {/* 2. Registered Scheduled Fixtures */}
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <span style={{ fontSize: '16px' }}>📅</span>
                         <h2 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
-                            Registered Upcoming Fixtures ({upcomingMatches.length})
+                            Upcoming Match Fixtures ({upcomingMatches.length})
                         </h2>
                     </div>
 
                     {upcomingMatches.length === 0 ? (
                         <div style={{ padding: '24px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.08)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                            No upcoming scheduled matches found.
+                            No upcoming scheduled matches found in this view.
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px' }}>
@@ -308,6 +569,8 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                 const awaySchool = getSchoolObj(m.awayTeamId);
                                 const homeSquadReady = !!m.homeSquadSelection;
                                 const awaySquadReady = !!m.awaySquadSelection;
+                                const bothReady = homeSquadReady && awaySquadReady;
+
                                 return (
                                     <div key={m.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -344,36 +607,40 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                             <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
                                                 {awaySquadReady ? '✅' : '⏳'} Away Squad
                                             </span>
-                                            {homeSquadReady && awaySquadReady && (
-                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(34,197,94,0.3)' }}>
-                                                    🟢 READY TO LOG
+                                            {bothReady && (
+                                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.3)' }}>
+                                                    🟢 SQUADS SUBMITTED
                                                 </span>
                                             )}
                                         </div>
 
-                                        {homeSquadReady && awaySquadReady ? (
+                                        {bothReady ? (
                                             <button
-                                                onClick={() => handleSelectLiveMatch(m)}
+                                                onClick={() => handleSelectMatch(m)}
                                                 style={{
                                                     padding: '11px 16px', borderRadius: '8px',
-                                                    background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff',
+                                                    background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#ffffff',
                                                     border: 'none', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer',
-                                                    boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+                                                    boxShadow: '0 4px 14px rgba(14,165,233,0.35)',
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                                                     transition: 'all 0.15s ease'
                                                 }}
                                             >
-                                                <span>📡</span> Start Live Match Capture
+                                                <span>📡</span> Open Live Match Readiness Room
                                             </button>
                                         ) : (
-                                            <div style={{
-                                                padding: '10px 16px', borderRadius: '8px',
-                                                background: 'rgba(99,102,241,0.08)', color: 'var(--text-muted)',
-                                                border: '1px solid rgba(99,102,241,0.15)',
-                                                fontSize: '12px', fontWeight: '600', textAlign: 'center'
-                                            }}>
-                                                ⏳ Awaiting Squad Submissions
-                                            </div>
+                                            <button
+                                                onClick={() => handleSelectMatch(m)}
+                                                style={{
+                                                    padding: '10px 16px', borderRadius: '8px',
+                                                    background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                                }}
+                                            >
+                                                <span>📋</span> Preview Fixture & Lineups
+                                            </button>
                                         )}
                                     </div>
                                 );
@@ -406,7 +673,7 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                             {awaySchool?.logo && <img src={awaySchool.logo} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />}
                                         </div>
                                         <button
-                                            onClick={() => setSelectedMatch(m)}
+                                            onClick={() => setSelectedMatchId(m.id)}
                                             style={{
                                                 padding: '6px 12px', borderRadius: '6px',
                                                 background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)',
@@ -414,7 +681,7 @@ export default function StatisticianDashboard({ matches = [], schools = [], allP
                                                 cursor: 'pointer'
                                             }}
                                         >
-                                            View Stats
+                                            View Match Summary
                                         </button>
                                     </div>
                                 );
