@@ -8,7 +8,15 @@ import {
     playRefereeWhistleSound
 } from '../../services/refereeNotificationService';
 
-export default function RefereeDashboard({ matches, schools, allPlayers, year, onUpdateMatch }) {
+export default function RefereeDashboard({ 
+    matches, 
+    schools, 
+    allPlayers, 
+    year, 
+    currentReferee = null, 
+    onUpdateMatch, 
+    onLogout 
+}) {
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'live'
     
@@ -17,12 +25,12 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
     const [pitchCondition, setPitchCondition] = useState('Excellent');
     const [weatherCondition, setWeatherCondition] = useState('Sunny');
     const [refereeSummary, setRefereeSummary] = useState('');
-    const [refereeSignature, setRefereeSignature] = useState('');
+    const [refereeSignature, setRefereeSignature] = useState(currentReferee?.name || '');
     const [reportSaved, setReportSaved] = useState(false);
 
     // Referee Contact & Notification Settings State
     const [refereeSettings, setRefereeSettings] = useState(getRefereeContactSettings);
-    const [emailInput, setEmailInput] = useState(() => getRefereeContactSettings().refereeEmail || '');
+    const [emailInput, setEmailInput] = useState(() => currentReferee?.email || getRefereeContactSettings().refereeEmail || '');
     const [isEditingEmail, setIsEditingEmail] = useState(false);
     const [pushPermission, setPushPermission] = useState('default');
     const [testAlertToast, setTestAlertToast] = useState(null);
@@ -240,6 +248,28 @@ export default function RefereeDashboard({ matches, schools, allPlayers, year, o
                     >
                         <span>🧪</span> Send Test Alert
                     </button>
+
+                    {currentReferee && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.06)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <span>🟨</span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#fbbf24' }}>{currentReferee.name}</span>
+                        </div>
+                    )}
+
+                    {onLogout && (
+                        <button
+                            type="button"
+                            onClick={onLogout}
+                            style={{
+                                padding: '6px 12px', borderRadius: '8px',
+                                background: 'rgba(244,63,94,0.15)', color: '#f43f5e',
+                                border: '1px solid rgba(244,63,94,0.3)', fontSize: '11.5px', fontWeight: '700',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Log Out
+                        </button>
+                    )}
                 </div>
             </div>
 

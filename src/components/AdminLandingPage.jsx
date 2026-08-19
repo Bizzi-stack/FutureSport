@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SCHOOLS } from '../data/mockData';
-import { getAnalystAccounts } from '../data/analystAccounts';
+import { getOfficialsByRole, findOfficial } from '../data/matchOfficialAccounts';
 import DotField from './DotField';
 import './landing.css';
 
@@ -22,8 +22,17 @@ const AdminLandingPage = ({
   setSelectedTournament = () => {}
 }) => {
   const [selectedRole, setSelectedRole] = useState('super_admin');
-  const analystAccounts = useMemo(() => getAnalystAccounts(), []);
-  const [selectedAnalystId, setSelectedAnalystId] = useState(analystAccounts[0]?.id || 'analyst_1');
+  
+  // Official Accounts for Referee, Fourth Official, and Statistician
+  const currentRoleOfficials = useMemo(() => {
+    if (['referee', 'fourth_official', 'statistician'].includes(selectedRole)) {
+      return getOfficialsByRole(selectedRole);
+    }
+    return [];
+  }, [selectedRole]);
+
+  const [selectedOfficialUsername, setSelectedOfficialUsername] = useState('');
+  const [typedUsername, setTypedUsername] = useState('');
   const [deepLinkedMatchId, setDeepLinkedMatchId] = useState(null);
   
   const activeTeamsList = useMemo(() => {
@@ -42,7 +51,18 @@ const AdminLandingPage = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  // Check URL query parameters for deep linking (e.g. from email notifications)
+  // Default official account on role switch
+  useEffect(() => {
+    if (currentRoleOfficials.length > 0) {
+      setSelectedOfficialUsername(currentRoleOfficials[0].username);
+      setTypedUsername(currentRoleOfficials[0].username);
+    } else {
+      setSelectedOfficialUsername('');
+      setTypedUsername('');
+    }
+  }, [selectedRole, currentRoleOfficials]);
+
+  // Check URL query parameters for deep linking
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -57,14 +77,15 @@ const AdminLandingPage = ({
       if (matchIdParam) {
         setDeepLinkedMatchId(matchIdParam);
       }
-      if (analystIdParam) {
-        setSelectedAnalystId(analystIdParam);
-      } else if (analystEmailParam) {
-        const found = analystAccounts.find(a => a.email.toLowerCase() === analystEmailParam.toLowerCase());
-        if (found) setSelectedAnalystId(found.id);
+      if (analystIdParam || analystEmailParam) {
+        const found = findOfficial('statistician', analystIdParam || analystEmailParam);
+        if (found) {
+          setSelectedOfficialUsername(found.username);
+          setTypedUsername(found.username);
+        }
       }
     } catch { /* ignored */ }
-  }, [analystAccounts]);
+  }, []);
 
   // Update default selected team and sanitize selectedRole when tournament mode switches
   useEffect(() => {
@@ -118,19 +139,41 @@ const AdminLandingPage = ({
     setIsTeamDropdownOpen(false);
     setTeamSearchQuery('');
   };
+
+  const handleSelectOfficialAccount = (username) => {
+    setSelectedOfficialUsername(username);
+    setTypedUsername(username);
+  };
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    const selectedAnalystObj = selectedRole === 'statistician' 
-      ? (analystAccounts.find(a => a.id === selectedAnalystId) || analystAccounts[0])
-      : null;
+    const isOfficialRole = ['referee', 'fourth_official', 'statistician'].includes(selectedRole);
+    let officialProfile = null;
 
-    if (password === 'password' || (selectedAnalystObj && password === selectedAnalystObj.password)) {
+    if (isOfficialRole) {
+      officialProfile = findOfficial(selectedRole, typedUsername || selectedOfficialUsername) || currentRoleOfficials[0];
+    }
+
+    if (password === 'password' || (officialProfile && password === officialProfile.password)) {
       setError('');
-      onLogin(selectedRole, selectedRole === 'coach' ? selectedTeam : null, selectedAnalystObj, deepLinkedMatchId); 
+      onLogin(
+        selectedRole, 
+        selectedRole === 'coach' ? selectedTeam : null, 
+        officialProfile, 
+        deepLinkedMatchId
+      ); 
     } else {
       setError('Invalid password.');
     }
+  };
+
+  const isOfficialRole = ['referee', 'fourth_official', 'statistician'].includes(selectedRole);
+
+  const getRoleBadgeTitle = () => {
+    if (selectedRole === 'referee') return 'Referee Match Official Accounts';
+    if (selectedRole === 'fourth_official') return 'Fourth Official Accounts';
+    if (selectedRole === 'statistician') return 'Field Data Capturer Accounts';
+    return 'Official Accounts';
   };
 
   return (
@@ -154,19 +197,12 @@ const AdminLandingPage = ({
       {/* Foreground Content */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', minHeight: '100vh', pointerEvents: 'none' }}>
         
-
-
         {/* Hero Section Container */}
         <div className="hero-container" style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px 80px', gap: '40px' }}>
-          <div className="hero-text" style={{ width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', pointerEvents: 'auto' }}>
+          <div className="hero-text" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', pointerEvents: 'auto' }}>
             
-
-
-
-
             {/* Glassmorphic Login Card */}
-            <div className="login-card-wrapper" style={{ margin: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
-
+            <div className="login-card-wrapper" style={{ margin: 0, width: '100%', background: 'transparent', border: 'none', boxShadow: 'none' }}>
 
               {error && (
                 <div style={{
@@ -218,8 +254,11 @@ const AdminLandingPage = ({
                   </div>
                 </div>
 
+                {/* Role Selector */}
                 <div className="login-form-group" style={{ marginBottom: '4px' }}>
-                  <label htmlFor="role-select" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Select Portal Role</label>
+                  <label htmlFor="role-select" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    Select Portal Role
+                  </label>
                   <select 
                     id="role-select"
                     value={selectedRole} 
@@ -243,13 +282,14 @@ const AdminLandingPage = ({
                     {selectedTournament !== 'PMC' && <option value="league_admin">League Administrator</option>}
                     {selectedTournament !== 'PMC' && <option value="school_admin">School Administrator</option>}
                     <option value="coach">Coach / Team Manager</option>
-                    <option value="referee">Referee</option>
-                    <option value="fourth_official">Fourth Official</option>
-                    <option value="statistician">Statistician (Live Data Entry)</option>
+                    <option value="referee">Referee (Match Whistle & Official)</option>
+                    <option value="fourth_official">Fourth Official (Substitutions & Board)</option>
+                    <option value="statistician">Statistician / Live Data Entry</option>
                     {selectedTournament !== 'PMC' && <option value="commissioner">Match Commissioner</option>}
                   </select>
                 </div>
 
+                {/* Coach: Select Club */}
                 {selectedRole === 'coach' && (
                   <div className="login-form-group" ref={teamComboboxRef} style={{ marginBottom: '4px', position: 'relative' }}>
                     <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
@@ -357,24 +397,28 @@ const AdminLandingPage = ({
                   </div>
                 )}
 
-                {/* Dedicated Analyst Account Selector */}
-                {selectedRole === 'statistician' && (
-                  <div className="login-form-group" style={{ marginBottom: '6px' }}>
+                {/* Individual Username / Account Input for Referee, Fourth Official, and Statistician */}
+                {isOfficialRole && (
+                  <div className="login-form-group" style={{ marginBottom: '4px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <label style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Select Analyst Account
+                        Username or Account Email
                       </label>
                       <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '800', background: 'rgba(56,189,248,0.12)', padding: '1px 6px', borderRadius: '4px' }}>
-                        5 Registered Profiles
+                        {getRoleBadgeTitle()}
                       </span>
                     </div>
 
+                    {/* Account Selector Dropdown */}
                     <select
-                      value={selectedAnalystId}
-                      onChange={(e) => setSelectedAnalystId(e.target.value)}
+                      value={selectedOfficialUsername}
+                      onChange={(e) => {
+                        setSelectedOfficialUsername(e.target.value);
+                        setTypedUsername(e.target.value);
+                      }}
                       style={{
                         width: '100%',
-                        height: '44px',
+                        height: '42px',
                         padding: '0 12px',
                         borderRadius: '8px',
                         fontSize: '13px',
@@ -383,32 +427,33 @@ const AdminLandingPage = ({
                         border: '1px solid rgba(56, 189, 248, 0.3)',
                         color: '#ffffff',
                         outline: 'none',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        marginBottom: '8px'
                       }}
                     >
-                      {analystAccounts.map(a => (
-                        <option key={a.id} value={a.id}>
-                          {a.avatar} {a.name} ({a.email}) · {a.venue}
+                      {currentRoleOfficials.map(o => (
+                        <option key={o.id} value={o.username}>
+                          {o.avatar || '👤'} {o.name} ({o.username}) · {o.assignedVenue}
                         </option>
                       ))}
                     </select>
 
-                    {/* Quick switch chips for seamless testing */}
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                      {analystAccounts.map(a => (
+                    {/* Quick switch chips for seamless field testing */}
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      {currentRoleOfficials.map(o => (
                         <button
-                          key={a.id}
+                          key={o.id}
                           type="button"
-                          onClick={() => setSelectedAnalystId(a.id)}
+                          onClick={() => handleSelectOfficialAccount(o.username)}
                           style={{
-                            padding: '3px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '700',
-                            background: selectedAnalystId === a.id ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.03)',
-                            color: selectedAnalystId === a.id ? '#38bdf8' : 'rgba(255,255,255,0.6)',
-                            border: selectedAnalystId === a.id ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700',
+                            background: selectedOfficialUsername === o.username ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.03)',
+                            color: selectedOfficialUsername === o.username ? '#38bdf8' : 'rgba(255,255,255,0.6)',
+                            border: selectedOfficialUsername === o.username ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.06)',
                             cursor: 'pointer'
                           }}
                         >
-                          {a.name.split(' ')[0]}
+                          {o.name.split(' ')[0]} ({o.username})
                         </button>
                       ))}
                     </div>
@@ -427,8 +472,11 @@ const AdminLandingPage = ({
                   </div>
                 )}
 
+                {/* Password Input */}
                 <div className="login-form-group" style={{ marginBottom: 0 }}>
-                  <label htmlFor="password-input" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Password</label>
+                  <label htmlFor="password-input" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                    Password
+                  </label>
                   <input 
                     type="password" 
                     id="password-input"
@@ -440,8 +488,6 @@ const AdminLandingPage = ({
                   />
                 </div>
 
-
-
                 <button type="submit" className="submit" style={{ height: '44px', fontSize: '14px', fontWeight: '700', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid rgba(255, 255, 255, 0.1)', color: 'rgba(255, 255, 255, 0.7)', marginTop: 0 }}>
                   Log in to Dashboard
                 </button>
@@ -449,11 +495,7 @@ const AdminLandingPage = ({
               </form>
             </div>
 
-
-
           </div>
-
-
 
         </div>
 

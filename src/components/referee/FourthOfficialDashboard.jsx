@@ -1,6 +1,13 @@
 import { useState, useMemo } from 'react';
 
-export default function FourthOfficialDashboard({ matches = [], schools = [], allPlayers = [], onUpdateMatch }) {
+export default function FourthOfficialDashboard({ 
+    matches = [], 
+    schools = [], 
+    allPlayers = [], 
+    currentOfficial = null, 
+    onUpdateMatch, 
+    onLogout 
+}) {
     // Live matches and upcoming scheduled matches
     const liveMatches = useMemo(() => matches.filter(m => m.status === 'live'), [matches]);
     const upcomingMatches = useMemo(() => matches.filter(m => m.status === 'upcoming' || m.status === 'scheduled'), [matches]);
@@ -97,11 +104,41 @@ export default function FourthOfficialDashboard({ matches = [], schools = [], al
 
     return (
         <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', overflowY: 'auto' }}>
-            <div>
-                <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px', color: 'var(--text-primary)' }}>Fourth Official Touchline Portal</h2>
-                <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '13px' }}>
-                    Monitor active fixtures and process real-time live substitution requests from team coaches.
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                    <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '4px', color: 'var(--text-primary)' }}>
+                        Fourth Official Touchline Portal
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '13px' }}>
+                        Monitor active fixtures and process real-time live substitution requests from team coaches.
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {currentOfficial && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <span>📟</span>
+                            <div>
+                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8' }}>{currentOfficial.name}</div>
+                                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{currentOfficial.assignedVenue}</div>
+                            </div>
+                        </div>
+                    )}
+                    {onLogout && (
+                        <button
+                            type="button"
+                            onClick={onLogout}
+                            style={{
+                                padding: '8px 16px', borderRadius: '8px',
+                                background: 'rgba(244,63,94,0.15)', color: '#f43f5e',
+                                border: '1px solid rgba(244,63,94,0.3)', fontSize: '12px', fontWeight: '700',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Log Out
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* 1. Active Live Matches Section */}
