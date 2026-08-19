@@ -30,6 +30,7 @@ import CommissionerDashboard from './components/commissioner/CommissionerDashboa
 import FourthOfficialDashboard from './components/referee/FourthOfficialDashboard';
 import StatisticianDashboard from './components/statistician/StatisticianDashboard';
 import { sendRefereeSquadNotification, sendDataLoggerMatchReadyNotification } from './services/refereeNotificationService';
+import { getAnalystAccounts, findAnalystByEmailOrId } from './data/analystAccounts';
 
 // ── Icons (inline SVG) ──────────────────────────────────────────────
 const DownloadIcon = () => (
@@ -321,6 +322,22 @@ function App() {
       return sessionStorage.getItem('eduvision-role') || null;
     } catch { return null; }
   });
+  const [currentAnalyst, setCurrentAnalyst] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-analyst');
+      if (saved) return JSON.parse(saved);
+      const params = new URLSearchParams(window.location.search);
+      const analystIdParam = params.get('analystId') || params.get('analystEmail');
+      if (analystIdParam) return findAnalystByEmailOrId(analystIdParam);
+    } catch { /* ignored */ }
+    return getAnalystAccounts()[0];
+  });
+  const [directMatchId, setDirectMatchId] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('matchId') || null;
+    } catch { return null; }
+  });
   const [selectedTournament, setSelectedTournament] = useState(() => {
     try {
       return sessionStorage.getItem('eduvision-tournament') || 'PMC';
@@ -421,12 +438,16 @@ function App() {
         sessionStorage.setItem('eduvision-tournament', selectedTournament);
         sessionStorage.setItem('eduvision-school', selectedSchool);
         sessionStorage.setItem('eduvision-classroom', selectedClassroom);
+        if (currentAnalyst) {
+          sessionStorage.setItem('eduvision-current-analyst', JSON.stringify(currentAnalyst));
+        }
       } else {
         sessionStorage.removeItem('eduvision-authenticated');
         sessionStorage.removeItem('eduvision-role');
+        sessionStorage.removeItem('eduvision-current-analyst');
       }
     } catch {}
-  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom]);
+  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom, currentAnalyst]);
   const [subjects, setSubjects] = useState(DEFAULT_SUBJECTS);
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -825,34 +846,42 @@ function App() {
       nsslSchools={SCHOOLS}
       selectedTournament={selectedTournament}
       setSelectedTournament={setSelectedTournament}
-      onLogin={(role, coachTeamId) => {
-      setUserRole(role);
-      let activeSchool = selectedSchool;
+      onLogin={(role, coachTeamId, analystAccount, deepLinkedMatchId) => {
+        setUserRole(role);
+        let activeSchool = selectedSchool;
 
-      if (role === 'coach' && coachTeamId) {
-        // Coach chose a specific team at login
-        const teamObj = displayTeams.find(t => t.id === coachTeamId);
-        if (teamObj) {
-            activeSchool = teamObj.schoolId;
-            setSelectedSchool(activeSchool);
-            setSelectedClassroom(coachTeamId);
+        if (role === 'statistician') {
+          const acc = analystAccount || getAnalystAccounts()[0];
+          setCurrentAnalyst(acc);
+          if (deepLinkedMatchId) {
+            setDirectMatchId(deepLinkedMatchId);
+          }
         }
-      } else {
-        if (role === 'school_admin' || role === 'teacher' || role === 'principal') {
-            if (selectedSchool === 'ALL') {
-            activeSchool = allSchools[0].id;
-            setSelectedSchool(activeSchool);
-            }
+
+        if (role === 'coach' && coachTeamId) {
+          // Coach chose a specific team at login
+          const teamObj = displayTeams.find(t => t.id === coachTeamId);
+          if (teamObj) {
+              activeSchool = teamObj.schoolId;
+              setSelectedSchool(activeSchool);
+              setSelectedClassroom(coachTeamId);
+          }
+        } else {
+          if (role === 'school_admin' || role === 'teacher' || role === 'principal') {
+              if (selectedSchool === 'ALL') {
+              activeSchool = allSchools[0].id;
+              setSelectedSchool(activeSchool);
+              }
+          }
+          if (role === 'principal' || role === 'school_admin') {
+              setSelectedClassroom('ALL');
+          } else if (role === 'teacher') {
+              const firstClass = allTeams.find(c => c.schoolId === activeSchool);
+              if (firstClass) setSelectedClassroom(firstClass.id);
+          }
         }
-        if (role === 'principal' || role === 'school_admin') {
-            setSelectedClassroom('ALL');
-        } else if (role === 'teacher') {
-            const firstClass = allTeams.find(c => c.schoolId === activeSchool);
-            if (firstClass) setSelectedClassroom(firstClass.id);
-        }
-      }
-      setIsAuthenticated(true);
-    }} />;
+        setIsAuthenticated(true);
+      }} />;
   }
 
   return (
@@ -1320,9 +1349,16 @@ function App() {
                   schools={displaySchools}
                   allPlayers={displayStudents}
                   year={selectedYear}
+                  currentAnalyst={currentAnalyst}
+                  initialDirectMatchId={directMatchId}
+                  onClearDirectMatchId={() => setDirectMatchId(null)}
                   onUpdateMatch={handleUpdateMatch}
                   onEndMatch={handleEndMatch}
-                  onLogout={() => setUserRole(null)}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentAnalyst(null);
+                      setDirectMatchId(null);
+                  }}
               />
           )}
 

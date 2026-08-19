@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SCHOOLS } from '../data/mockData';
+import { getAnalystAccounts } from '../data/analystAccounts';
 import DotField from './DotField';
 import './landing.css';
 
@@ -21,6 +22,9 @@ const AdminLandingPage = ({
   setSelectedTournament = () => {}
 }) => {
   const [selectedRole, setSelectedRole] = useState('super_admin');
+  const analystAccounts = useMemo(() => getAnalystAccounts(), []);
+  const [selectedAnalystId, setSelectedAnalystId] = useState(analystAccounts[0]?.id || 'analyst_1');
+  const [deepLinkedMatchId, setDeepLinkedMatchId] = useState(null);
   
   const activeTeamsList = useMemo(() => {
     return selectedTournament === 'PMC' ? (pmcTeams.length ? pmcTeams : allTeams) : (nsslTeams.length ? nsslTeams : allTeams);
@@ -37,6 +41,30 @@ const AdminLandingPage = ({
 
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Check URL query parameters for deep linking (e.g. from email notifications)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const roleParam = params.get('role');
+      const analystIdParam = params.get('analystId');
+      const analystEmailParam = params.get('analystEmail');
+      const matchIdParam = params.get('matchId');
+
+      if (roleParam) {
+        setSelectedRole(roleParam);
+      }
+      if (matchIdParam) {
+        setDeepLinkedMatchId(matchIdParam);
+      }
+      if (analystIdParam) {
+        setSelectedAnalystId(analystIdParam);
+      } else if (analystEmailParam) {
+        const found = analystAccounts.find(a => a.email.toLowerCase() === analystEmailParam.toLowerCase());
+        if (found) setSelectedAnalystId(found.id);
+      }
+    } catch { /* ignored */ }
+  }, [analystAccounts]);
 
   // Update default selected team and sanitize selectedRole when tournament mode switches
   useEffect(() => {
@@ -93,9 +121,13 @@ const AdminLandingPage = ({
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (password === 'password') {
+    const selectedAnalystObj = selectedRole === 'statistician' 
+      ? (analystAccounts.find(a => a.id === selectedAnalystId) || analystAccounts[0])
+      : null;
+
+    if (password === 'password' || (selectedAnalystObj && password === selectedAnalystObj.password)) {
       setError('');
-      onLogin(selectedRole, selectedRole === 'coach' ? selectedTeam : null); 
+      onLogin(selectedRole, selectedRole === 'coach' ? selectedTeam : null, selectedAnalystObj, deepLinkedMatchId); 
     } else {
       setError('Invalid password.');
     }
@@ -322,6 +354,76 @@ const AdminLandingPage = ({
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Dedicated Analyst Account Selector */}
+                {selectedRole === 'statistician' && (
+                  <div className="login-form-group" style={{ marginBottom: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Select Analyst Account
+                      </label>
+                      <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '800', background: 'rgba(56,189,248,0.12)', padding: '1px 6px', borderRadius: '4px' }}>
+                        5 Registered Profiles
+                      </span>
+                    </div>
+
+                    <select
+                      value={selectedAnalystId}
+                      onChange={(e) => setSelectedAnalystId(e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '44px',
+                        padding: '0 12px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        background: 'rgba(3, 7, 18, 0.65)',
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        color: '#ffffff',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {analystAccounts.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.avatar} {a.name} ({a.email}) · {a.venue}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Quick switch chips for seamless testing */}
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {analystAccounts.map(a => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => setSelectedAnalystId(a.id)}
+                          style={{
+                            padding: '3px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '700',
+                            background: selectedAnalystId === a.id ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.03)',
+                            color: selectedAnalystId === a.id ? '#38bdf8' : 'rgba(255,255,255,0.6)',
+                            border: selectedAnalystId === a.id ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {a.name.split(' ')[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Deep Link Match Alert Notification */}
+                {deepLinkedMatchId && selectedRole === 'statistician' && (
+                  <div style={{
+                    padding: '8px 12px', borderRadius: '8px',
+                    background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+                    color: '#4ade80', fontSize: '11.5px', fontWeight: '700',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    <span>🔗</span> Deep Link Activated: Auto-routing to assigned match upon sign-in.
                   </div>
                 )}
 

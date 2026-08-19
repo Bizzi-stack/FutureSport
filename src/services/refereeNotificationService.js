@@ -1,4 +1,4 @@
-// ── Referee Notification & Email Dispatch Service ───────────────────────
+import { getAssignedAnalystForMatch, getAnalystAccounts } from '../data/analystAccounts';
 
 const SETTINGS_STORAGE_KEY = 'eduvision-referee-contact-settings';
 const LOGS_STORAGE_KEY = 'eduvision-referee-notification-logs';
@@ -421,10 +421,13 @@ Timestamp: ${timestamp}
     };
 }
 
-// ── Data Logger / Statistician Match Ready Dispatcher ────────────────
+// ── Data Logger / Statistician Match Ready Dispatcher (with Deep Linking) ───
 export async function sendDataLoggerMatchReadyNotification(match, homeName, awayName, allPlayers = [], customStatisticianEmail = '') {
     const settings = getRefereeContactSettings();
-    const recipientEmail = customStatisticianEmail || 'statistician.pmcup@gmail.com';
+    const assignedAnalyst = getAssignedAnalystForMatch(match);
+    const recipientEmail = customStatisticianEmail || assignedAnalyst?.email || 'statistician.pmcup@gmail.com';
+    const analystName = assignedAnalyst?.name || 'Field Live Data Analyst';
+    const analystId = assignedAnalyst?.id || 'analyst_1';
     const webhookUrl = settings.customWebhookUrl || 'https://formspree.io/f/xrpzoljb';
     const timestamp = new Date().toLocaleString();
 
@@ -432,6 +435,12 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
     const awayXI = match.awaySquadSelection?.startingXI || [];
     const homeFormation = match.homeSquadSelection?.formation || '4-3-3';
     const awayFormation = match.awaySquadSelection?.formation || '4-3-3';
+
+    // Generate Direct Deep Link into this match
+    const baseUrl = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost:5173')
+        ? window.location.origin 
+        : 'https://edudata-pmcup-app.surge.sh';
+    const deepLink = `${baseUrl}/?role=statistician&matchId=${match.id}&analystId=${analystId}&analystEmail=${encodeURIComponent(recipientEmail)}`;
 
     // 1. Play Data Logger Pulse Audio
     if (settings.enableSoundAlert) {
@@ -441,22 +450,36 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
     // 2. Trigger Device Push Notification
     if (settings.enableDevicePush) {
         triggerDeviceNotification(`📡 Match Ready for Live Data Capture: ${homeName} vs ${awayName}`, {
-            body: `Both lineups locked (${homeFormation} vs ${awayFormation}). Open Statistician Panel to log match events!`,
+            body: `Both Starting XIs submitted (${homeFormation} vs ${awayFormation}). Kick-off imminent — tap to open capture console!`,
             tag: `datalogger-ready-${match.id}`
         });
     }
 
-    // 3. Dispatch Formspree Email to Statistician / Data Logger
-    const subject = `📡 [START LOGGING] Both Squads Submitted · Ready for Data Capture: ${homeName} vs ${awayName}`;
+    // 3. Dispatch Tailored Email with Deep Link to Assigned Analyst via Formspree
+    const subject = `📡 [START LOGGING · KICK-OFF IMMINENT] Lineups Submitted: ${homeName} vs ${awayName}`;
     const bodyText = `
 FIELD DATA LOGGER & STATISTICIAN LIVE CAPTURE ALERT
 ==================================================
 Match: ${homeName} vs ${awayName}
 Tournament: Prime Minister's Cup 2026
-Venue: ${match.venue || 'National Stadium'}
+Venue: ${match.venue || assignedAnalyst?.venue || 'National Stadium'}
 Matchday: ${match.matchday || match.round || 'Group Stage'}
-Time: ${match.time || '18:00'}
-Status: BOTH SQUADS VERIFIED · READY FOR LIVE DATA CAPTURE
+Kickoff Time: ${match.time || '18:00'}
+Assigned Field Analyst: ${analystName} (${recipientEmail})
+Status: BOTH STARTING XIs SUBMITTED · REFEREE KICK-OFF AT ANY MOMENT
+
+--------------------------------------------------
+🔗 DIRECT MATCH ACCESS DEEP LINK:
+${deepLink}
+--------------------------------------------------
+
+Field Analyst Instructions:
+1. Tap the deep link above to open this match directly on the EduData Platform.
+2. Sign in with your Analyst credentials:
+   • Email: ${recipientEmail}
+   • Password: password
+3. The platform will automatically route you directly to this match in your Field Live Data Capturer Portal.
+4. When the referee blows the whistle to start the match on their end, the console will automatically unlock for real-time stat capturing.
 
 --------------------------------------------------
 🟢 HOME SQUAD: ${homeName} (${homeFormation})
@@ -467,12 +490,6 @@ ${formatPlayerList(homeXI, allPlayers)}
 🔵 AWAY SQUAD: ${awayName} (${awayFormation})
 --------------------------------------------------
 ${formatPlayerList(awayXI, allPlayers)}
-
---------------------------------------------------
-Field Logger Instructions:
-1. Station at turf / scoring desk
-2. Open the "Field Live Data Capturer Portal"
-3. Select this match and tap "🔴 Live Match Event Capture" to log shots, passes, fouls, cards, and goals in real time.
 
 Timestamp: ${timestamp}
 Data Logger Contact: ${recipientEmail}
@@ -493,6 +510,9 @@ Data Logger Contact: ${recipientEmail}
                 _subject: subject,
                 subject: subject,
                 to: recipientEmail,
+                analystName: analystName,
+                analystId: analystId,
+                deepLink: deepLink,
                 match: `${homeName} vs ${awayName}`,
                 homeTeam: homeName,
                 homeFormation: homeFormation,
@@ -508,7 +528,7 @@ Data Logger Contact: ${recipientEmail}
         });
 
         if (response.ok) {
-            console.log(`[DATA LOGGER DISPATCHER] Real Email delivered to Statistician via Formspree:`, { subject, webhookUrl });
+            console.log(`[DATA LOGGER DISPATCHER] Real Email delivered to Statistician via Formspree:`, { subject, webhookUrl, deepLink });
             emailStatus = 'delivered_to_statistician';
         } else {
             emailStatus = `sent_status_${response.status}`;
