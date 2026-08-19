@@ -262,6 +262,8 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
+                email: recipientEmail,
+                _replyto: recipientEmail,
                 _subject: subject,
                 subject: subject,
                 to: recipientEmail,
@@ -373,6 +375,8 @@ Timestamp: ${timestamp}
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
+                email: recipientEmail,
+                _replyto: recipientEmail,
                 _subject: subject,
                 subject: subject,
                 to: recipientEmail,
@@ -484,6 +488,8 @@ Data Logger Contact: ${recipientEmail}
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
+                email: recipientEmail,
+                _replyto: recipientEmail,
                 _subject: subject,
                 subject: subject,
                 to: recipientEmail,
