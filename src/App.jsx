@@ -30,6 +30,7 @@ import CommissionerDashboard from './components/commissioner/CommissionerDashboa
 import FourthOfficialDashboard from './components/referee/FourthOfficialDashboard';
 import StatisticianDashboard from './components/statistician/StatisticianDashboard';
 import { sendRefereeSquadNotification, sendDataLoggerMatchReadyNotification } from './services/refereeNotificationService';
+import { getOfficialsByRole, findOfficial } from './data/matchOfficialAccounts';
 import { getAnalystAccounts, findAnalystByEmailOrId } from './data/analystAccounts';
 
 // ── Icons (inline SVG) ──────────────────────────────────────────────
@@ -328,9 +329,23 @@ function App() {
       if (saved) return JSON.parse(saved);
       const params = new URLSearchParams(window.location.search);
       const analystIdParam = params.get('analystId') || params.get('analystEmail');
-      if (analystIdParam) return findAnalystByEmailOrId(analystIdParam);
+      if (analystIdParam) return findOfficial('statistician', analystIdParam);
     } catch { /* ignored */ }
-    return getAnalystAccounts()[0];
+    return getOfficialsByRole('statistician')[0];
+  });
+  const [currentReferee, setCurrentReferee] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-referee');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignored */ }
+    return getOfficialsByRole('referee')[0];
+  });
+  const [currentFourthOfficial, setCurrentFourthOfficial] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-fourth-official');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignored */ }
+    return getOfficialsByRole('fourth_official')[0];
   });
   const [directMatchId, setDirectMatchId] = useState(() => {
     try {
@@ -441,13 +456,21 @@ function App() {
         if (currentAnalyst) {
           sessionStorage.setItem('eduvision-current-analyst', JSON.stringify(currentAnalyst));
         }
+        if (currentReferee) {
+          sessionStorage.setItem('eduvision-current-referee', JSON.stringify(currentReferee));
+        }
+        if (currentFourthOfficial) {
+          sessionStorage.setItem('eduvision-current-fourth-official', JSON.stringify(currentFourthOfficial));
+        }
       } else {
         sessionStorage.removeItem('eduvision-authenticated');
         sessionStorage.removeItem('eduvision-role');
         sessionStorage.removeItem('eduvision-current-analyst');
+        sessionStorage.removeItem('eduvision-current-referee');
+        sessionStorage.removeItem('eduvision-current-fourth-official');
       }
     } catch {}
-  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom, currentAnalyst]);
+  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom, currentAnalyst, currentReferee, currentFourthOfficial]);
   const [subjects, setSubjects] = useState(DEFAULT_SUBJECTS);
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -846,12 +869,18 @@ function App() {
       nsslSchools={SCHOOLS}
       selectedTournament={selectedTournament}
       setSelectedTournament={setSelectedTournament}
-      onLogin={(role, coachTeamId, analystAccount, deepLinkedMatchId) => {
+      onLogin={(role, coachTeamId, officialProfile, deepLinkedMatchId) => {
         setUserRole(role);
         let activeSchool = selectedSchool;
 
-        if (role === 'statistician') {
-          const acc = analystAccount || getAnalystAccounts()[0];
+        if (role === 'referee') {
+          const ref = officialProfile || getOfficialsByRole('referee')[0];
+          setCurrentReferee(ref);
+        } else if (role === 'fourth_official') {
+          const fo = officialProfile || getOfficialsByRole('fourth_official')[0];
+          setCurrentFourthOfficial(fo);
+        } else if (role === 'statistician') {
+          const acc = officialProfile || getOfficialsByRole('statistician')[0];
           setCurrentAnalyst(acc);
           if (deepLinkedMatchId) {
             setDirectMatchId(deepLinkedMatchId);
@@ -1317,7 +1346,12 @@ function App() {
                   schools={displaySchools}
                   allPlayers={displayStudents}
                   year={selectedYear}
+                  currentReferee={currentReferee}
                   onUpdateMatch={handleUpdateMatch}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentReferee(null);
+                  }}
               />
           )}
 
@@ -1327,7 +1361,12 @@ function App() {
                   matches={displayMatches}
                   schools={displaySchools}
                   allPlayers={displayStudents}
+                  currentOfficial={currentFourthOfficial}
                   onUpdateMatch={handleUpdateMatch}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentFourthOfficial(null);
+                  }}
               />
           )}
 
