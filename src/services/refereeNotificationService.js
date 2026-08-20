@@ -204,7 +204,7 @@ function formatPlayerList(playerIds = [], allPlayers = []) {
     }).join('\n');
 }
 
-// ── FormSubmit.co Multi-Recipient Dispatch Relay with Formspree Backup ────
+// ── FormSubmit.co Multi-Recipient Dispatch Relay ──────────────────────
 export async function sendFormSubmitEmail(primaryEmail, ccList = [], payload = {}) {
     const recipient = primaryEmail || 'ralphjamesjr00@gmail.com';
     const targetUrl = `https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`;
@@ -224,40 +224,20 @@ export async function sendFormSubmitEmail(primaryEmail, ccList = [], payload = {
         ...payload
     };
 
-    // 1. Primary Dispatch via FormSubmit.co
-    const formSubmitPromise = fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(bodyData)
-    }).catch(err => {
-        console.warn('FormSubmit notice:', err);
+    try {
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(bodyData)
+        });
+        return response;
+    } catch (err) {
+        console.warn('FormSubmit dispatch notice:', err);
         return { ok: false };
-    });
-
-    // 2. Backup Dual-Relay via Formspree
-    const formspreePromise = fetch('https://formspree.io/f/xrpzoljb', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-            email: recipient,
-            _replyto: recipient,
-            to: [recipient, cleanCc].filter(Boolean).join(', '),
-            _subject: bodyData._subject,
-            ...payload
-        })
-    }).catch(err => {
-        console.warn('Formspree dual-relay notice:', err);
-        return { ok: false };
-    });
-
-    const [formSubmitRes] = await Promise.all([formSubmitPromise, formspreePromise]);
-    return formSubmitRes;
+    }
 }
 
 // ── Dispatch Squad Notification to Referee ───────────────────────────
