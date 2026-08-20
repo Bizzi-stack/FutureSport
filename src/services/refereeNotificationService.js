@@ -296,10 +296,7 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
     // 3. Dispatch Real Email via FormSubmit.co Multi-Recipient Engine
     let emailStatus = 'dispatched';
     try {
-        const response = await sendFormSubmitEmail(
-            recipientEmail, 
-            ['noah@futurebarbados.bb', 'tariq@futurebarbados.bb', 'jakob@futurebarbados.bb'], 
-            {
+            ['noah@futurebarbados.bb'],
                 _subject: subject,
                 Subject: subject,
                 Role: 'Official Match Referee',
@@ -413,7 +410,7 @@ export async function sendCoachSquadReminderNotification(match, teamName, coachE
 // ── Data Logger Match Ready Alert Dispatcher ──────────────────────────
 export async function sendDataLoggerMatchReadyNotification(match, homeName, awayName, allPlayers = [], customLoggerEmail = null) {
     const assignedAnalyst = getAssignedAnalystForMatch(match);
-    const recipientEmail = customLoggerEmail || assignedAnalyst?.email || 'noah@futurebarbados.bb';
+    const recipientEmail = customLoggerEmail || 'noah@futurebarbados.bb';
     const analystName = assignedAnalyst?.name || 'Field Data Analyst';
     const analystId = assignedAnalyst?.id || 'analyst_noah';
     const timestamp = new Date().toLocaleString();
@@ -443,7 +440,7 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
     try {
         const response = await sendFormSubmitEmail(
             recipientEmail,
-            ['ralphjamesjr00@gmail.com', 'noah@futurebarbados.bb', 'tariq@futurebarbados.bb', 'jakob@futurebarbados.bb'],
+            [],
             {
                 _subject: subject,
                 Subject: subject,
