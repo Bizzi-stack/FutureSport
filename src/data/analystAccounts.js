@@ -9,33 +9,9 @@ export const DEFAULT_ANALYSTS = [
         password: 'password',
         role: 'statistician',
         venue: 'National Stadium',
-        assignedMatchIds: ['match-pmc-1', 'scheduled-seed-1', 'scheduled-seed-4'],
+        assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
         avatar: '👨🏽‍💻',
         badgeColor: '#38bdf8'
-    },
-    {
-        id: 'analyst_tariq',
-        username: 'tariq',
-        name: 'Tariq',
-        email: 'tariq@futurebarbados.bb',
-        password: 'password',
-        role: 'statistician',
-        venue: 'Usain Bolt Sports Complex',
-        assignedMatchIds: ['match-pmc-2', 'scheduled-seed-2', 'scheduled-seed-5'],
-        avatar: '👨🏾‍💻',
-        badgeColor: '#4ade80'
-    },
-    {
-        id: 'analyst_jakob',
-        username: 'jakob',
-        name: 'Jakob',
-        email: 'jakob@futurebarbados.bb',
-        password: 'password',
-        role: 'statistician',
-        venue: 'Wildey Turf',
-        assignedMatchIds: ['match-pmc-3', 'scheduled-seed-3'],
-        avatar: '👨🏼‍💻',
-        badgeColor: '#fbbf24'
     },
     {
         id: 'analyst_marcus',
@@ -70,6 +46,11 @@ export function getAnalystAccounts() {
         const saved = localStorage.getItem(ANALYST_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
+            const str = JSON.stringify(parsed);
+            if (str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+                localStorage.setItem(ANALYST_STORAGE_KEY, JSON.stringify(DEFAULT_ANALYSTS));
+                return DEFAULT_ANALYSTS;
+            }
             if (Array.isArray(parsed) && parsed.length > 0) {
                 return parsed;
             }

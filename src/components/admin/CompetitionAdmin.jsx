@@ -306,7 +306,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                     </p>
                                 </div>
                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)' }}>
-                                    ● Formspree Relay Connected
+                                    ● FormSubmit Relay Connected
                                 </span>
                             </div>
 

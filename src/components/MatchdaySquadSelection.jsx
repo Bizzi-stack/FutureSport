@@ -358,12 +358,6 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         const awayName = getSchoolName(selectedMatch.awayTeamId, selectedMatch);
 
         if (opponentAlreadySubmitted) {
-            try {
-                sendRefereeSquadNotification(updatedMatch, homeName, awayName, allPlayers);
-                sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, allPlayers);
-            } catch (e) {
-                console.warn('Match ready notifications warning:', e);
-            }
             setNotificationInfo({
                 bothReady: true,
                 refereeEmail: getRefereeContactSettings().refereeEmail,

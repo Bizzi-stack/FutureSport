@@ -456,7 +456,7 @@ export default function StatisticianDashboard({
                         <span style={{ color: 'var(--text-muted)' }}>Notification Destination: </span>
                         <strong style={{ color: '#a5b4fc' }}>{dataLoggerEmail}</strong>
                         <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '8px' }}>
-                            ● Formspree Deep-Link Relay Online
+                            ● FormSubmit Deep-Link Relay Online
                         </span>
                     </div>
 
