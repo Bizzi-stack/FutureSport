@@ -95,6 +95,8 @@ export function playChimeSound() {
     } catch { /* ignored */ }
 }
 
+export const playDataLoggerAlertChime = playChimeSound;
+
 // ── Contact Settings Storage ──────────────────────────────────────────
 export function getRefereeContactSettings() {
     try {
