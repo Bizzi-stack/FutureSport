@@ -4,7 +4,7 @@ const SETTINGS_STORAGE_KEY = 'eduvision-referee-contact-settings';
 const LOGS_STORAGE_KEY = 'eduvision-referee-notification-logs';
 
 const DEFAULT_SETTINGS = {
-    refereeEmail: 'referee.pmcup@gmail.com',
+    refereeEmail: 'ralphjamesjr00@gmail.com',
     refereeName: 'Official Match Referee',
     enableEmail: true,
     enableDevicePush: true,
