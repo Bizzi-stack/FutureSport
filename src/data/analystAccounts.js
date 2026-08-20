@@ -2,20 +2,22 @@
 
 export const DEFAULT_ANALYSTS = [
     {
-        id: 'analyst_1',
-        name: 'Marcus Thorne',
-        email: 'analyst1.pmcup@gmail.com',
+        id: 'analyst_noah',
+        username: 'noah',
+        name: 'Noah',
+        email: 'noah@futurebarbados.bb',
         password: 'password',
         role: 'statistician',
-        venue: 'Kensington Oval',
+        venue: 'National Stadium',
         assignedMatchIds: ['match-pmc-1', 'scheduled-seed-1', 'scheduled-seed-4'],
         avatar: '👨🏽‍💻',
         badgeColor: '#38bdf8'
     },
     {
-        id: 'analyst_2',
-        name: 'Devon Clarke',
-        email: 'analyst2.pmcup@gmail.com',
+        id: 'analyst_tariq',
+        username: 'tariq',
+        name: 'Tariq',
+        email: 'tariq@futurebarbados.bb',
         password: 'password',
         role: 'statistician',
         venue: 'Usain Bolt Sports Complex',
@@ -24,36 +26,39 @@ export const DEFAULT_ANALYSTS = [
         badgeColor: '#4ade80'
     },
     {
-        id: 'analyst_3',
-        name: 'Aaliyah Brathwaite',
-        email: 'analyst3.pmcup@gmail.com',
+        id: 'analyst_jakob',
+        username: 'jakob',
+        name: 'Jakob',
+        email: 'jakob@futurebarbados.bb',
         password: 'password',
         role: 'statistician',
         venue: 'Wildey Turf',
         assignedMatchIds: ['match-pmc-3', 'scheduled-seed-3'],
-        avatar: '👩🏽‍💻',
+        avatar: '👨🏼‍💻',
         badgeColor: '#fbbf24'
     },
     {
-        id: 'analyst_4',
-        name: 'Jaden Sealy',
-        email: 'analyst4.pmcup@gmail.com',
+        id: 'analyst_marcus',
+        username: 'marcus.thorne',
+        name: 'Marcus Thorne',
+        email: 'analyst1.pmcup@gmail.com',
         password: 'password',
         role: 'statistician',
         venue: 'RBC Field',
         assignedMatchIds: ['match-pmc-4'],
-        avatar: '👨🏿‍💻',
+        avatar: '👨🏽‍💻',
         badgeColor: '#f472b6'
     },
     {
-        id: 'analyst_5',
-        name: 'Rico Alleyne',
-        email: 'analyst5.pmcup@gmail.com',
+        id: 'analyst_devon',
+        username: 'devon.clarke',
+        name: 'Devon Clarke',
+        email: 'analyst2.pmcup@gmail.com',
         password: 'password',
         role: 'statistician',
         venue: 'Combermere Grounds',
         assignedMatchIds: ['match-pmc-5'],
-        avatar: '👨🏽‍💻',
+        avatar: '👨🏾‍💻',
         badgeColor: '#a78bfa'
     }
 ];
@@ -89,7 +94,12 @@ export function findAnalystByEmailOrId(query) {
     if (!query) return null;
     const list = getAnalystAccounts();
     const clean = String(query).trim().toLowerCase();
-    return list.find(a => a.id.toLowerCase() === clean || a.email.toLowerCase() === clean) || null;
+    return list.find(a => 
+        a.id.toLowerCase() === clean || 
+        a.email.toLowerCase() === clean ||
+        a.username?.toLowerCase() === clean ||
+        a.name.toLowerCase() === clean
+    ) || null;
 }
 
 export function getAssignedAnalystForMatch(match) {
