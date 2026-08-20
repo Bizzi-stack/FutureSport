@@ -48,6 +48,7 @@ export default function TileDataCaptureControlPanel({
     playerStats = {},
     elapsed = 0,
     period = '1H',
+    isPaused = false,
     onQuickLogEvent,
     onShotModal,
     onGkSaveModal
@@ -67,16 +68,18 @@ export default function TileDataCaptureControlPanel({
     // Notification toast state
     const [toastMessage, setToastMessage] = useState(null);
 
-    // Possession Timer Effect
+    // Possession Timer Effect (Only ticks when match timer is actively running and not at Half-Time)
     useEffect(() => {
         let interval = null;
-        if (possessionSide === 'home') {
-            interval = setInterval(() => setHomePossessionSecs(s => s + 1), 1000);
-        } else if (possessionSide === 'away') {
-            interval = setInterval(() => setAwayPossessionSecs(s => s + 1), 1000);
+        if (!isPaused && period !== 'HT') {
+            if (possessionSide === 'home') {
+                interval = setInterval(() => setHomePossessionSecs(s => s + 1), 1000);
+            } else if (possessionSide === 'away') {
+                interval = setInterval(() => setAwayPossessionSecs(s => s + 1), 1000);
+            }
         }
         return () => { if (interval) clearInterval(interval); };
-    }, [possessionSide]);
+    }, [possessionSide, isPaused, period]);
 
     // Calculate Possession Percentages
     const totalPossessionSecs = homePossessionSecs + awayPossessionSecs;
@@ -206,8 +209,8 @@ export default function TileDataCaptureControlPanel({
                             Live Team Possession Tracker
                         </h3>
                     </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                        Click team tile when ball possession switches
+                    <span style={{ fontSize: '11px', color: (isPaused || period === 'HT') ? '#f59e0b' : 'var(--text-muted)', fontWeight: '700' }}>
+                        {(isPaused || period === 'HT') ? '⏸️ Match Clock Paused · Possession Clock Frozen' : 'Click team tile when ball possession switches'}
                     </span>
                 </div>
 
@@ -222,10 +225,12 @@ export default function TileDataCaptureControlPanel({
                                 ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(16, 185, 129, 0.15))'
                                 : 'rgba(255, 255, 255, 0.03)',
                             border: possessionSide === 'home'
-                                ? '2px solid #22c55e'
+                                ? ((isPaused || period === 'HT') ? '2px solid #f59e0b' : '2px solid #22c55e')
                                 : '1px solid rgba(255, 255, 255, 0.1)',
                             cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
-                            boxShadow: possessionSide === 'home' ? '0 0 24px rgba(34, 197, 94, 0.3)' : 'none',
+                            boxShadow: possessionSide === 'home' 
+                                ? ((isPaused || period === 'HT') ? '0 0 20px rgba(245, 158, 11, 0.2)' : '0 0 24px rgba(34, 197, 94, 0.3)') 
+                                : 'none',
                             transition: 'all 0.2s ease'
                         }}
                     >
@@ -234,13 +239,21 @@ export default function TileDataCaptureControlPanel({
                                 🟢 {home.name}
                             </span>
                             {possessionSide === 'home' && (
-                                <span style={{ fontSize: '11px', fontWeight: '900', color: '#4ade80', background: 'rgba(34,197,94,0.2)', padding: '3px 8px', borderRadius: '12px' }}>
-                                    ● IN POSSESSION
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    color: (isPaused || period === 'HT') ? '#fbbf24' : '#4ade80',
+                                    background: (isPaused || period === 'HT') ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.2)',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: (isPaused || period === 'HT') ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(34,197,94,0.4)'
+                                }}>
+                                    {(isPaused || period === 'HT') ? '⏸️ IN POSSESSION (PAUSED)' : '● IN POSSESSION'}
                                 </span>
                             )}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'home' ? '#4ade80' : 'var(--text-muted)' }}>
+                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'home' ? ((isPaused || period === 'HT') ? '#fbbf24' : '#4ade80') : 'var(--text-muted)' }}>
                                 {homePossessionPct}%
                             </span>
                             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
@@ -259,10 +272,12 @@ export default function TileDataCaptureControlPanel({
                                 ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(79, 70, 229, 0.15))'
                                 : 'rgba(255, 255, 255, 0.03)',
                             border: possessionSide === 'away'
-                                ? '2px solid #818cf8'
+                                ? ((isPaused || period === 'HT') ? '2px solid #f59e0b' : '2px solid #818cf8')
                                 : '1px solid rgba(255, 255, 255, 0.1)',
                             cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
-                            boxShadow: possessionSide === 'away' ? '0 0 24px rgba(99, 102, 241, 0.3)' : 'none',
+                            boxShadow: possessionSide === 'away' 
+                                ? ((isPaused || period === 'HT') ? '0 0 20px rgba(245, 158, 11, 0.2)' : '0 0 24px rgba(99, 102, 241, 0.3)') 
+                                : 'none',
                             transition: 'all 0.2s ease'
                         }}
                     >
@@ -271,13 +286,21 @@ export default function TileDataCaptureControlPanel({
                                 🔵 {away.name}
                             </span>
                             {possessionSide === 'away' && (
-                                <span style={{ fontSize: '11px', fontWeight: '900', color: '#818cf8', background: 'rgba(99,102,241,0.2)', padding: '3px 8px', borderRadius: '12px' }}>
-                                    ● IN POSSESSION
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    color: (isPaused || period === 'HT') ? '#fbbf24' : '#818cf8',
+                                    background: (isPaused || period === 'HT') ? 'rgba(245,158,11,0.2)' : 'rgba(99,102,241,0.2)',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: (isPaused || period === 'HT') ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(99,102,241,0.4)'
+                                }}>
+                                    {(isPaused || period === 'HT') ? '⏸️ IN POSSESSION (PAUSED)' : '● IN POSSESSION'}
                                 </span>
                             )}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
-                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'away' ? '#818cf8' : 'var(--text-muted)' }}>
+                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'away' ? ((isPaused || period === 'HT') ? '#fbbf24' : '#818cf8') : 'var(--text-muted)' }}>
                                 {awayPossessionPct}%
                             </span>
                             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>

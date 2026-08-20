@@ -1239,6 +1239,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     playerStats={playerStats}
                     elapsed={elapsed}
                     period={period}
+                    isPaused={isPaused}
                     onQuickLogEvent={(logData) => {
                         if (logData.type === 'possessionChange') {
                             setTimeline(prev => [
