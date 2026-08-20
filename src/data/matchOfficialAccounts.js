@@ -10,30 +10,8 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'statistician',
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'scheduled-seed-1', 'scheduled-seed-4'],
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
             avatar: '👨🏽‍💻'
-        },
-        {
-            id: 'analyst_tariq',
-            username: 'tariq',
-            name: 'Tariq',
-            email: 'tariq@futurebarbados.bb',
-            password: 'password',
-            role: 'statistician',
-            assignedVenue: 'Usain Bolt Sports Complex',
-            assignedMatchIds: ['match-pmc-2', 'scheduled-seed-2', 'scheduled-seed-5'],
-            avatar: '👨🏾‍💻'
-        },
-        {
-            id: 'analyst_jakob',
-            username: 'jakob',
-            name: 'Jakob',
-            email: 'jakob@futurebarbados.bb',
-            password: 'password',
-            role: 'statistician',
-            assignedVenue: 'Wildey Turf',
-            assignedMatchIds: ['match-pmc-3', 'scheduled-seed-3'],
-            avatar: '👨🏼‍💻'
         },
         {
             id: 'analyst_marcus',
@@ -126,26 +104,7 @@ export const DEFAULT_OFFICIALS = {
             assignedVenue: 'National Stadium',
             avatar: '📟'
         },
-        {
-            id: 'fo_tariq',
-            username: 'fo.tariq',
-            name: 'Tariq (Fourth Official)',
-            email: 'tariq@futurebarbados.bb',
-            password: 'password',
-            role: 'fourth_official',
-            assignedVenue: 'Usain Bolt Sports Complex',
-            avatar: '📟'
-        },
-        {
-            id: 'fo_jakob',
-            username: 'fo.jakob',
-            name: 'Jakob (Fourth Official)',
-            email: 'jakob@futurebarbados.bb',
-            password: 'password',
-            role: 'fourth_official',
-            assignedVenue: 'Wildey Turf',
-            avatar: '📟'
-        },
+
         {
             id: 'fo_kevin',
             username: 'kevin.stewart',
@@ -176,6 +135,11 @@ export function getOfficialsByRole(role) {
         const saved = localStorage.getItem(OFFICIALS_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
+            const str = JSON.stringify(parsed);
+            if (str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+                localStorage.setItem(OFFICIALS_STORAGE_KEY, JSON.stringify(DEFAULT_OFFICIALS));
+                return DEFAULT_OFFICIALS[role] || [];
+            }
             if (parsed && parsed[role] && parsed[role].length > 0) {
                 return parsed[role];
             }

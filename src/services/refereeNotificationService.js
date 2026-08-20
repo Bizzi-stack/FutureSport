@@ -103,6 +103,10 @@ export function getRefereeContactSettings() {
         const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
+            if (parsed && parsed.customWebhookUrl && parsed.customWebhookUrl.includes('formspree.io')) {
+                parsed.customWebhookUrl = DEFAULT_SETTINGS.customWebhookUrl;
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(parsed));
+            }
             return { ...DEFAULT_SETTINGS, ...parsed };
         }
     } catch (e) {
@@ -296,7 +300,10 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
     // 3. Dispatch Real Email via FormSubmit.co Multi-Recipient Engine
     let emailStatus = 'dispatched';
     try {
+        const response = await sendFormSubmitEmail(
+            recipientEmail,
             ['noah@futurebarbados.bb'],
+            {
                 _subject: subject,
                 Subject: subject,
                 Role: 'Official Match Referee',
@@ -514,17 +521,17 @@ export async function sendTestRefereeNotification(targetEmail) {
     try {
         const response = await sendFormSubmitEmail(
             email, 
-            ['noah@futurebarbados.bb', 'tariq@futurebarbados.bb', 'jakob@futurebarbados.bb'], 
+            ['noah@futurebarbados.bb'], 
             {
                 _subject: subject,
                 Subject: subject,
                 SignalType: 'Manual Multi-Recipient Test Alert',
                 PrimaryRecipient: email,
-                AdditionalRecipients: 'noah@futurebarbados.bb, tariq@futurebarbados.bb, jakob@futurebarbados.bb',
+                AdditionalRecipients: 'noah@futurebarbados.bb',
                 RelayEngine: 'FormSubmit.co (Zero-Limit Multi-Recipient Engine)',
                 Status: 'SUCCESSFUL LIVE TRANSMISSION',
                 Timestamp: timestamp,
-                Message: 'This is a live test confirming multi-recipient delivery to Ralph, Noah, Tariq, and Jakob.'
+                Message: 'This is a live test confirming multi-recipient delivery to Ralph and Noah.'
             }
         );
         if (response.ok) {
