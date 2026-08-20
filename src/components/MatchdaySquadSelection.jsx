@@ -1,5 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { sendRefereeSquadNotification, sendCoachSquadReminderNotification, getRefereeContactSettings } from '../services/refereeNotificationService';
+import { 
+    sendRefereeSquadNotification, 
+    sendDataLoggerMatchReadyNotification, 
+    sendCoachSquadReminderNotification, 
+    getRefereeContactSettings 
+} from '../services/refereeNotificationService';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 // Each row has: y position (% from top), count of players, role, and position labels
@@ -355,8 +360,9 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         if (opponentAlreadySubmitted) {
             try {
                 sendRefereeSquadNotification(updatedMatch, homeName, awayName, allPlayers);
+                sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, allPlayers);
             } catch (e) {
-                console.warn('Referee notification warning:', e);
+                console.warn('Match ready notifications warning:', e);
             }
             setNotificationInfo({
                 bothReady: true,
