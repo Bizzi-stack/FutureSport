@@ -67,10 +67,15 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                 const ref = referees.length > 0 ? referees[(i + j) % referees.length].name : 'Official Referee';
                 const comm = commissioners.length > 0 ? commissioners[(i + j) % commissioners.length].name : 'Match Commissioner';
 
+                const homeSchool = (schools || []).find(s => s.id === home.schoolId || s.id === home.id || s.rawId === home.schoolId);
+                const awaySchool = (schools || []).find(s => s.id === away.schoolId || s.id === away.id || s.rawId === away.schoolId);
+
                 newFixtures.push({
                     id: `scheduled-${Date.now()}-${matchIndex++}`,
-                    homeTeamId: home.id,
-                    awayTeamId: away.id,
+                    homeTeam: homeSchool?.name || home.name || 'Home Team',
+                    awayTeam: awaySchool?.name || away.name || 'Away Team',
+                    homeTeamId: home.schoolId || home.id,
+                    awayTeamId: away.schoolId || away.id,
                     ageGroup: selectedDivision,
                     matchday: matchdayTerm,
                     venue,

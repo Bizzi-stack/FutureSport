@@ -41,7 +41,31 @@ export default function StatisticianDashboard({
     }, [initialDirectMatchId, onClearDirectMatchId]);
 
     const getSchoolObj = (schoolId) => {
-        return schools?.find(s => s.id === schoolId || s.rawId === schoolId) || null;
+        if (!schoolId) return null;
+        return schools?.find(s => 
+            s.id === schoolId || 
+            s.rawId === schoolId ||
+            (typeof schoolId === 'string' && (
+                s.id === schoolId.replace('-team-PMC', '') || 
+                s.id === schoolId.split('_')[0] ||
+                s.name?.toLowerCase() === schoolId.toLowerCase()
+            ))
+        ) || null;
+    };
+
+    const getTeamName = (teamOrSchoolId, matchTeamProp) => {
+        if (matchTeamProp && matchTeamProp !== 'Team') return matchTeamProp;
+        if (!teamOrSchoolId) return 'Team';
+        const sc = getSchoolObj(teamOrSchoolId);
+        if (sc?.name) return sc.name;
+        if (typeof teamOrSchoolId === 'string') {
+            const clean = teamOrSchoolId
+                .replace('-team-PMC', '')
+                .replace('pmc-club-', 'Club ')
+                .replace(/_/g, ' ');
+            return clean;
+        }
+        return 'Team';
     };
 
     // Keep live selected match synchronized with latest matches state
@@ -130,8 +154,8 @@ export default function StatisticianDashboard({
         const isMatchCompleted = selectedMatch.status === 'completed' || selectedMatch.status === 'refereed' || selectedMatch.status === 'approved';
         const homeSchool = getSchoolObj(selectedMatch.homeTeamId);
         const awaySchool = getSchoolObj(selectedMatch.awayTeamId);
-        const homeName = homeSchool?.name || selectedMatch.homeTeam || 'Home Team';
-        const awayName = awaySchool?.name || selectedMatch.awayTeam || 'Away Team';
+        const homeName = getTeamName(selectedMatch.homeTeamId, selectedMatch.homeTeam);
+        const awayName = getTeamName(selectedMatch.awayTeamId, selectedMatch.awayTeam);
         const homeXI = selectedMatch.homeSquadSelection?.startingXI || [];
         const awayXI = selectedMatch.awaySquadSelection?.startingXI || [];
         const homeFormation = selectedMatch.homeSquadSelection?.formation || '4-3-3';
@@ -702,7 +726,7 @@ export default function StatisticianDashboard({
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
                                                 {homeSchool?.logo && <img src={homeSchool.logo} alt="" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />}
-                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{homeSchool?.name || m.homeTeam}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{getTeamName(m.homeTeamId, m.homeTeam)}</span>
                                             </div>
 
                                             <div style={{ padding: '6px 16px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', fontSize: '18px', fontWeight: '800', color: '#4ade80' }}>
@@ -710,7 +734,7 @@ export default function StatisticianDashboard({
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, justifyContent: 'flex-end' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{awaySchool?.name || m.awayTeam}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{getTeamName(m.awayTeamId, m.awayTeam)}</span>
                                                 {awaySchool?.logo && <img src={awaySchool.logo} alt="" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />}
                                             </div>
                                         </div>
@@ -770,7 +794,7 @@ export default function StatisticianDashboard({
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
                                                 {homeSchool?.logo && <img src={homeSchool.logo} alt="" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />}
-                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{homeSchool?.name || m.homeTeam}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{getTeamName(m.homeTeamId, m.homeTeam)}</span>
                                             </div>
 
                                             <div style={{ padding: '4px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
@@ -778,7 +802,7 @@ export default function StatisticianDashboard({
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, justifyContent: 'flex-end' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{awaySchool?.name || m.awayTeam}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>{getTeamName(m.awayTeamId, m.awayTeam)}</span>
                                                 {awaySchool?.logo && <img src={awaySchool.logo} alt="" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />}
                                             </div>
                                         </div>
@@ -850,9 +874,9 @@ export default function StatisticianDashboard({
                                     <div key={m.id} className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: 0.85 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             {homeSchool?.logo && <img src={homeSchool.logo} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />}
-                                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{homeSchool?.name || m.homeTeam}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{getTeamName(m.homeTeamId, m.homeTeam)}</span>
                                             <span style={{ fontSize: '14px', fontWeight: '800', color: '#4ade80' }}>{m.homeScore ?? 0} - {m.awayScore ?? 0}</span>
-                                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{awaySchool?.name || m.awayTeam}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{getTeamName(m.awayTeamId, m.awayTeam)}</span>
                                             {awaySchool?.logo && <img src={awaySchool.logo} alt="" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />}
                                         </div>
                                         <button
