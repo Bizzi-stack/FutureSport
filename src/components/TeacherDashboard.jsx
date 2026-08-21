@@ -172,7 +172,7 @@ export default function TeacherDashboard({
                             display: 'flex', alignItems: 'center', gap: '6px'
                         }}
                     >
-                        <span>📈</span> Stats &amp; Analytics Hub
+                        Stats &amp; Analytics Hub
                     </button>
                     <button
                         onClick={() => setMainTab('registration')}
@@ -223,7 +223,7 @@ export default function TeacherDashboard({
                                 transition: 'all 0.2s'
                             }}
                         >
-                            ⚽ Matchday Squad
+                            Matchday Squad
                         </button>
                     )}
                     {liveMatch && userRole === 'coach' && (
@@ -260,7 +260,7 @@ export default function TeacherDashboard({
                             transition: 'all 0.2s'
                         }}
                     >
-                        📊 League Standings
+                        League Standings
                     </button>
                 </div>
 
@@ -272,7 +272,7 @@ export default function TeacherDashboard({
                             color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', fontSize: '12px', fontWeight: '700', cursor: 'pointer'
                         }}
                     >
-                        + Initialize New Squad
+                        Initialize New Squad
                     </button>
                 )}
             </div>
@@ -309,7 +309,7 @@ export default function TeacherDashboard({
                                 boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
                             }}
                         >
-                            + Register New Player
+                            Register New Player
                         </button>
                     </div>
 
@@ -356,7 +356,7 @@ export default function TeacherDashboard({
                                                 </span>
                                                 {status === 'rejected' && player.rejectionReason && (
                                                     <span style={{ fontSize: '10px', color: 'var(--danger)', fontStyle: 'italic', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={player.rejectionReason}>
-                                                        ⚠️ {player.rejectionReason}
+                                                        {player.rejectionReason}
                                                     </span>
                                                 )}
                                             </div>

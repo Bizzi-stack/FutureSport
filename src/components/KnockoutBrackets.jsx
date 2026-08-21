@@ -210,7 +210,7 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
             {/* Header / Division Select */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>🏆 Knockout Brackets Setup</h3>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Knockout Brackets Setup</h3>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Setup Semifinals and Finals for the cup stage</span>
                 </div>
                 <select
@@ -298,7 +298,7 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
                             padding: '16px', borderLeft: finalMatch ? '4px solid var(--warning)' : '4px dashed rgba(255,255,255,0.1)',
                             background: 'rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '10px'
                         }}>
-                            <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '1px' }}>🏆 Grand Final</div>
+                            <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '1px' }}>Grand Final</div>
                             <div style={{ fontSize: '13px', fontWeight: '700', display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '145px' }}>
                                     {finalMatch ? getTeamDisplayName(finalMatch.homeTeamId) : 'Winner Semifinal 1'}
@@ -323,7 +323,6 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
                     <div style={{ width: '180px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '8px' }}>
                         {isChampion ? (
                             <div style={{ animation: 'bounce 2s infinite', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '42px' }}>👑</span>
                                 <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--warning)' }}>CHAMPION</div>
                                 <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', maxWidth: '160px' }}>
                                     {getTeamDisplayName(championId)}
@@ -331,7 +330,6 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
                             </div>
                         ) : (
                             <div style={{ color: 'var(--text-muted)', fontSize: '13px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontSize: '32px' }}>🏆</span>
                                 <span>Cup Champion</span>
                             </div>
                         )}
@@ -381,7 +379,7 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
                                     opacity: standings.length < 4 ? 0.5 : 1
                                 }}
                             >
-                                Schedule Semifinals 📅
+                                Schedule Semifinals
                             </button>
                         </div>
                     )}
@@ -426,7 +424,7 @@ export default function KnockoutBrackets({ matches, teams, schools, onAddMatches
                                     opacity: (!semifinal1 || !semifinal2 || semifinal1.status !== 'approved' || semifinal2.status !== 'approved') ? 0.5 : 1
                                 }}
                             >
-                                Schedule Grand Final 🏆
+                                Schedule Grand Final
                             </button>
                         </div>
                     )}

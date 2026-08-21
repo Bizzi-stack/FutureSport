@@ -543,16 +543,16 @@ function App() {
   const adminTabs = useMemo(() => {
     if (selectedTournament === 'PMC') {
       return [
-        { id: 'pmc_approvals', label: '📋 PMC Match Verification & Approvals' },
-        { id: 'competitions', label: '🛡️ PMC Fixtures & Standings' },
-        { id: 'club_rosters', label: '👕 Senior Club Roster Directory' },
-        { id: 'data_entry', label: '📊 Raw Data Sandbox' }
+        { id: 'pmc_approvals', label: 'PMC Match Verification & Approvals' },
+        { id: 'competitions', label: 'PMC Fixtures & Standings' },
+        { id: 'club_rosters', label: 'Senior Club Roster Directory' },
+        { id: 'data_entry', label: 'Raw Data Sandbox' }
       ];
     }
     return [
-      { id: 'registrations', label: '📋 School & Player Registrations' },
-      { id: 'competitions', label: '🛡️ Competition Setup' },
-      { id: 'data_entry', label: '📊 Raw Data Sandbox' }
+      { id: 'registrations', label: 'School & Player Registrations' },
+      { id: 'competitions', label: 'Competition Setup' },
+      { id: 'data_entry', label: 'Raw Data Sandbox' }
     ];
   }, [selectedTournament]);
 
@@ -942,14 +942,14 @@ function App() {
               fontSize: '13px', fontWeight: '800',
               color: selectedTournament === 'PMC' ? '#FFC726' : 'var(--primary-light)'
             }}>
-              {selectedTournament === 'PMC' ? "🏆 Prime Minister's Cup" : "⚽ National Schools League"}
+              {selectedTournament === 'PMC' ? "Prime Minister's Cup" : "National Schools League"}
             </span>
             <span style={{
               fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px',
               background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
               display: 'flex', alignItems: 'center', gap: '4px'
             }} title="Tournament mode is locked during session. Log out to switch tournaments.">
-              🔒 Active Session
+              Active Session
             </span>
           </div>
         </div>
@@ -1066,7 +1066,7 @@ function App() {
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.22)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.12)'; }}
             >
-              ⚽ Match Centre
+              Match Centre
             </button>
           )}
 

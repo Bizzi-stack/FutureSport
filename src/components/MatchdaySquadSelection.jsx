@@ -416,7 +416,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', minHeight: 0 }}>
             <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>⚽ Matchday Squad Selection</h2>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Matchday Squad Selection</h2>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Configure formation, click pitch positions to select players, and fill your bench.</span>
             </div>
 
@@ -431,7 +431,6 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                     boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '18px' }}>{notificationInfo.bothReady ? '📢' : '⏳'}</span>
                         <div>
                             <div>
                                 {notificationInfo.bothReady
@@ -455,7 +454,6 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
             {myMatches.length === 0 ? (
                 <div className="glass-panel" style={{ textAlign: 'center', padding: '60px 24px' }}>
-                    <span style={{ fontSize: '2.5rem' }}>📋</span>
                     <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '12px' }}>
                         No matches found for {schoolName}. Fixtures are automatically populated from the Prime Minister's Cup schedule.
                     </p>
@@ -484,15 +482,15 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
                                             <span style={{ color: 'var(--primary-light)', fontWeight: '700' }}>{m.ageGroup || 'PMC'} • {m.matchday || m.round}</span>
                                             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                                {m.status === 'live' && <span style={{ color: '#4ade80', fontWeight: '800', background: 'rgba(74,222,128,0.15)', padding: '1px 6px', borderRadius: '8px' }}>🔴 LIVE</span>}
-                                                {isFinished && <span style={{ color: '#94a3b8', fontWeight: '700', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '8px' }}>✓ FINISHED</span>}
-                                                {submitted && !isFinished && m.status !== 'live' && <span style={{ color: 'var(--success)', fontWeight: '700' }}>✓ SENT</span>}
+                                                {m.status === 'live' && <span style={{ color: '#4ade80', fontWeight: '800', background: 'rgba(74,222,128,0.15)', padding: '1px 6px', borderRadius: '8px' }}>LIVE</span>}
+                                                {isFinished && <span style={{ color: '#94a3b8', fontWeight: '700', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '8px' }}>FINISHED</span>}
+                                                {submitted && !isFinished && m.status !== 'live' && <span style={{ color: 'var(--success)', fontWeight: '700' }}>SENT</span>}
                                             </div>
                                         </div>
                                         <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>
                                             {getSchoolName(m.homeTeamId, m)} vs {getSchoolName(m.awayTeamId, m)}
                                         </div>
-                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>📍 {m.venue}</span>
+                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{m.venue}</span>
                                     </div>
                                 );
                             })}
@@ -514,14 +512,14 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     {selectedMatch.status === 'live' ? (
                                         <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(74,222,128,0.15)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(74,222,128,0.3)' }}>
-                                            🔴 LIVE ({selectedMatch.homeScore} - {selectedMatch.awayScore})
+                                            LIVE ({selectedMatch.homeScore} - {selectedMatch.awayScore})
                                         </span>
                                     ) : (selectedMatch.status === 'completed' || selectedMatch.status === 'refereed') ? (
                                         <span style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: '20px', border: 'var(--border)' }}>
-                                            ✓ Match Completed ({selectedMatch.homeScore} - {selectedMatch.awayScore})
+                                            Match Completed ({selectedMatch.homeScore} - {selectedMatch.awayScore})
                                         </span>
                                     ) : alreadySubmitted ? (
-                                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>✓ Squad Submitted</span>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>Squad Submitted</span>
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <button
@@ -534,7 +532,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                 }}
                                                 title="Send an email reminder to submit this squad before kickoff"
                                             >
-                                                <span>⏰</span> Send Reminder
+                                                Send Reminder
                                             </button>
                                             <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{
                                                 padding: '8px 22px', borderRadius: '10px', fontSize: '12px', fontWeight: '800',
@@ -560,7 +558,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     color: '#4ade80', fontSize: '12px', fontWeight: '700',
                                     display: 'flex', alignItems: 'center', gap: '8px'
                                 }}>
-                                    <span>📬</span> {reminderSentToast}
+                                    {reminderSentToast}
                                 </div>
                             )}
 

@@ -28,7 +28,6 @@ export default function NationalHub({ year, term, onClose, onStudentClick }) {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '20px' }}>⚽</span>
                         <div>
                              <div style={{ fontSize: '10px', color: '#8b5cf6', fontWeight: '700', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '2px' }}>
                                  National Academy Intelligence

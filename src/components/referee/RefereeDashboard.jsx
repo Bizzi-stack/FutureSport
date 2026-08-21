@@ -55,7 +55,7 @@ export default function RefereeDashboard({
 
     const handleSendTestAlert = async () => {
         const res = await sendTestRefereeNotification(emailInput);
-        setTestAlertToast(`🧪 Test alert & whistle delivered to ${res.email}!`);
+        setTestAlertToast(`Test alert & whistle delivered to ${res.email}!`);
         setTimeout(() => setTestAlertToast(null), 4000);
     };
 
@@ -161,9 +161,6 @@ export default function RefereeDashboard({
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                        📧
-                    </div>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff' }}>
@@ -203,7 +200,7 @@ export default function RefereeDashboard({
                                         onClick={() => setIsEditingEmail(true)}
                                         style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}
                                     >
-                                        ✏️ Change Gmail
+                                        Change Gmail
                                     </button>
                                 </div>
                             )}
@@ -229,11 +226,11 @@ export default function RefereeDashboard({
                                 display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                         >
-                            <span>🔔</span> Enable Phone Screen Push
+                            Enable Phone Screen Push
                         </button>
                     ) : (
                         <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.12)', padding: '4px 10px', borderRadius: '8px' }}>
-                            ✓ Phone Push Enabled
+                            Phone Push Enabled
                         </span>
                     )}
 
@@ -246,12 +243,11 @@ export default function RefereeDashboard({
                             boxShadow: '0 2px 8px rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: '6px'
                         }}
                     >
-                        <span>🧪</span> Send Test Alert
+                        Send Test Alert
                     </button>
 
                     {currentReferee && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.06)', padding: '5px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <span>🟨</span>
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#fbbf24' }}>{currentReferee.name}</span>
                         </div>
                     )}
@@ -296,7 +292,7 @@ export default function RefereeDashboard({
                     {/* Scheduled Matches — Kick Off Section */}
                     {scheduledMatches.length > 0 && (
                         <div style={{ marginBottom: '10px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', textTransform: 'uppercase', marginBottom: '8px', paddingLeft: '4px' }}>📅 Scheduled — Awaiting Kick-Off</div>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', textTransform: 'uppercase', marginBottom: '8px', paddingLeft: '4px' }}>Scheduled — Awaiting Kick-Off</div>
                             {scheduledMatches.map(m => {
                                 const homeSquadReady = !!m.homeSquadSelection;
                                 const awaySquadReady = !!m.awaySquadSelection;
@@ -328,15 +324,15 @@ export default function RefereeDashboard({
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                                             <div style={{ display: 'flex', gap: '6px' }}>
                                                 <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                                    {homeSquadReady ? '✅' : '⏳'} Home
+                                                    {homeSquadReady ? 'Ready' : 'Pending'} · Home
                                                 </span>
                                                 <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                                    {awaySquadReady ? '✅' : '⏳'} Away
+                                                    {awaySquadReady ? 'Ready' : 'Pending'} · Away
                                                 </span>
                                             </div>
                                             {bothReady && (
                                                 <span style={{ fontSize: '10px', color: '#4ade80', fontWeight: '800', background: 'rgba(34,197,94,0.12)', padding: '2px 6px', borderRadius: '6px' }}>
-                                                    📨 Alert Sent
+                                                    Alert Sent
                                                 </span>
                                             )}
                                         </div>
@@ -358,7 +354,7 @@ export default function RefereeDashboard({
                                                 transition: 'all 0.2s'
                                             }}
                                         >
-                                            {bothReady ? '🏟️ Blow Whistle — Kick Off' : '⏳ Waiting for Squad Submissions'}
+                                            {bothReady ? 'Blow Whistle — Kick Off' : 'Waiting for Squad Submissions'}
                                         </button>
                                     </div>
                                 );
@@ -399,7 +395,7 @@ export default function RefereeDashboard({
                     <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px', paddingLeft: '4px', marginTop: liveMatches.length > 0 ? '8px' : '0' }}>Awaiting Report</div>
                     {pendingMatches.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                            🎉 No pending referee reports!
+                            No pending referee reports.
                         </div>
                     ) : (
                         pendingMatches.map(m => (
@@ -568,7 +564,7 @@ export default function RefereeDashboard({
                     )
                 ) : (
                     <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px', flexDirection: 'column', gap: '8px' }}>
-                        <span>👉 Select a match from the pending queue to write the referee report</span>
+                        <span>Select a match from the pending queue to write the referee report</span>
                     </div>
                 )}
             </div>

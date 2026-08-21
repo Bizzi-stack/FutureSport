@@ -42,7 +42,7 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
         const hasMissingDocs = !player?.documents?.birthCertificate || !player?.documents?.enrollmentLetter;
 
         if (hasMissingDocs) {
-            const confirmApprove = window.confirm(`⚠️ WARNING: ${player?.name} has incomplete/missing documents. Are you sure you want to approve this player's registration?`);
+            const confirmApprove = window.confirm(`WARNING: ${player?.name} has incomplete/missing documents. Are you sure you want to approve this player's registration?`);
             if (!confirmApprove) return;
         }
 
@@ -194,176 +194,175 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
                                             {player.jerseyNumber || '-'}
                                         </div>
                                         
-                                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</span>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getSchoolName(player.schoolId)}</span>
-                                                {(!player.documents?.birthCertificate || !player.documents?.enrollmentLetter) && (
-                                                    <span style={{ fontSize: '9px', color: 'var(--warning)', fontWeight: '700' }}>⚠️ Incomplete</span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Status badge */}
-                                        <span style={{
-                                            fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', padding: '3px 8px', borderRadius: '20px',
-                                            background: player.status === 'approved' ? 'var(--success-dim)' : player.status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
-                                            color: player.status === 'approved' ? 'var(--success)' : player.status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
-                                            border: player.status === 'approved' ? '1px solid rgba(16,185,129,0.2)' : player.status === 'rejected' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(245,158,11,0.2)'
-                                        }}>
-                                            {player.status}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Right Panel: Selected Player Details */}
-                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
-                    {selectedPlayer ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            
-                            {/* Card Header */}
-                            <div style={{ padding: '20px 24px', borderBottom: 'var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
-                                        {selectedPlayer.gender === 'Boy' ? '🏃‍♂️' : '🏃‍♀️'}
-                                    </div>
-                                    <div>
-                                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedPlayer.name}</h3>
-                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{getSchoolName(selectedPlayer.schoolId)}</span>
-                                    </div>
-                                </div>
-                                <span style={{
-                                    fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', padding: '4px 12px', borderRadius: '20px',
-                                    background: selectedPlayer.status === 'approved' ? 'var(--success-dim)' : selectedPlayer.status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
-                                    color: selectedPlayer.status === 'approved' ? 'var(--success)' : selectedPlayer.status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
-                                }}>
-                                    Status: {selectedPlayer.status}
-                                </span>
-                            </div>
-
-                            {/* Details Grid */}
-                            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Date of Birth</span>
-                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.dob || '—'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Gender Division</span>
-                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.gender || '—'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Playing Position</span>
-                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.position || '—'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Preferred Foot</span>
-                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.preferredFoot || '—'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Jersey Number</span>
-                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.jerseyNumber || '—'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Medical Notes</span>
-                                        <span style={{ fontSize: '13px', color: selectedPlayer.medicalInfo === 'None' ? 'var(--text-primary)' : 'var(--danger)', fontWeight: '700' }}>
-                                            {selectedPlayer.medicalInfo || '—'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '16px' }}>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Emergency Contact</span>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.emergencyContact || '—'}</span>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '16px' }}>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Uploaded Documents</span>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {[
-                                            { key: 'birthCertificate', label: 'Birth Certificate' },
-                                            { key: 'enrollmentLetter', label: 'School Enrollment Letter' }
-                                        ].map(doc => {
-                                            const file = selectedPlayer.documents?.[doc.key];
-                                            return (
-                                                <div key={doc.key} style={{
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '6px',
-                                                    background: file ? 'rgba(16,185,129,0.03)' : 'rgba(239,68,68,0.03)', border: file ? '1px solid rgba(16,185,129,0.1)' : '1px solid rgba(239,68,68,0.1)',
-                                                    fontSize: '12.5px'
-                                                }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <span>{file ? '📄' : '❌'}</span>
-                                                        <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{doc.label}</span>
-                                                        {file && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({file})</span>}
-                                                    </div>
-                                                    {file ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setPreviewDoc({ player: selectedPlayer, docType: doc.key, filename: file, label: doc.label })}
-                                                            style={{
-                                                                padding: '2px 8px', borderRadius: '4px', background: 'rgba(99,102,241,0.15)',
-                                                                color: 'var(--primary-light)', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            View Document
-                                                        </button>
-                                                    ) : (
-                                                        <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: '700' }}>Missing</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                                                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getSchoolName(player.schoolId)}</span>
+                                                    {(!player.documents?.birthCertificate || !player.documents?.enrollmentLetter) && (
+                                                        <span style={{ fontSize: '9px', color: 'var(--warning)', fontWeight: '700' }}>Incomplete</span>
                                                     )}
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                                            </div>
 
-                                {selectedPlayer.status === 'rejected' && selectedPlayer.rejectionReason && (
-                                    <div style={{
-                                        padding: '12px 16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.08)',
-                                        border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px'
-                                    }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: '700', textTransform: 'uppercase' }}>Rejection / Flags Reason</span>
-                                        <span style={{ fontSize: '12.5px', color: 'var(--text-primary)' }}>{selectedPlayer.rejectionReason}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Actions Footer */}
-                            {selectedPlayer.status === 'pending' && (
-                                <div style={{ padding: '16px 24px', borderTop: 'var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'rgba(255,255,255,0.01)' }}>
-                                    <button
-                                        onClick={() => setShowRejectModal(true)}
-                                        style={{
-                                            padding: '8px 20px', borderRadius: '20px', background: 'rgba(239, 68, 68, 0.1)',
-                                            color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
-                                        }}
-                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                                    >
-                                        Flag / Reject
-                                    </button>
-                                    <button
-                                        onClick={() => handleApprove(selectedPlayer.id)}
-                                        style={{
-                                            padding: '8px 24px', borderRadius: '20px', background: 'var(--success)',
-                                            color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
-                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
-                                        }}
-                                    >
-                                        Approve Player
-                                    </button>
+                                            {/* Status badge */}
+                                            <span style={{
+                                                fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', padding: '3px 8px', borderRadius: '20px',
+                                                background: player.status === 'approved' ? 'var(--success-dim)' : player.status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
+                                                color: player.status === 'approved' ? 'var(--success)' : player.status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
+                                                border: player.status === 'approved' ? '1px solid rgba(16,185,129,0.2)' : player.status === 'rejected' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(245,158,11,0.2)'
+                                            }}>
+                                                {player.status}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px', flexDirection: 'column', gap: '8px' }}>
-                            <span>👉 Select a player from the list to review their registration details</span>
-                        </div>
-                    )}
+                    </div>
+
+                    {/* Right Panel: Selected Player Details */}
+                    <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
+                        {selectedPlayer ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                                
+                                {/* Card Header */}
+                                <div style={{ padding: '20px 24px', borderBottom: 'var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '800', color: 'var(--primary-light)' }}>
+                                            {selectedPlayer.jerseyNumber || '#'}
+                                        </div>
+                                        <div>
+                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedPlayer.name}</h3>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{getSchoolName(selectedPlayer.schoolId)}</span>
+                                        </div>
+                                    </div>
+                                    <span style={{
+                                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', padding: '4px 12px', borderRadius: '20px',
+                                        background: selectedPlayer.status === 'approved' ? 'var(--success-dim)' : selectedPlayer.status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
+                                        color: selectedPlayer.status === 'approved' ? 'var(--success)' : selectedPlayer.status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
+                                    }}>
+                                        Status: {selectedPlayer.status}
+                                    </span>
+                                </div>
+
+                                {/* Details Grid */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Date of Birth</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.dob || '—'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Gender Division</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.gender || '—'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Playing Position</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.position || '—'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Preferred Foot</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.preferredFoot || '—'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Jersey Number</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.jerseyNumber || '—'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Medical Notes</span>
+                                            <span style={{ fontSize: '13px', color: selectedPlayer.medicalInfo === 'None' ? 'var(--text-primary)' : 'var(--danger)', fontWeight: '700' }}>
+                                                {selectedPlayer.medicalInfo || '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '16px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Emergency Contact</span>
+                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>{selectedPlayer.emergencyContact || '—'}</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '16px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Uploaded Documents</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {[
+                                                { key: 'birthCertificate', label: 'Birth Certificate' },
+                                                { key: 'enrollmentLetter', label: 'School Enrollment Letter' }
+                                            ].map(doc => {
+                                                const file = selectedPlayer.documents?.[doc.key];
+                                                return (
+                                                    <div key={doc.key} style={{
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '6px',
+                                                        background: file ? 'rgba(16,185,129,0.03)' : 'rgba(239,68,68,0.03)', border: file ? '1px solid rgba(16,185,129,0.1)' : '1px solid rgba(239,68,68,0.1)',
+                                                        fontSize: '12.5px'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{doc.label}</span>
+                                                            {file && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({file})</span>}
+                                                        </div>
+                                                        {file ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setPreviewDoc({ player: selectedPlayer, docType: doc.key, filename: file, label: doc.label })}
+                                                                style={{
+                                                                    padding: '2px 8px', borderRadius: '4px', background: 'rgba(99,102,241,0.15)',
+                                                                    color: 'var(--primary-light)', border: 'none', fontSize: '11px', fontWeight: '700', cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                View Document
+                                                            </button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: '700' }}>Missing</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {selectedPlayer.status === 'rejected' && selectedPlayer.rejectionReason && (
+                                        <div style={{
+                                            padding: '12px 16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.08)',
+                                            border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', flexDirection: 'column', gap: '4px'
+                                        }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--danger)', fontWeight: '700', textTransform: 'uppercase' }}>Rejection / Flags Reason</span>
+                                            <span style={{ fontSize: '12.5px', color: 'var(--text-primary)' }}>{selectedPlayer.rejectionReason}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Actions Footer */}
+                                {selectedPlayer.status === 'pending' && (
+                                    <div style={{ padding: '16px 24px', borderTop: 'var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'rgba(255,255,255,0.01)' }}>
+                                        <button
+                                            onClick={() => setShowRejectModal(true)}
+                                            style={{
+                                                padding: '8px 20px', borderRadius: '20px', background: 'rgba(239, 68, 68, 0.1)',
+                                                color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                        >
+                                            Flag / Reject
+                                        </button>
+                                        <button
+                                            onClick={() => handleApprove(selectedPlayer.id)}
+                                            style={{
+                                                padding: '8px 24px', borderRadius: '20px', background: 'var(--success)',
+                                                color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+                                                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                                            }}
+                                        >
+                                            Approve Player
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px', flexDirection: 'column', gap: '8px' }}>
+                                <span>Select a player from the list to review their registration details</span>
+                            </div>
+                        )}
                 </div>
             </div>
 

@@ -3,9 +3,9 @@ import { SCHOOLS, TEAMS, AGE_GROUPS, TERMS, getTeamStudents } from '../../data/m
 import CustomSelect from '../CustomSelect';
 
 const AGE_GROUP_META = {
-  U14: { label: 'U14', icon: '🌱', desc: 'Under 14s', color: '#10b981' },
-  U16: { label: 'U16', icon: '⚡', desc: 'Under 16s', color: '#3b82f6' },
-  U19: { label: 'U19', icon: '🔥', desc: 'Under 19s', color: '#f59e0b' },
+  U14: { label: 'U14', desc: 'Under 14s', color: '#10b981' },
+  U16: { label: 'U16', desc: 'Under 16s', color: '#3b82f6' },
+  U19: { label: 'U19', desc: 'Under 19s', color: '#f59e0b' },
 };
 
 export default function MatchSetup({ allStudents, year, matchday: initialMatchday, onStartMatch, matches }) {
@@ -371,7 +371,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
       <div style={styles.teamPickerCard}>
         <div style={styles.teamPickerAccent(side)} />
         <div style={styles.teamPickerLabel}>
-          {side === 'home' ? '🏠 Home Team' : '✈️ Away Team'}
+          {side === 'home' ? 'Home Team' : 'Away Team'}
         </div>
 
         {school && (
@@ -404,7 +404,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
               </div>
               {coachSquad && (
                 <div style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', marginBottom: '8px', fontSize: '11px' }}>
-                  <span style={{ fontWeight: '700', color: 'var(--success)' }}>✓ Coach Submitted ({coachSquad.formation})</span>
+                  <span style={{ fontWeight: '700', color: 'var(--success)' }}>Coach Submitted ({coachSquad.formation})</span>
                   <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>• {coachSquad.startingXI?.length || 0} starters, {coachSquad.benchPlayers?.length || 0} bench</span>
                 </div>
               )}
@@ -412,7 +412,6 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
                 {coachSquad ? (
                   <>
                     <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--success)', marginTop: '8px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>⚽</span>
                       <span>Starting XI ({coachSquad.formation})</span>
                     </div>
                     {coachSquad.startingXI?.filter(Boolean).map((pid, idx) => {
@@ -434,7 +433,6 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
                     {coachSquad.benchPlayers?.length > 0 && (
                       <>
                         <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--warning)', marginTop: '12px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>📋</span>
                           <span>Substitute Bench</span>
                         </div>
                         {coachSquad.benchPlayers.map((pid, idx) => {
@@ -463,7 +461,6 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
                       return (
                         <>
                           <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', marginTop: '12px', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span>👥</span>
                             <span>Reserves / Unassigned</span>
                           </div>
                           {reserves.map((p, idx) => (
@@ -541,7 +538,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
         <div style={{ marginBottom: '32px', padding: '20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
-              📅 Scheduled League Fixtures
+              Scheduled League Fixtures
             </h3>
             <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '20px', border: 'var(--border)' }}>
               {['ALL', 'U14', 'U16', 'U19'].map(div => (
@@ -563,7 +560,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
           
           {scheduledFixtures.length === 0 ? (
             <div style={{ ...styles.emptyHint, padding: '48px 24px', background: 'transparent', border: 'none' }}>
-              📅 No scheduled matches available.<br />
+              No scheduled matches available.<br />
               <span style={{ fontSize: '12px', opacity: 0.6, marginTop: '8px', display: 'inline-block' }}>
                 Please contact the Match Commissioner to schedule fixtures.
               </span>
@@ -591,7 +588,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
                       {getSchoolName(fixture.awayTeamId)}
                     </span>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🏟️ Venue: {fixture.venue}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Venue: {fixture.venue}</div>
                   <button
                     onClick={() => handleSelectFixture(fixture)}
                     style={{
@@ -599,7 +596,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
                       color: 'var(--primary-light)', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                   >
-                    Select &amp; Verify Match 📋
+                    Select &amp; Verify Match
                   </button>
                 </div>
               ))}
@@ -635,7 +632,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
               ← Back to Fixtures List
             </button>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '700' }}>
-              🏟️ Venue: <span style={{ color: 'var(--text-primary)' }}>{selectedFixture.venue}</span>
+              Venue: <span style={{ color: 'var(--text-primary)' }}>{selectedFixture.venue}</span>
             </div>
           </div>
 
@@ -655,7 +652,7 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
               disabled={!canKickOff}
               onClick={handleKickOff}
             >
-              Start Match ⚽
+              Start Match
             </button>
           </div>
         </>

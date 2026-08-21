@@ -53,7 +53,7 @@ export default function StatisticianDashboard({
     const handleSendTestLoggerAlert = async () => {
         try {
             playDataLoggerAlertChime();
-            triggerDeviceNotification(`📡 Live Data Capture Alert: ${activeAnalyst?.name}`, {
+            triggerDeviceNotification(`Live Data Capture Alert: ${activeAnalyst?.name}`, {
                 body: `Test signal delivered to ${dataLoggerEmail}. Real-time event capture alerts online!`,
                 tag: 'logger-test'
             });
@@ -64,7 +64,7 @@ export default function StatisticianDashboard({
                 allPlayers,
                 dataLoggerEmail
             );
-            setLoggerToast(`🧪 Alert signal & deep link sent to ${dataLoggerEmail}!`);
+            setLoggerToast(`Alert signal & deep link sent to ${dataLoggerEmail}!`);
             setTimeout(() => setLoggerToast(null), 4000);
         } catch (e) {
             console.warn('Logger test alert warning:', e);
@@ -161,11 +161,11 @@ export default function StatisticianDashboard({
                         {isMatchLive ? (
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
-                                🔴 LIVE DATA CAPTURE ACTIVE
+                                LIVE DATA CAPTURE ACTIVE
                             </span>
                         ) : (
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#fbbf24', background: 'rgba(245,158,11,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>⏳</span> WAITING FOR REFEREE KICK-OFF
+                                WAITING FOR REFEREE KICK-OFF
                             </span>
                         )}
 
@@ -219,14 +219,6 @@ export default function StatisticianDashboard({
                             border: '1px solid rgba(56,189,248,0.3)',
                             display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px'
                         }}>
-                            <div style={{
-                                width: '64px', height: '64px', borderRadius: '50%',
-                                background: 'rgba(56,189,248,0.15)', border: '2px solid rgba(56,189,248,0.4)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px'
-                            }}>
-                                📡
-                            </div>
-
                             <div>
                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                                     Match Live Readiness Room · Deep Link Station
@@ -242,13 +234,13 @@ export default function StatisticianDashboard({
                             {/* Match Meta Badges */}
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
                                 <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
-                                    📍 Venue: {selectedMatch.venue || activeAnalyst.venue || 'National Stadium'}
+                                    Venue: {selectedMatch.venue || activeAnalyst.venue || 'National Stadium'}
                                 </span>
                                 <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
-                                    ⏰ Kickoff: {selectedMatch.time || selectedMatch.kickoff || '18:00'}
+                                    Kickoff: {selectedMatch.time || selectedMatch.kickoff || '18:00'}
                                 </span>
                                 <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', fontSize: '12px', fontWeight: '700', color: '#38bdf8' }}>
-                                    👨🏽‍💻 Assigned Analyst: {activeAnalyst.name} ({activeAnalyst.email})
+                                    Assigned Analyst: {activeAnalyst.name} ({activeAnalyst.email})
                                 </span>
                             </div>
 
@@ -276,7 +268,7 @@ export default function StatisticianDashboard({
                                         display: 'flex', alignItems: 'center', gap: '8px'
                                     }}
                                 >
-                                    <span>⚽</span> Referee Has Blown Whistle · Begin Live Stat Capture
+                                    Referee Has Blown Whistle · Begin Live Stat Capture
                                 </button>
                             </div>
                         </div>
@@ -369,7 +361,7 @@ export default function StatisticianDashboard({
                                     {activeAnalyst.name}
                                 </h1>
                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.3)' }}>
-                                    🏟️ {activeAnalyst.venue}
+                                    {activeAnalyst.venue}
                                 </span>
                             </div>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
@@ -409,7 +401,7 @@ export default function StatisticianDashboard({
                                 cursor: 'pointer'
                             }}
                         >
-                            ⭐ My Assigned Venue Fixtures
+                            My Assigned Venue Fixtures
                         </button>
                         <button
                             type="button"
@@ -421,12 +413,11 @@ export default function StatisticianDashboard({
                                 border: 'none', cursor: 'pointer'
                             }}
                         >
-                            🌐 All Tournament Fixtures ({matches.length})
+                            All Tournament Fixtures ({matches.length})
                         </button>
                     </div>
 
                     <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
-                        <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, fontSize: '14px' }}>🔍</span>
                         <input
                             type="text"
                             value={searchQuery}
@@ -434,7 +425,7 @@ export default function StatisticianDashboard({
                             placeholder="Search by club, school, or venue..."
                             style={{
                                 width: '100%',
-                                padding: '10px 16px 10px 38px',
+                                padding: '10px 16px',
                                 borderRadius: '10px',
                                 background: 'rgba(3, 7, 18, 0.65)',
                                 border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -452,7 +443,6 @@ export default function StatisticianDashboard({
                     padding: '10px 16px', borderRadius: '10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
-                        <span style={{ fontSize: '16px' }}>📬</span>
                         <span style={{ color: 'var(--text-muted)' }}>Notification Destination: </span>
                         <strong style={{ color: '#a5b4fc' }}>{dataLoggerEmail}</strong>
                         <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: '8px' }}>
@@ -475,7 +465,7 @@ export default function StatisticianDashboard({
                                 border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                         >
-                            <span>🧪</span> Test My Deep-Link Alert
+                            Test My Deep-Link Alert
                         </button>
                     </div>
                 </div>
@@ -506,7 +496,7 @@ export default function StatisticianDashboard({
                                     <div key={m.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(34,197,94,0.04)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '4px 10px', borderRadius: '20px' }}>
-                                                🔴 LIVE NOW · {m.venue || 'Kensington Oval'}
+                                                LIVE NOW · {m.venue || 'Kensington Oval'}
                                             </span>
                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
                                                 {m.group || m.division || 'Group Stage'}
@@ -540,7 +530,7 @@ export default function StatisticianDashboard({
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                             }}
                                         >
-                                            ⚽ Enter Live Data Capture Console
+                                            Enter Live Data Capture Console
                                         </button>
                                     </div>
                                 );
@@ -552,7 +542,6 @@ export default function StatisticianDashboard({
                 {/* 2. Registered Scheduled Fixtures */}
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '16px' }}>📅</span>
                         <h2 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
                             Upcoming Match Fixtures ({upcomingMatches.length})
                         </h2>
@@ -575,7 +564,7 @@ export default function StatisticianDashboard({
                                     <div key={m.id} className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <span style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', background: 'rgba(96,165,250,0.12)', padding: '4px 10px', borderRadius: '20px' }}>
-                                                📅 Scheduled · {m.kickoff || m.time || '18:00'}
+                                                Scheduled · {m.kickoff || m.time || '18:00'}
                                             </span>
                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
                                                 {m.venue || 'Turf Location'}
@@ -602,14 +591,14 @@ export default function StatisticianDashboard({
                                         {/* Squad Readiness Badges */}
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                                {homeSquadReady ? '✅' : '⏳'} Home Squad
+                                                {homeSquadReady ? 'Ready' : 'Pending'} Home Squad
                                             </span>
                                             <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                                {awaySquadReady ? '✅' : '⏳'} Away Squad
+                                                {awaySquadReady ? 'Ready' : 'Pending'} Away Squad
                                             </span>
                                             {bothReady && (
                                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.3)' }}>
-                                                    🟢 SQUADS SUBMITTED
+                                                    SQUADS SUBMITTED
                                                 </span>
                                             )}
                                         </div>
@@ -626,7 +615,7 @@ export default function StatisticianDashboard({
                                                     transition: 'all 0.15s ease'
                                                 }}
                                             >
-                                                <span>📡</span> Open Live Match Readiness Room
+                                                Open Live Match Readiness Room
                                             </button>
                                         ) : (
                                             <button
@@ -639,7 +628,7 @@ export default function StatisticianDashboard({
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                                                 }}
                                             >
-                                                <span>📋</span> Preview Fixture & Lineups
+                                                Preview Fixture &amp; Lineups
                                             </button>
                                         )}
                                     </div>
@@ -653,7 +642,6 @@ export default function StatisticianDashboard({
                 {completedMatches.length > 0 && (
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '16px' }}>✅</span>
                             <h2 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
                                 Completed Matches ({completedMatches.length})
                             </h2>

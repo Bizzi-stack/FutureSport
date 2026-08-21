@@ -10,7 +10,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         venue: 'National Stadium',
         assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
-        avatar: '👨🏽‍💻',
+        avatar: 'N',
         badgeColor: '#38bdf8'
     },
     {
@@ -22,7 +22,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         venue: 'RBC Field',
         assignedMatchIds: ['match-pmc-4'],
-        avatar: '👨🏽‍💻',
+        avatar: 'M',
         badgeColor: '#f472b6'
     },
     {
@@ -34,7 +34,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         venue: 'Combermere Grounds',
         assignedMatchIds: ['match-pmc-5'],
-        avatar: '👨🏾‍💻',
+        avatar: 'D',
         badgeColor: '#a78bfa'
     }
 ];

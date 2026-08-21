@@ -237,7 +237,7 @@ const AdminLandingPage = ({
                         border: 'none', cursor: 'pointer', transition: 'all 0.2s'
                       }}
                     >
-                      🏆 Prime Minister's Cup
+                      Prime Minister's Cup
                     </button>
                     <button
                       type="button"
@@ -249,7 +249,7 @@ const AdminLandingPage = ({
                         border: 'none', cursor: 'pointer', transition: 'all 0.2s'
                       }}
                     >
-                      ⚽ National League
+                      National League
                     </button>
                   </div>
                 </div>
@@ -277,7 +277,7 @@ const AdminLandingPage = ({
                     }}
                   >
                     <option value="super_admin">
-                      {selectedTournament === 'PMC' ? "🏆 PMC Tournament Director / Super Admin" : "🏫 Schools League Super Administrator"}
+                      {selectedTournament === 'PMC' ? "PMC Tournament Director / Super Admin" : "Schools League Super Administrator"}
                     </option>
                     {selectedTournament !== 'PMC' && <option value="league_admin">League Administrator</option>}
                     {selectedTournament !== 'PMC' && <option value="school_admin">School Administrator</option>}
@@ -433,7 +433,7 @@ const AdminLandingPage = ({
                     >
                       {currentRoleOfficials.map(o => (
                         <option key={o.id} value={o.username}>
-                          {o.avatar || '👤'} {o.name} ({o.username}) · {o.assignedVenue}
+                          {o.name} ({o.username}) · {o.assignedVenue}
                         </option>
                       ))}
                     </select>
@@ -468,7 +468,7 @@ const AdminLandingPage = ({
                     color: '#4ade80', fontSize: '11.5px', fontWeight: '700',
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}>
-                    <span>🔗</span> Deep Link Activated: Auto-routing to assigned match upon sign-in.
+                    Deep Link Activated: Auto-routing to assigned match upon sign-in.
                   </div>
                 )}
 

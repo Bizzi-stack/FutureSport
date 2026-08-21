@@ -117,7 +117,6 @@ export default function FourthOfficialDashboard({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {currentOfficial && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <span>📟</span>
                             <div>
                                 <div style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8' }}>{currentOfficial.name}</div>
                                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>{currentOfficial.assignedVenue}</div>
@@ -265,7 +264,6 @@ export default function FourthOfficialDashboard({
             {upcomingMatches.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px' }}>📅</span>
                         <h3 style={{ fontSize: '16px', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
                             Registered Upcoming Fixtures ({upcomingMatches.length})
                         </h3>
@@ -289,10 +287,10 @@ export default function FourthOfficialDashboard({
                                     {/* Squad Readiness Badges */}
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                            {homeSquadReady ? '✅' : '⏳'} Home Squad
+                                            {homeSquadReady ? 'Ready' : 'Pending'} Home Squad
                                         </span>
                                         <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '12px', background: awaySquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: awaySquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${awaySquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
-                                            {awaySquadReady ? '✅' : '⏳'} Away Squad
+                                            {awaySquadReady ? 'Ready' : 'Pending'} Away Squad
                                         </span>
                                     </div>
 
@@ -302,7 +300,7 @@ export default function FourthOfficialDashboard({
                                         border: '1px solid rgba(99,102,241,0.15)',
                                         fontSize: '12px', fontWeight: '600', textAlign: 'center'
                                     }}>
-                                        ⏳ Awaiting Referee Kick-Off
+                                        Awaiting Referee Kick-Off
                                     </div>
                                 </div>
                             );

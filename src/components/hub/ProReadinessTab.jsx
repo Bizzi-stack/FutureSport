@@ -232,7 +232,6 @@ export default function ProReadinessTab({ year, term, selectedSchool, onStudentC
                 left={
                     <HubCard style={{ height: 450, overflowY: 'auto' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                            <div style={{ fontSize: 28, lineHeight: 1 }}>🔮</div>
                             <div>
                                 <SectionHeader title="Readiness Risk Matrix" infoKey="csec" />
                                 <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6, margin: 0, marginTop: 8 }}>

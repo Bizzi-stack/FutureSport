@@ -46,7 +46,6 @@ export default class ErrorBoundary extends React.Component {
             backdropFilter: 'blur(20px)',
             boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)'
           }}>
-            <div style={{ fontSize: '42px', marginBottom: '16px' }}>⚠️</div>
             <h2 style={{ fontSize: '20px', fontWeight: '800', margin: '0 0 8px 0', color: '#ffffff' }}>
               Dashboard View Exception
             </h2>
@@ -84,7 +83,7 @@ export default class ErrorBoundary extends React.Component {
                 transition: 'transform 0.15s ease'
               }}
             >
-              🔄 Reload Dashboard
+              Reload Dashboard
             </button>
           </div>
         </div>
