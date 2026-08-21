@@ -74,15 +74,59 @@ export default function RefereeDashboard({
         return matches.filter(m => m.status === 'live');
     }, [matches]);
 
+    const getSchoolObj = (schoolId) => {
+        if (!schoolId) return null;
+        let sc = schools?.find(s => s.id === schoolId || s.rawId === schoolId);
+        if (sc) return sc;
+        if (typeof schoolId === 'string') {
+            const baseId = schoolId.includes('-team-') ? schoolId.split('-team-')[0] : schoolId.split('_')[0];
+            sc = schools?.find(s => s.id === baseId || s.rawId === baseId);
+            if (sc) return sc;
+            sc = schools?.find(s => s.name?.toLowerCase() === schoolId.toLowerCase());
+            if (sc) return sc;
+        }
+        return null;
+    };
+
     const getSchoolName = (schoolId, matchObj) => {
-        if (!schoolId && !matchObj) return 'Unknown School';
-        const sc = schools?.find(s => s.id === schoolId || s.rawId === schoolId);
-        if (sc) return sc.name;
+        if (!schoolId && !matchObj) return 'Unknown Team';
+        
+        if (matchObj) {
+            if (matchObj.homeTeamId === schoolId && matchObj.homeTeam && typeof matchObj.homeTeam === 'string' && !matchObj.homeTeam.includes('-team-') && !matchObj.homeTeam.startsWith('s1-') && !matchObj.homeTeam.startsWith('s2-') && !matchObj.homeTeam.startsWith('s3-')) {
+                return matchObj.homeTeam;
+            }
+            if (matchObj.awayTeamId === schoolId && matchObj.awayTeam && typeof matchObj.awayTeam === 'string' && !matchObj.awayTeam.includes('-team-') && !matchObj.awayTeam.startsWith('s1-') && !matchObj.awayTeam.startsWith('s2-') && !matchObj.awayTeam.startsWith('s3-')) {
+                return matchObj.awayTeam;
+            }
+        }
+
+        const sc = getSchoolObj(schoolId);
+        if (sc?.name) {
+            if (typeof schoolId === 'string' && schoolId.includes('-team-')) {
+                const ageGroup = schoolId.split('-team-')[1];
+                if (ageGroup && ageGroup !== 'PMC') {
+                    return `${sc.name} (${ageGroup})`;
+                }
+            }
+            return sc.name;
+        }
+
         if (matchObj) {
             if (matchObj.homeTeamId === schoolId && matchObj.homeTeam) return matchObj.homeTeam;
             if (matchObj.awayTeamId === schoolId && matchObj.awayTeam) return matchObj.awayTeam;
         }
-        return schoolId || 'Unknown School';
+
+        if (typeof schoolId === 'string') {
+            return schoolId
+                .replace('-team-PMC', '')
+                .replace('-team-', ' ')
+                .replace('pmc-club-', 'Club ')
+                .replace(/^s1(\b|_|-|\s)/, 'Elite Academy ')
+                .replace(/^s2(\b|_|-|\s)/, 'City Football Club ')
+                .replace(/^s3(\b|_|-|\s)/, 'United Youth Academy ')
+                .replace(/_/g, ' ');
+        }
+        return 'Team';
     };
 
     const handleSelectMatch = (match) => {

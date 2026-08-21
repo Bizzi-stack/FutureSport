@@ -12,10 +12,45 @@ export default function FourthOfficialDashboard({
     const liveMatches = useMemo(() => matches.filter(m => m.status === 'live'), [matches]);
     const upcomingMatches = useMemo(() => matches.filter(m => m.status === 'upcoming' || m.status === 'scheduled'), [matches]);
 
+    const getSchoolObj = (schoolId) => {
+        if (!schoolId) return null;
+        let sc = schools?.find(s => s.id === schoolId || s.rawId === schoolId);
+        if (sc) return sc;
+        if (typeof schoolId === 'string') {
+            const baseId = schoolId.includes('-team-') ? schoolId.split('-team-')[0] : schoolId.split('_')[0];
+            sc = schools?.find(s => s.id === baseId || s.rawId === baseId);
+            if (sc) return sc;
+            sc = schools?.find(s => s.name?.toLowerCase() === schoolId.toLowerCase());
+            if (sc) return sc;
+        }
+        return null;
+    };
+
     const getSchoolName = (schoolId, fallbackName) => {
-        const sc = schools?.find(s => s.id === schoolId || s.rawId === schoolId);
-        if (sc) return sc.name;
-        return fallbackName || schoolId || 'Team';
+        if (fallbackName && fallbackName !== 'Team' && !fallbackName.includes('-team-') && !fallbackName.startsWith('s1-') && !fallbackName.startsWith('s2-') && !fallbackName.startsWith('s3-')) {
+            return fallbackName;
+        }
+        const sc = getSchoolObj(schoolId);
+        if (sc?.name) {
+            if (typeof schoolId === 'string' && schoolId.includes('-team-')) {
+                const ageGroup = schoolId.split('-team-')[1];
+                if (ageGroup && ageGroup !== 'PMC') {
+                    return `${sc.name} (${ageGroup})`;
+                }
+            }
+            return sc.name;
+        }
+        if (typeof schoolId === 'string') {
+            return schoolId
+                .replace('-team-PMC', '')
+                .replace('-team-', ' ')
+                .replace('pmc-club-', 'Club ')
+                .replace(/^s1(\b|_|-|\s)/, 'Elite Academy ')
+                .replace(/^s2(\b|_|-|\s)/, 'City Football Club ')
+                .replace(/^s3(\b|_|-|\s)/, 'United Youth Academy ')
+                .replace(/_/g, ' ');
+        }
+        return fallbackName || 'Team';
     };
 
     const getPlayerName = (playerId) => {
