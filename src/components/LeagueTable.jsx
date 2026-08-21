@@ -87,7 +87,7 @@ export default function LeagueTable({ matches, teams, schools }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>📊 Live Division Standings</h3>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Live Division Standings</h3>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Dynamically calculated from official tournament fixtures</span>
                 </div>
                 <select

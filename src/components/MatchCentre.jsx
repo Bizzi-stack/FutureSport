@@ -162,7 +162,7 @@ export default function MatchCentre({ allStudents, year, term, matches, onEndMat
                                 onMouseEnter={e => { if (view !== VIEWS.SETUP) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-primary)'; }}}
                                 onMouseLeave={e => { if (view !== VIEWS.SETUP) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'var(--text-muted)'; }}}
                             >
-                                ⚽ New Match
+                                New Match
                             </button>
                             <button
                                 onClick={() => { setSelectedMatch(null); setView(VIEWS.HISTORY); }}
@@ -180,7 +180,7 @@ export default function MatchCentre({ allStudents, year, term, matches, onEndMat
                                 onMouseEnter={e => { if (view !== VIEWS.HISTORY && view !== VIEWS.DETAIL) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-primary)'; }}}
                                 onMouseLeave={e => { if (view !== VIEWS.HISTORY && view !== VIEWS.DETAIL) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'var(--text-muted)'; }}}
                             >
-                                📋 Match History {matches.length > 0 && `(${matches.length})`}
+                                Match History {matches.length > 0 && `(${matches.length})`}
                             </button>
                         </>
                     )}

@@ -94,14 +94,14 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', height: '100%', minHeight: 0 }}>
-            {/* Header info */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Header / School Info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: 'var(--border)', paddingBottom: '16px' }}>
                 <div style={{
                     width: '60px', height: '60px', borderRadius: '50%',
                     background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
-                    border: '3px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px'
+                    border: '3px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '800', color: '#ffffff'
                 }}>
-                    🏫
+                    {school.name ? school.name.charAt(0) : 'S'}
                 </div>
                 <div>
                     <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -114,9 +114,9 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
             {/* Sub Tabs */}
             <div style={{ display: 'flex', gap: '8px', borderBottom: 'var(--border)', paddingBottom: '10px' }}>
                 {[
-                    { id: 'profile', label: '🏫 School Profile' },
-                    { id: 'roster', label: '📋 Roster Registrations' },
-                    { id: 'standings', label: '📊 League Standings' }
+                    { id: 'profile', label: 'School Profile' },
+                    { id: 'roster', label: 'Roster Registrations' },
+                    { id: 'standings', label: 'League Standings' }
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -182,7 +182,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                         {logoBase64 ? (
                                             <img src={logoBase64} alt="Crest Preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                         ) : (
-                                            <span style={{ fontSize: '24px' }}>🛡️</span>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Crest</span>
                                         )}
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -319,7 +319,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                 </div>
                                 {missingDocsCount > 0 && (
                                     <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--warning)', background: 'rgba(245,158,11,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
-                                        ⚠️ {missingDocsCount} players missing documents
+                                        {missingDocsCount} players missing documents
                                     </span>
                                 )}
                             </div>
@@ -385,7 +385,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                                 <td style={{ padding: '14px 16px', fontSize: '13px' }}>
                                                     {docs.birthCertificate ? (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
-                                                            <span>📄 Verified</span>
+                                                            <span>Verified</span>
                                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({docs.birthCertificate})</span>
                                                         </div>
                                                     ) : (
@@ -396,7 +396,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                                                 border: 'none', color: 'var(--warning)', fontSize: '11px', fontWeight: '700', cursor: 'pointer'
                                                             }}
                                                         >
-                                                            ⚠️ Upload
+                                                            Upload
                                                         </button>
                                                     )}
                                                 </td>
@@ -405,7 +405,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                                 <td style={{ padding: '14px 16px', fontSize: '13px' }}>
                                                     {docs.enrollmentLetter ? (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
-                                                            <span>📄 Verified</span>
+                                                            <span>Verified</span>
                                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({docs.enrollmentLetter})</span>
                                                         </div>
                                                     ) : (
@@ -416,7 +416,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                                                 border: 'none', color: 'var(--warning)', fontSize: '11px', fontWeight: '700', cursor: 'pointer'
                                                             }}
                                                         >
-                                                            ⚠️ Upload
+                                                            Upload
                                                         </button>
                                                     )}
                                                 </td>
@@ -433,7 +433,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                                         </span>
                                                         {status === 'rejected' && player.rejectionReason && (
                                                             <span style={{ fontSize: '10px', color: 'var(--danger)', fontStyle: 'italic', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={player.rejectionReason}>
-                                                                ⚠️ {player.rejectionReason}
+                                                                {player.rejectionReason}
                                                             </span>
                                                         )}
                                                     </div>
@@ -460,7 +460,7 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                 }}>
                     <div className="glass-panel" style={{ padding: '24px', width: '420px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                            📤 Upload {uploadingPlayerDoc.label}
+                            Upload {uploadingPlayerDoc.label}
                         </h3>
                         <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--text-muted)' }}>
                             Select the document to upload for <strong>{uploadingPlayerDoc.player.name}</strong> to verify their league eligibility.

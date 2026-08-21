@@ -56,7 +56,7 @@ function ContactModal({ student, onClose, onSend }) {
                 <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>To:</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255, 255, 255, 0.05)', padding: '4px 12px', borderRadius: '20px' }}>
-                        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>👩🏽</div>
+                        <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700' }}>G</div>
                         <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Guardian ({guardianSurname})</span>
                     </div>
                 </div>

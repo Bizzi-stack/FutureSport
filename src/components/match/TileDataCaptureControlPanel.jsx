@@ -96,7 +96,7 @@ export default function TileDataCaptureControlPanel({
     const handleTogglePossession = (side) => {
         setPossessionSide(side);
         const teamName = side === 'home' ? home.name : away.name;
-        triggerToast(`⚽ Ball Possession switched to ${teamName}`);
+        triggerToast(`Ball Possession switched to ${teamName}`);
         if (onQuickLogEvent) {
             onQuickLogEvent({
                 type: 'possessionChange',
@@ -195,7 +195,7 @@ export default function TileDataCaptureControlPanel({
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     boxShadow: '0 8px 24px rgba(16,185,129,0.3)'
                 }}>
-                    <span>✅ {toastMessage}</span>
+                    <span>{toastMessage}</span>
                     <button onClick={() => setToastMessage(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
                 </div>
             )}
@@ -204,13 +204,12 @@ export default function TileDataCaptureControlPanel({
             <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.8))' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '18px' }}>⏱️</span>
                         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             Live Team Possession Tracker
                         </h3>
                     </div>
                     <span style={{ fontSize: '11px', color: (isPaused || period === 'HT') ? '#f59e0b' : 'var(--text-muted)', fontWeight: '700' }}>
-                        {(isPaused || period === 'HT') ? '⏸️ Match Clock Paused · Possession Clock Frozen' : 'Click team tile when ball possession switches'}
+                        {(isPaused || period === 'HT') ? 'Match Clock Paused · Possession Clock Frozen' : 'Click team tile when ball possession switches'}
                     </span>
                 </div>
 
@@ -236,7 +235,7 @@ export default function TileDataCaptureControlPanel({
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                             <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
-                                🟢 {home.name}
+                                {home.name}
                             </span>
                             {possessionSide === 'home' && (
                                 <span style={{
@@ -248,7 +247,7 @@ export default function TileDataCaptureControlPanel({
                                     borderRadius: '12px',
                                     border: (isPaused || period === 'HT') ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(34,197,94,0.4)'
                                 }}>
-                                    {(isPaused || period === 'HT') ? '⏸️ IN POSSESSION (PAUSED)' : '● IN POSSESSION'}
+                                    {(isPaused || period === 'HT') ? 'IN POSSESSION (PAUSED)' : 'IN POSSESSION'}
                                 </span>
                             )}
                         </div>
@@ -283,7 +282,7 @@ export default function TileDataCaptureControlPanel({
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                             <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
-                                🔵 {away.name}
+                                {away.name}
                             </span>
                             {possessionSide === 'away' && (
                                 <span style={{
@@ -295,7 +294,7 @@ export default function TileDataCaptureControlPanel({
                                     borderRadius: '12px',
                                     border: (isPaused || period === 'HT') ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(99,102,241,0.4)'
                                 }}>
-                                    {(isPaused || period === 'HT') ? '⏸️ IN POSSESSION (PAUSED)' : '● IN POSSESSION'}
+                                    {(isPaused || period === 'HT') ? 'IN POSSESSION (PAUSED)' : 'IN POSSESSION'}
                                 </span>
                             )}
                         </div>
@@ -319,7 +318,6 @@ export default function TileDataCaptureControlPanel({
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '18px' }}>👤</span>
                         <div>
                             <span style={{ fontSize: '11px', color: 'var(--primary-light)', fontWeight: '700', textTransform: 'uppercase' }}>Active Selected Player</span>
                             <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff' }}>
@@ -340,7 +338,7 @@ export default function TileDataCaptureControlPanel({
             <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        📊 Direct Match Event Log Tiles
+                        Direct Match Event Log Tiles
                     </h3>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                         Select a tile to log match events in 1 tap
@@ -431,7 +429,7 @@ export default function TileDataCaptureControlPanel({
                                     fontWeight: '800', fontSize: '13px', cursor: 'pointer'
                                 }}
                             >
-                                🟢 {home.name}
+                                {home.name}
                             </button>
                             <button
                                 type="button"
@@ -443,7 +441,7 @@ export default function TileDataCaptureControlPanel({
                                     fontWeight: '800', fontSize: '13px', cursor: 'pointer'
                                 }}
                             >
-                                🔵 {away.name}
+                                {away.name}
                             </button>
                         </div>
 

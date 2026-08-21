@@ -97,13 +97,13 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
             {/* Sub-navigation Tabs */}
             <div style={{ display: 'flex', gap: '12px', borderBottom: 'var(--border)', paddingBottom: '10px', flexWrap: 'wrap' }}>
                 {[
-                    { key: 'divisions', label: '🛡️ Divisions & Teams' },
-                    { key: 'alerts', label: '📢 Match Operations & Alerts' },
-                    { key: 'standings', label: '📊 League Standings' },
-                    { key: 'stats', label: '📈 Competition Stats' },
-                    { key: 'knockout', label: '🏆 Knockouts' },
-                    { key: 'venues', label: '🏟️ Venues & Officials' },
-                    { key: 'generator', label: '⚙️ Fixture Generator' }
+                    { key: 'divisions', label: 'Divisions & Teams' },
+                    { key: 'alerts', label: 'Match Operations & Alerts' },
+                    { key: 'standings', label: 'League Standings' },
+                    { key: 'stats', label: 'Competition Stats' },
+                    { key: 'knockout', label: 'Knockouts' },
+                    { key: 'venues', label: 'Venues & Officials' },
+                    { key: 'generator', label: 'Fixture Generator' }
                 ].map(tab => (
                     <button
                         key={tab.key}
@@ -164,7 +164,6 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                 {DEFAULT_VENUES.map(venue => (
                                     <div key={venue.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)', borderRadius: '8px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span>🏟️</span>
                                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{venue.name}</span>
                                         </div>
                                         <span style={{
@@ -186,7 +185,6 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                 {DEFAULT_OFFICIALS.map(off => (
                                     <div key={off.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)', borderRadius: '8px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span>👤</span>
                                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{off.name}</span>
                                         </div>
                                         <span style={{ fontSize: '11px', color: 'var(--primary-light)', background: 'rgba(37,99,235,0.1)', padding: '3px 10px', borderRadius: '6px', fontWeight: '600' }}>
@@ -291,7 +289,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                 color: '#4ade80', fontSize: '13px', fontWeight: '700',
                                 display: 'flex', alignItems: 'center', gap: '10px'
                             }}>
-                                <span>📬</span> {adminAlertToast}
+                                {adminAlertToast}
                             </div>
                         )}
 
@@ -299,7 +297,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                        📢 Live Match Operations &amp; Official Notifications
+                                        Live Match Operations &amp; Official Notifications
                                     </h3>
                                     <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
                                         Monitor team sheet readiness, dispatch coach submission reminders, and trigger official alerts.
@@ -333,12 +331,12 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                     </span>
                                                     {m.status === 'live' && (
                                                         <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
-                                                            🔴 LIVE
+                                                            LIVE
                                                         </span>
                                                     )}
                                                     {bothReady && m.status !== 'live' && (
                                                         <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
-                                                            ✓ SQUADS LOCKED
+                                                            SQUADS LOCKED
                                                         </span>
                                                     )}
                                                 </div>
@@ -355,7 +353,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                         onClick={async () => {
                                                             try {
                                                                 await sendCoachSquadReminderNotification(m, homeName, '', `Coach (${homeName})`, awayName);
-                                                                setAdminAlertToast(`✓ Squad reminder dispatched to ${homeName} Coach!`);
+                                                                setAdminAlertToast(`Squad reminder dispatched to ${homeName} Coach!`);
                                                                 setTimeout(() => setAdminAlertToast(null), 4000);
                                                             } catch (e) {
                                                                 console.warn(e);
@@ -367,11 +365,11 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                                                         }}
                                                     >
-                                                        <span>⏰</span> Remind {homeName} Coach
+                                                        Remind {homeName} Coach
                                                     </button>
                                                 ) : (
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
-                                                        ✓ {homeName} Ready
+                                                        {homeName} Ready
                                                     </span>
                                                 )}
 
@@ -382,7 +380,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                         onClick={async () => {
                                                             try {
                                                                 await sendCoachSquadReminderNotification(m, awayName, '', `Coach (${awayName})`, homeName);
-                                                                setAdminAlertToast(`✓ Squad reminder dispatched to ${awayName} Coach!`);
+                                                                setAdminAlertToast(`Squad reminder dispatched to ${awayName} Coach!`);
                                                                 setTimeout(() => setAdminAlertToast(null), 4000);
                                                             } catch (e) {
                                                                 console.warn(e);
@@ -394,11 +392,11 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
                                                         }}
                                                     >
-                                                        <span>⏰</span> Remind {awayName} Coach
+                                                        Remind {awayName} Coach
                                                     </button>
                                                 ) : (
                                                     <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
-                                                        ✓ {awayName} Ready
+                                                        {awayName} Ready
                                                     </span>
                                                 )}
 
@@ -410,7 +408,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                             try {
                                                                 await sendRefereeSquadNotification(m, homeName, awayName, allStudents);
                                                                 await sendDataLoggerMatchReadyNotification(m, homeName, awayName, allStudents);
-                                                                setAdminAlertToast(`✓ Official alerts & team sheets delivered to Referee and Data Loggers!`);
+                                                                setAdminAlertToast(`Official alerts & team sheets delivered to Referee and Data Loggers!`);
                                                                 setTimeout(() => setAdminAlertToast(null), 4000);
                                                             } catch (e) {
                                                                 console.warn(e);
@@ -423,7 +421,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                             boxShadow: '0 2px 8px rgba(16,185,129,0.3)'
                                                         }}
                                                     >
-                                                        <span>📡</span> Alert Officials
+                                                        Alert Officials
                                                     </button>
                                                 )}
                                             </div>

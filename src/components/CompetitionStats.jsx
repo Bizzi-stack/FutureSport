@@ -136,7 +136,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
             {/* Header tab section */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>📈 Competition Statistics</h3>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Competition Statistics</h3>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Aggregated division-wide tournament metrics and leaderboards</span>
                 </div>
                 <select
@@ -183,7 +183,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
                 
                 {/* 1. Golden Boot (Top Scorers) */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>⚽ Golden Boot (Top Scorers)</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Golden Boot (Top Scorers)</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.topScorers.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No goals logged yet.</span>
@@ -207,7 +207,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
                 {/* 2. Playmaker Award (Top Assists) */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>👟 Playmaker (Most Assists)</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Playmaker (Most Assists)</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.topAssists.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No assists logged yet.</span>
@@ -231,7 +231,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
                 {/* 3. Golden Glove (Goalkeeper Saves) */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>🧤 Golden Glove (Saves)</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Golden Glove (Saves)</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.topGoalkeepers.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No goalkeeper saves logged yet.</span>
@@ -255,7 +255,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
                 {/* 4. Disciplinary Record */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>🟨 Disciplinary Record</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Disciplinary Record</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.disciplinary.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No cards issued yet.</span>

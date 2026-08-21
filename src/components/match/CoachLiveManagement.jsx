@@ -88,7 +88,6 @@ export default function CoachLiveManagement({ match, teamId, allPlayers, year, o
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div className="glass-panel" style={{ padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '3rem' }}>⚠️</span>
                     <h2 style={{ fontSize: '20px', fontWeight: '800', margin: 0, color: 'var(--warning)' }}>
                         Squad Not Submitted
                     </h2>

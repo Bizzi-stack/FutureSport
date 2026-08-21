@@ -1770,13 +1770,13 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                                     onClick={() => setHomeViewMode('list')}
                                     style={homeViewMode === 'list' ? styles.toggleBtnActive : styles.toggleBtn}
                                 >
-                                    📋 List
+                                    List
                                 </button>
                                 <button 
                                     onClick={() => setHomeViewMode('pitch')}
                                     style={homeViewMode === 'pitch' ? styles.toggleBtnActive : styles.toggleBtn}
                                 >
-                                    ⚽ Pitch
+                                    Pitch
                                 </button>
                             </div>
                         )}
@@ -1929,13 +1929,13 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                                     onClick={() => setAwayViewMode('list')}
                                     style={awayViewMode === 'list' ? styles.toggleBtnActive : styles.toggleBtn}
                                 >
-                                    📋 List
+                                    List
                                 </button>
                                 <button 
                                     onClick={() => setAwayViewMode('pitch')}
                                     style={awayViewMode === 'pitch' ? styles.toggleBtnActive : styles.toggleBtn}
                                 >
-                                    ⚽ Pitch
+                                    Pitch
                                 </button>
                             </div>
                         )}

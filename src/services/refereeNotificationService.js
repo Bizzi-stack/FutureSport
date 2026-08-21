@@ -221,7 +221,7 @@ export async function sendFormSubmitEmail(primaryEmail, ccList = [], payload = {
         .join(', ');
 
     const bodyData = {
-        _subject: payload._subject || payload.subject || '⚽ Prime Minister Cup Matchday Alert',
+        _subject: payload._subject || payload.subject || 'Prime Minister Cup Matchday Alert',
         _captcha: 'false',
         _template: 'table',
         ...(cleanCc ? { _cc: cleanCc } : {}),
@@ -255,7 +255,7 @@ export async function sendRefereeSquadNotification(match, homeName, awayName, al
     const homeFormation = match.homeSquadSelection?.formation || '4-3-3';
     const awayFormation = match.awaySquadSelection?.formation || '4-3-3';
 
-    const subject = `⚽ [KICK-OFF READY] ${homeName} vs ${awayName} · Team Sheets Submitted`;
+    const subject = `[KICK-OFF READY] ${homeName} vs ${awayName} · Team Sheets Submitted`;
     const bodyText = `
 OFFICIAL MATCHDAY SQUAD SUBMISSION NOTIFICATION
 ==================================================
@@ -267,12 +267,12 @@ Time: ${match.time || '18:00'}
 Status: BOTH SQUADS SUBMITTED · READY FOR KICK-OFF
 
 --------------------------------------------------
-🟢 HOME SQUAD: ${homeName} (Formation: ${homeFormation})
+HOME SQUAD: ${homeName} (Formation: ${homeFormation})
 --------------------------------------------------
 ${formatPlayerList(homeXI, allPlayers)}
 
 --------------------------------------------------
-🔵 AWAY SQUAD: ${awayName} (Formation: ${awayFormation})
+AWAY SQUAD: ${awayName} (Formation: ${awayFormation})
 --------------------------------------------------
 ${formatPlayerList(awayXI, allPlayers)}
 
@@ -291,7 +291,7 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
 
     // 2. Trigger Device / Phone Lockscreen Push Notification
     if (settings.enableDevicePush) {
-        triggerDeviceNotification(`⚽ Match Ready: ${homeName} vs ${awayName}`, {
+        triggerDeviceNotification(`Match Ready: ${homeName} vs ${awayName}`, {
             body: `Both squads submitted (${homeFormation} vs ${awayFormation}). Tap to blow whistle and begin kick-off!`,
             tag: `match-kickoff-${match.id}`
         });
@@ -360,13 +360,13 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
 export async function sendCoachSquadReminderNotification(match, teamName, coachEmail = '', coachName = 'Coach', opponentName = 'Opponent') {
     const timestamp = new Date().toLocaleString();
     const primaryEmail = coachEmail || 'ralphjamesjr00@gmail.com';
-    const subject = `📋 [SQUAD SUBMISSION REMINDER] ${teamName} vs ${opponentName} · Matchday Ready`;
+    const subject = `[SQUAD SUBMISSION REMINDER] ${teamName} vs ${opponentName} · Matchday Ready`;
 
     // 1. Play Chime Sound
     playChimeSound();
 
     // 2. Browser Push Notification
-    triggerDeviceNotification(`📋 Squad Reminder: ${teamName}`, {
+    triggerDeviceNotification(`Squad Reminder: ${teamName}`, {
         body: `Your match against ${opponentName} is scheduled. Please lock in your Starting XI and bench roster!`,
         tag: `coach-reminder-${match.id}`
     });
@@ -431,13 +431,13 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
     const baseUrl = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://edudata-pmcup-app.surge.sh';
     const deepLink = `${baseUrl}/?role=statistician&matchId=${match.id}&analystId=${analystId}&analystEmail=${encodeURIComponent(recipientEmail)}`;
 
-    const subject = `📡 [START LOGGING · KICK-OFF IMMINENT] Lineups Submitted: ${homeName} vs ${awayName}`;
+    const subject = `[START LOGGING · KICK-OFF IMMINENT] Lineups Submitted: ${homeName} vs ${awayName}`;
 
     // 1. Play Chime Sound
     playChimeSound();
 
     // 2. Trigger Device / Phone Push Notification
-    triggerDeviceNotification(`📡 Data Capture Ready: ${homeName} vs ${awayName}`, {
+    triggerDeviceNotification(`Data Capture Ready: ${homeName} vs ${awayName}`, {
         body: `Starting XIs confirmed (${homeFormation} vs ${awayFormation}). Tap to open live logger for ${match.venue || 'venue'}!`,
         tag: `logger-ready-${match.id}`
     });
@@ -510,12 +510,12 @@ export async function sendTestRefereeNotification(targetEmail) {
         playRefereeWhistleSound();
     }
 
-    triggerDeviceNotification('🧪 Multi-Recipient Notification Test: OK', {
+    triggerDeviceNotification('Multi-Recipient Notification Test: OK', {
         body: `Test signal delivered to ${email}. Device push & whistle operational.`,
         tag: 'test-notification'
     });
 
-    const subject = `🧪 [TEST ALERT] Multi-Recipient Live Notification Test · Prime Minister's Cup`;
+    const subject = `[TEST ALERT] Multi-Recipient Live Notification Test · Prime Minister's Cup`;
 
     let emailStatus = 'dispatched';
     try {
@@ -553,7 +553,7 @@ export async function sendTestRefereeNotification(targetEmail) {
         timestamp,
         homeFormation: '4-3-3',
         awayFormation: '4-2-3-1',
-        subject: '🧪 Multi-Recipient Test Notification'
+        subject: 'Multi-Recipient Test Notification'
     };
     appendNotificationLog(logEntry);
 

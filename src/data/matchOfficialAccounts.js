@@ -11,7 +11,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'statistician',
             assignedVenue: 'National Stadium',
             assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
-            avatar: '👨🏽‍💻'
+            avatar: 'N'
         },
         {
             id: 'analyst_marcus',
@@ -22,7 +22,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'statistician',
             assignedVenue: 'RBC Field',
             assignedMatchIds: ['match-pmc-4'],
-            avatar: '👨🏽‍💻'
+            avatar: 'M'
         },
         {
             id: 'analyst_devon',
@@ -33,7 +33,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'statistician',
             assignedVenue: 'Combermere Grounds',
             assignedMatchIds: ['match-pmc-5'],
-            avatar: '👨🏾‍💻'
+            avatar: 'D'
         }
     ],
     referee: [
@@ -46,7 +46,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'FIFA / BFA National Referee',
             assignedVenue: 'National Stadium',
-            avatar: '🟨'
+            avatar: 'REF'
         },
         {
             id: 'ref_michael',
@@ -57,7 +57,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'Senior Match Official',
             assignedVenue: 'Usain Bolt Sports Complex',
-            avatar: '🟨'
+            avatar: 'REF'
         },
         {
             id: 'ref_dave',
@@ -68,7 +68,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'BFA Premier Official',
             assignedVenue: 'Wildey Turf',
-            avatar: '🟨'
+            avatar: 'REF'
         },
         {
             id: 'ref_trevor',
@@ -79,7 +79,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'FIFA Official',
             assignedVenue: 'RBC Field',
-            avatar: '🟨'
+            avatar: 'REF'
         },
         {
             id: 'ref_shawn',
@@ -90,7 +90,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'National Referee',
             assignedVenue: 'Combermere Grounds',
-            avatar: '🟨'
+            avatar: 'REF'
         }
     ],
     fourth_official: [
@@ -102,7 +102,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'fourth_official',
             assignedVenue: 'National Stadium',
-            avatar: '📟'
+            avatar: 'FO'
         },
 
         {
@@ -113,7 +113,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'fourth_official',
             assignedVenue: 'RBC Field',
-            avatar: '📟'
+            avatar: 'FO'
         },
         {
             id: 'fo_jamal',
@@ -123,7 +123,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'fourth_official',
             assignedVenue: 'Combermere Grounds',
-            avatar: '📟'
+            avatar: 'FO'
         }
     ]
 };

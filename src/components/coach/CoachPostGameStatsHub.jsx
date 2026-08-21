@@ -424,7 +424,6 @@ export default function CoachPostGameStatsHub({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '26px' }}>📊</span>
                             <div>
                                 <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.3px' }}>
                                     {teamDisplayName} · Stats &amp; Analytics Hub
@@ -437,7 +436,7 @@ export default function CoachPostGameStatsHub({
                                 fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(34, 197, 94, 0.15)',
                                 padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(34, 197, 94, 0.3)', marginLeft: '6px'
                             }}>
-                                🔒 Team Scoped
+                                Team Scoped
                             </span>
                         </div>
                     </div>
@@ -454,7 +453,7 @@ export default function CoachPostGameStatsHub({
                                 border: hubView === 'match_reports' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
                             }}
                         >
-                            🏟️ Match History &amp; Reports
+                            Match History &amp; Reports
                         </button>
                         <button
                             type="button"
@@ -466,7 +465,7 @@ export default function CoachPostGameStatsHub({
                                 border: hubView === 'squad_analytics' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
                             }}
                         >
-                            ⭐ Squad Analytics &amp; Leaders
+                            Squad Analytics &amp; Leaders
                         </button>
                         <button
                             type="button"
@@ -478,7 +477,7 @@ export default function CoachPostGameStatsHub({
                                 border: hubView === 'player_matrix' ? '1px solid #6366f1' : 'none', cursor: 'pointer'
                             }}
                         >
-                            👥 Player Performance Matrix
+                            Player Performance Matrix
                         </button>
                         <button
                             type="button"
@@ -491,7 +490,7 @@ export default function CoachPostGameStatsHub({
                                 display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                         >
-                            <span>⚠️ Alerts</span>
+                            <span>Alerts</span>
                             {activeAlerts.length > 0 && (
                                 <span style={{ background: '#ef4444', color: '#fff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: '900' }}>
                                     {activeAlerts.length}
@@ -578,7 +577,6 @@ export default function CoachPostGameStatsHub({
                     <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '18px' }}>⚽</span>
                                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                     Match History &amp; Fixtures ({rangeFilteredMatches.length} Fixtures)
                                 </h3>
@@ -654,7 +652,7 @@ export default function CoachPostGameStatsHub({
                                                     background: isWin ? 'rgba(34, 197, 94, 0.15)' : isDraw ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                                                     color: isWin ? '#4ade80' : isDraw ? '#fde047' : '#f87171'
                                                 }}>
-                                                    {isWin ? '🏆 VICTORY' : isDraw ? '🤝 DRAW' : '❌ DEFEAT'}
+                                                    {isWin ? 'VICTORY' : isDraw ? 'DRAW' : 'DEFEAT'}
                                                 </span>
                                             </div>
 
@@ -690,7 +688,7 @@ export default function CoachPostGameStatsHub({
                                             )}
 
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '8px' }}>
-                                                <span>📍 {m.venue || 'National Stadium'}</span>
+                                                <span>{m.venue || 'National Stadium'}</span>
                                                 <span style={{ color: 'var(--primary-light)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     Open Report <ArrowRight />
                                                 </span>
@@ -710,7 +708,6 @@ export default function CoachPostGameStatsHub({
                     <div className="glass-panel" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '18px' }}>⭐</span>
                                 <h2 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
                                     Squad Overall Season Analytics &amp; Key Totals
                                 </h2>
@@ -753,7 +750,6 @@ export default function CoachPostGameStatsHub({
                                 onClick={() => squadStats.topScorer && onStudentClick(students.find(s => s.id === squadStats.topScorer.id))}
                                 style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                             >
-                                <span style={{ fontSize: '24px' }}>⚽</span>
                                 <div>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', textTransform: 'uppercase' }}>Top Goalscorer</div>
                                     <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -767,7 +763,6 @@ export default function CoachPostGameStatsHub({
                                 onClick={() => squadStats.topAssist && onStudentClick(students.find(s => s.id === squadStats.topAssist.id))}
                                 style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                             >
-                                <span style={{ fontSize: '24px' }}>🅰️</span>
                                 <div>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#818cf8', textTransform: 'uppercase' }}>Assist Leader</div>
                                     <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -781,7 +776,6 @@ export default function CoachPostGameStatsHub({
                                 onClick={() => squadStats.topSaves && onStudentClick(students.find(s => s.id === squadStats.topSaves.id))}
                                 style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                             >
-                                <span style={{ fontSize: '24px' }}>🧤</span>
                                 <div>
                                     <div style={{ fontSize: '11px', fontWeight: '700', color: '#fbbf24', textTransform: 'uppercase' }}>Goalkeeper Wall</div>
                                     <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>
@@ -891,7 +885,6 @@ export default function CoachPostGameStatsHub({
                 <div className="glass-panel" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '18px' }}>⚠️</span>
                             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
                                 Tactical Alerts &amp; Intervention Notices ({activeAlerts.length})
                             </h3>
@@ -900,7 +893,6 @@ export default function CoachPostGameStatsHub({
 
                     {activeAlerts.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '40px', background: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                            <span style={{ fontSize: '28px' }}>✅</span>
                             <div style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', marginTop: '12px' }}>Roster looks stable!</div>
                             <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>No warnings or intervention alerts currently active for this squad.</div>
                         </div>
@@ -920,7 +912,6 @@ export default function CoachPostGameStatsHub({
                                             width: '36px', height: '36px', borderRadius: '50%', background: bgIcon,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                                         }}>
-                                            {alert.type === 'gamesPlayed' ? '⚠️' : alert.type === 'class-anomaly' ? '📉' : '🔔'}
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
@@ -1041,7 +1032,6 @@ export default function CoachPostGameStatsHub({
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '14px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ fontSize: '20px' }}>📋</span>
                                     <div>
                                         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#ffffff' }}>
                                             Post-Game Match Analysis &amp; Box Score
@@ -1071,7 +1061,7 @@ export default function CoachPostGameStatsHub({
                             }}>
                                 <div style={{ textAlign: 'left', flex: 1 }}>
                                     <span style={{ fontSize: '12px', fontWeight: '700', color: isHome ? '#4ade80' : 'var(--text-muted)' }}>
-                                        {isHome ? '🟢 YOUR TEAM (HOME)' : 'HOME'}
+                                        {isHome ? 'YOUR TEAM (HOME)' : 'HOME'}
                                     </span>
                                     <h3 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>
                                         {m.homeTeam}
@@ -1093,7 +1083,7 @@ export default function CoachPostGameStatsHub({
 
                                 <div style={{ textAlign: 'right', flex: 1 }}>
                                     <span style={{ fontSize: '12px', fontWeight: '700', color: !isHome ? '#4ade80' : 'var(--text-muted)' }}>
-                                        {!isHome ? '🟢 YOUR TEAM (AWAY)' : 'AWAY'}
+                                        {!isHome ? 'YOUR TEAM (AWAY)' : 'AWAY'}
                                     </span>
                                     <h3 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>
                                         {m.awayTeam}
@@ -1106,9 +1096,9 @@ export default function CoachPostGameStatsHub({
                                 borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column', gap: '14px'
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '800', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
-                                    <span style={{ color: '#4ade80' }}>🟢 {teamName}</span>
+                                    <span style={{ color: '#4ade80' }}>{teamName}</span>
                                     <span style={{ color: 'var(--text-muted)' }}>HEAD-TO-HEAD MATCH MATRIX</span>
-                                    <span style={{ color: '#818cf8' }}>🔵 {oppName}</span>
+                                    <span style={{ color: '#818cf8' }}>{oppName}</span>
                                 </div>
 
                                 <ComparativeStatBar label="Ball Possession" teamVal={teamPoss} oppVal={oppPoss} isPercentage={true} />
@@ -1231,7 +1221,7 @@ export default function CoachPostGameStatsHub({
                                     </div>
                                     {noteSavedToast && (
                                         <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700' }}>
-                                            ✅ Saved to Team Ledger
+                                            Saved to Team Ledger
                                         </span>
                                     )}
                                 </div>
@@ -1256,7 +1246,7 @@ export default function CoachPostGameStatsHub({
                                             color: '#ffffff', fontWeight: '700', fontSize: '12px', cursor: 'pointer'
                                         }}
                                     >
-                                        💾 Save Match Notes
+                                        Save Match Notes
                                     </button>
                                 </div>
                             </div>
