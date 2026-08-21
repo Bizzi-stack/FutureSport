@@ -124,9 +124,10 @@ export default function StatisticianDashboard({
         setSelectedMatchId(match.id);
     };
 
-    // ── Selected Match View (Pre-Kickoff Waiting Room OR Active Live Match) ──
+    // ── Selected Match View (Active Live Match, Post-Match Concluded Station, OR Pre-Kickoff Waiting Room) ──
     if (selectedMatch) {
         const isMatchLive = selectedMatch.status === 'live';
+        const isMatchCompleted = selectedMatch.status === 'completed' || selectedMatch.status === 'refereed' || selectedMatch.status === 'approved';
         const homeSchool = getSchoolObj(selectedMatch.homeTeamId);
         const awaySchool = getSchoolObj(selectedMatch.awayTeamId);
         const homeName = homeSchool?.name || selectedMatch.homeTeam || 'Home Team';
@@ -135,6 +136,7 @@ export default function StatisticianDashboard({
         const awayXI = selectedMatch.awaySquadSelection?.startingXI || [];
         const homeFormation = selectedMatch.homeSquadSelection?.formation || '4-3-3';
         const awayFormation = selectedMatch.awaySquadSelection?.formation || '4-3-3';
+        const timelineEvents = selectedMatch.timeline || [];
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
@@ -163,6 +165,10 @@ export default function StatisticianDashboard({
                                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
                                 LIVE DATA CAPTURE ACTIVE
                             </span>
+                        ) : isMatchCompleted ? (
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                MATCH CONCLUDED · FULL TIME
+                            </span>
                         ) : (
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#fbbf24', background: 'rgba(245,158,11,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 WAITING FOR REFEREE KICK-OFF
@@ -190,7 +196,7 @@ export default function StatisticianDashboard({
                     </div>
                 </div>
 
-                {/* Condition: If Match is LIVE -> Render Live Data Capture Console */}
+                {/* Condition 1: If Match is LIVE -> Render Live Data Capture Console */}
                 {isMatchLive ? (
                     <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                         <LiveMatch
@@ -205,12 +211,201 @@ export default function StatisticianDashboard({
                             }}
                             onEndMatch={(finalData) => {
                                 if (onEndMatch) onEndMatch(finalData);
-                                setSelectedMatchId(null);
                             }}
                         />
                     </div>
+                ) : isMatchCompleted ? (
+                    /* Condition 2: If Match is COMPLETED / REFEREED -> Render Post-Match Summary & Notification Station */
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px' }}>
+                        {/* Match Concluded Hero Notification */}
+                        <div className="glass-panel" style={{
+                            padding: '28px', borderRadius: '16px',
+                            background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,27,75,0.5))',
+                            border: '1px solid rgba(165,180,252,0.3)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px'
+                        }}>
+                            <div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                                    Match Concluded · Whistled Full Time by Referee
+                                </span>
+                                
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', margin: '14px 0', flexWrap: 'wrap' }}>
+                                    <div style={{ textAlign: 'right', minWidth: '150px' }}>
+                                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#ffffff' }}>{homeName}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Home</div>
+                                    </div>
+                                    <div style={{
+                                        fontSize: '32px', fontWeight: '900', color: '#ffffff',
+                                        background: 'rgba(255,255,255,0.08)', padding: '8px 24px', borderRadius: '12px',
+                                        border: '1px solid rgba(255,255,255,0.15)', letterSpacing: '3px'
+                                    }}>
+                                        {selectedMatch.homeScore ?? 0} - {selectedMatch.awayScore ?? 0}
+                                    </div>
+                                    <div style={{ textAlign: 'left', minWidth: '150px' }}>
+                                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#ffffff' }}>{awayName}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Away</div>
+                                    </div>
+                                </div>
+
+                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', maxWidth: '620px', margin: '0 auto', lineHeight: 1.6 }}>
+                                    The referee has concluded this match and disabled live event recording. All logged stats, shots, and timeline entries are safely preserved in the tournament records.
+                                </p>
+                            </div>
+
+                            {/* Status & Meta Badges */}
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
+                                    Venue: {selectedMatch.venue || activeAnalyst.venue || 'National Stadium'}
+                                </span>
+                                <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
+                                    Events Logged: {timelineEvents.length}
+                                </span>
+                                <span style={{
+                                    padding: '6px 14px', borderRadius: '20px',
+                                    background: selectedMatch.status === 'approved' ? 'rgba(34,197,94,0.15)' : selectedMatch.status === 'refereed' ? 'rgba(56,189,248,0.15)' : 'rgba(245,158,11,0.15)',
+                                    border: `1px solid ${selectedMatch.status === 'approved' ? 'rgba(34,197,94,0.3)' : selectedMatch.status === 'refereed' ? 'rgba(56,189,248,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                    fontSize: '12px', fontWeight: '700',
+                                    color: selectedMatch.status === 'approved' ? '#4ade80' : selectedMatch.status === 'refereed' ? '#38bdf8' : '#fbbf24'
+                                }}>
+                                    {selectedMatch.status === 'approved'
+                                        ? 'Status: Verified & Locked by Commissioner'
+                                        : selectedMatch.status === 'refereed'
+                                        ? 'Status: Referee Signed · Awaiting Commissioner Audit'
+                                        : 'Status: Completed · Awaiting Referee Sign-Off'}
+                                </span>
+                            </div>
+
+                            <div style={{ marginTop: '8px' }}>
+                                <button
+                                    onClick={() => setSelectedMatchId(null)}
+                                    style={{
+                                        padding: '10px 22px', borderRadius: '10px',
+                                        background: 'rgba(255,255,255,0.1)', color: '#ffffff',
+                                        border: '1px solid rgba(255,255,255,0.2)', fontSize: '13px', fontWeight: '700',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ← Return to Match Fixtures Queue
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Logged Timeline Events Recap */}
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                    Live Match Event Ledger ({timelineEvents.length} Events)
+                                </h3>
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                    Recorded by Data Logger
+                                </span>
+                            </div>
+
+                            {timelineEvents.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                    No live timeline events were logged for this fixture.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
+                                    {timelineEvents.map((evt, idx) => (
+                                        <div key={idx} style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.05)', fontSize: '12px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <span style={{ fontWeight: '800', color: '#38bdf8', width: '32px' }}>
+                                                    {evt.minute ? `${evt.minute}'` : `${evt.time || '-'}`}
+                                                </span>
+                                                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                                                    {evt.type || evt.event || 'Event'}
+                                                </span>
+                                                {evt.playerName && (
+                                                    <span style={{ color: 'var(--text-secondary)' }}>
+                                                        — {evt.playerName}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                {evt.teamSide ? evt.teamSide.toUpperCase() : ''}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Verified Team Sheets Preview */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+                            {/* Home Squad */}
+                            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '4px solid #22c55e' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {homeSchool?.logo && <img src={homeSchool.logo} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />}
+                                        <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>{homeName}</h3>
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+                                        Formation: {homeFormation}
+                                    </span>
+                                </div>
+
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Starting XI ({homeXI.length} Players):
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+                                    {homeXI.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
+                                    ) : (
+                                        homeXI.map((pId, idx) => {
+                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            return (
+                                                <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#4ade80' }}>#{p.jerseyNumber || '-'}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Away Squad */}
+                            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '4px solid #38bdf8' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {awaySchool?.logo && <img src={awaySchool.logo} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />}
+                                        <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>{awayName}</h3>
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', background: 'rgba(56,189,248,0.15)', color: '#38bdf8' }}>
+                                        Formation: {awayFormation}
+                                    </span>
+                                </div>
+
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Starting XI ({awayXI.length} Players):
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+                                    {awayXI.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
+                                    ) : (
+                                        awayXI.map((pId, idx) => {
+                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            return (
+                                                <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{p.jerseyNumber || '-'}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 ) : (
-                    /* Condition: If Match is NOT LIVE -> Render Pre-Kickoff Waiting Room */
+                    /* Condition 3: If Match is NOT LIVE & NOT COMPLETED (i.e. UPCOMING) -> Render Pre-Kickoff Waiting Room */
                     <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', padding: '4px' }}>
                         {/* Waiting Room Hero Banner */}
                         <div className="glass-panel" style={{
