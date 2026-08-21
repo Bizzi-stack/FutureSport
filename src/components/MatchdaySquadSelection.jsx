@@ -246,15 +246,47 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         );
     }, [availablePlayers, searchQuery]);
 
+    const getSchoolObj = (teamId) => {
+        if (!teamId) return null;
+        let sc = (schools || []).find(s => s.id === teamId || s.rawId === teamId);
+        if (sc) return sc;
+        if (typeof teamId === 'string') {
+            const baseId = teamId.includes('-team-') ? teamId.split('-team-')[0] : teamId.split('_')[0];
+            sc = (schools || []).find(s => s.id === baseId || s.rawId === baseId);
+            if (sc) return sc;
+            sc = (schools || []).find(s => s.name?.toLowerCase() === teamId.toLowerCase());
+            if (sc) return sc;
+        }
+        return null;
+    };
+
     const getSchoolName = (teamId, matchObj) => {
         if (!teamId && !matchObj) return 'Unknown Team';
-        const sc = (schools || []).find(s => s.id === teamId || s.rawId === teamId);
-        if (sc) return sc.name;
+        
+        if (matchObj) {
+            if (matchObj.homeTeamId === teamId && matchObj.homeTeam && typeof matchObj.homeTeam === 'string' && !matchObj.homeTeam.includes('-team-') && !matchObj.homeTeam.startsWith('s1-') && !matchObj.homeTeam.startsWith('s2-') && !matchObj.homeTeam.startsWith('s3-')) {
+                return matchObj.homeTeam;
+            }
+            if (matchObj.awayTeamId === teamId && matchObj.awayTeam && typeof matchObj.awayTeam === 'string' && !matchObj.awayTeam.includes('-team-') && !matchObj.awayTeam.startsWith('s1-') && !matchObj.awayTeam.startsWith('s2-') && !matchObj.awayTeam.startsWith('s3-')) {
+                return matchObj.awayTeam;
+            }
+        }
+
+        const sc = getSchoolObj(teamId);
+        if (sc?.name) {
+            if (typeof teamId === 'string' && teamId.includes('-team-')) {
+                const ageGroup = teamId.split('-team-')[1];
+                if (ageGroup && ageGroup !== 'PMC') {
+                    return `${sc.name} (${ageGroup})`;
+                }
+            }
+            return sc.name;
+        }
 
         const team = (allTeams || []).find(t => t.id === teamId || t.schoolId === teamId);
         if (team) {
-            const sc2 = (schools || []).find(s => s.id === team.schoolId);
-            return sc2 ? sc2.name : team.name;
+            const sc2 = getSchoolObj(team.schoolId);
+            return sc2 ? `${sc2.name} (${team.name})` : team.name;
         }
 
         if (matchObj) {
@@ -262,7 +294,18 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             if (matchObj.awayTeamId === teamId && matchObj.awayTeam) return matchObj.awayTeam;
         }
 
-        return teamId || 'Unknown Team';
+        if (typeof teamId === 'string') {
+            return teamId
+                .replace('-team-PMC', '')
+                .replace('-team-', ' ')
+                .replace('pmc-club-', 'Club ')
+                .replace(/^s1(\b|_|-|\s)/, 'Elite Academy ')
+                .replace(/^s2(\b|_|-|\s)/, 'City Football Club ')
+                .replace(/^s3(\b|_|-|\s)/, 'United Youth Academy ')
+                .replace(/_/g, ' ');
+        }
+
+        return 'Team';
     };
 
     const getPlayerById = (id) => eligiblePlayers.find(p => p.id === id);
