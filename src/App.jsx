@@ -496,7 +496,16 @@ function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return sanitizeMatchState(parsed);
+          const hasPmcClub = parsed.some(m => 
+            String(m.homeTeamId).includes('pmc-club') || 
+            String(m.id).includes('pmc') || 
+            String(m.homeTeam).includes('Bagatelle') || 
+            String(m.homeTeam).includes('Kickstart') || 
+            String(m.homeTeam).includes('Technique')
+          );
+          if (hasPmcClub) {
+            return sanitizeMatchState(parsed);
+          }
         }
       }
     } catch (err) {
@@ -565,7 +574,24 @@ function App() {
   }, [selectedTournament, adminTab]);
 
   const handleAddMatches = (newMatches) => {
-    setMatches(prev => [...prev, ...newMatches]);
+    const addFn = prev => {
+      const next = [...prev, ...newMatches];
+      pushMatchesToCloud(next);
+      return next;
+    };
+    if (selectedTournament === 'PMC') {
+      setPmcMatches(addFn);
+    }
+    setMatches(addFn);
+  };
+
+  const handleResetPmcMatches = () => {
+    const sanitized = sanitizeMatchState(PMC_MATCHES);
+    setPmcMatches(sanitized);
+    try {
+      localStorage.setItem('eduvision-pmc-matches-v2', JSON.stringify(sanitized));
+      pushMatchesToCloud(sanitized);
+    } catch {}
   };
 
   // Derive active tournament datasets
@@ -951,6 +977,25 @@ function App() {
             }} title="Tournament mode is locked during session. Log out to switch tournaments.">
               Active Session
             </span>
+            {selectedTournament === 'PMC' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Reset PMC fixtures back to official default schedule (Bagatelle, Technique, Kickstart, UWI, Wales, Paradise)?")) {
+                    handleResetPmcMatches();
+                  }
+                }}
+                style={{
+                  fontSize: '10px', fontWeight: '800', padding: '3px 9px', borderRadius: '6px',
+                  background: 'rgba(255, 199, 38, 0.2)', color: '#FFC726',
+                  border: '1px solid rgba(255, 199, 38, 0.4)', cursor: 'pointer',
+                  marginLeft: '4px'
+                }}
+                title="Restore default Prime Minister's Cup fixture schedule"
+              >
+                Reset PMC Schedule
+              </button>
+            )}
           </div>
         </div>
 
