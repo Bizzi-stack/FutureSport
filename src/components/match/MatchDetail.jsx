@@ -466,6 +466,10 @@ export default function MatchDetail({ match, allStudents, onBack }) {
                                 icon = '🎯';
                                 clr = '#14b8a6';
                                 desc = `Shot Saved - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
+                            } else if (event.type === 'shotBlocked') {
+                                icon = '🛡️';
+                                clr = '#a855f7';
+                                desc = `Shot Blocked - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
                             } else if (event.type === 'shotMissed') {
                                 icon = '❌';
                                 clr = '#6b7280';

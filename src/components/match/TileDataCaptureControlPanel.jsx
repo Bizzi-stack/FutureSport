@@ -86,6 +86,22 @@ export default function TileDataCaptureControlPanel({
     const homePossessionPct = totalPossessionSecs > 0 ? Math.round((homePossessionSecs / totalPossessionSecs) * 100) : 50;
     const awayPossessionPct = totalPossessionSecs > 0 ? 100 - homePossessionPct : 50;
 
+    // Persist possession back to parent live state whenever possession state updates
+    useEffect(() => {
+        if (onQuickLogEvent && (homePossessionSecs > 0 || awayPossessionSecs > 0 || possessionSide)) {
+            onQuickLogEvent({
+                type: 'possessionSync',
+                possession: {
+                    homePct: homePossessionPct,
+                    awayPct: awayPossessionPct,
+                    homeSecs: homePossessionSecs,
+                    awaySecs: awayPossessionSecs,
+                    activeSide: possessionSide
+                }
+            });
+        }
+    }, [homePossessionSecs, awayPossessionSecs, possessionSide, homePossessionPct, awayPossessionPct]);
+
     const formatPossessionTime = (secs) => {
         const m = Math.floor(secs / 60);
         const s = secs % 60;
@@ -117,6 +133,7 @@ export default function TileDataCaptureControlPanel({
     const STAT_TILES = [
         { key: 'goal', label: '🎯 Goal Scored', subtitle: 'Standard Goal', color: 'linear-gradient(135deg, #059669, #047857)', border: 'rgba(5, 150, 105, 0.4)' },
         { key: 'shotOnTarget', label: '⚽ Shot on Target', subtitle: 'Saved by Opposing GK (Auto-Logged)', color: 'linear-gradient(135deg, #10b981, #059669)', border: 'rgba(16, 185, 129, 0.4)' },
+        { key: 'shotBlocked', label: '🛡️ Shot Blocked', subtitle: 'Shot Blocked by Outfield Defender', color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'rgba(139, 92, 246, 0.4)' },
         { key: 'shotMissed', label: '💥 Shot Off-Target', subtitle: 'Missed Wide or Over Crossbar', color: 'linear-gradient(135deg, #64748b, #475569)', border: 'rgba(100, 116, 139, 0.4)' },
         { key: 'headerShot', label: '🗣️ Header Shot / Goal', subtitle: 'Header Attempt or Goal', color: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'rgba(2, 132, 199, 0.4)' },
         { key: 'penaltyShot', label: '🎯 Penalty Kick', subtitle: 'Penalty Spot Kick', color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'rgba(139, 92, 246, 0.4)' },
@@ -147,7 +164,7 @@ export default function TileDataCaptureControlPanel({
         const student = studentsById[player.id];
         const name = student?.name || player.name || `Player #${player.id}`;
 
-        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+        const isShotAction = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
 
         if (isShotAction && onShotModal) {
             let defaultGoalType = 'foot';
@@ -159,6 +176,7 @@ export default function TileDataCaptureControlPanel({
             if (actionKey === 'ownGoal') defaultGoalType = 'own-goal';
 
             if (actionKey === 'shotOnTarget') defaultResult = 'saved';
+            if (actionKey === 'shotBlocked') defaultResult = 'blocked';
             if (actionKey === 'shotMissed') defaultResult = 'miss';
 
             onShotModal(player, defaultGoalType, defaultResult);

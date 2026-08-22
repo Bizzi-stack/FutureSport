@@ -98,62 +98,83 @@ export default function LogShotModal({ student, year, term, onSave, onClose }) {
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                         1. Select Shot Outcome
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                         {/* Goal Button */}
                         <button
+                            type="button"
                             onClick={() => handleResultChange('goal')}
                             disabled={coords && !isInsideGoal}
                             style={{
                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                                padding: '10px', borderRadius: '10px', border: '2px solid',
+                                padding: '10px 4px', borderRadius: '10px', border: '2px solid',
                                 borderColor: result === 'goal' ? 'var(--success)' : 'rgba(255,255,255,0.08)',
                                 background: result === 'goal' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.02)',
                                 color: result === 'goal' ? 'var(--success)' : 'var(--text-secondary)',
-                                fontWeight: '700', fontSize: '13px', cursor: (coords && !isInsideGoal) ? 'not-allowed' : 'pointer',
+                                fontWeight: '700', fontSize: '12px', cursor: (coords && !isInsideGoal) ? 'not-allowed' : 'pointer',
                                 opacity: (coords && !isInsideGoal) ? 0.4 : 1,
                                 transition: 'all 0.2s'
                             }}
                         >
-                            <span style={{ fontSize: '18px' }}>⚽</span>
-                            Goal (On Target)
+                            <span style={{ fontSize: '16px' }}>⚽</span>
+                            Goal
                         </button>
 
                         {/* Saved Button */}
                         <button
+                            type="button"
                             onClick={() => handleResultChange('saved')}
                             disabled={coords && !isInsideGoal}
                             style={{
                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                                padding: '10px', borderRadius: '10px', border: '2px solid',
+                                padding: '10px 4px', borderRadius: '10px', border: '2px solid',
                                 borderColor: result === 'saved' ? 'var(--primary-light)' : 'rgba(255,255,255,0.08)',
                                 background: result === 'saved' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.02)',
                                 color: result === 'saved' ? 'var(--primary-light)' : 'var(--text-secondary)',
-                                fontWeight: '700', fontSize: '13px', cursor: (coords && !isInsideGoal) ? 'not-allowed' : 'pointer',
+                                fontWeight: '700', fontSize: '12px', cursor: (coords && !isInsideGoal) ? 'not-allowed' : 'pointer',
                                 opacity: (coords && !isInsideGoal) ? 0.4 : 1,
                                 transition: 'all 0.2s'
                             }}
                         >
-                            <span style={{ fontSize: '18px' }}>🧤</span>
-                            Saved (On Target)
+                            <span style={{ fontSize: '16px' }}>🧤</span>
+                            Saved
+                        </button>
+
+                        {/* Blocked Button */}
+                        <button
+                            type="button"
+                            onClick={() => handleResultChange('blocked')}
+                            style={{
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                                padding: '10px 4px', borderRadius: '10px', border: '2px solid',
+                                borderColor: result === 'blocked' ? '#a855f7' : 'rgba(255,255,255,0.08)',
+                                background: result === 'blocked' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255,255,255,0.02)',
+                                color: result === 'blocked' ? '#c084fc' : 'var(--text-secondary)',
+                                fontWeight: '700', fontSize: '12px', cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            <span style={{ fontSize: '16px' }}>🛡️</span>
+                            Blocked
                         </button>
 
                         {/* Off Target Button */}
                         <button
+                            type="button"
                             onClick={() => handleResultChange('miss')}
                             disabled={coords && isInsideGoal}
                             style={{
                                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                                padding: '10px', borderRadius: '10px', border: '2px solid',
+                                padding: '10px 4px', borderRadius: '10px', border: '2px solid',
                                 borderColor: result === 'miss' ? 'var(--danger)' : 'rgba(255,255,255,0.08)',
                                 background: result === 'miss' ? 'rgba(244, 63, 94, 0.15)' : 'rgba(255,255,255,0.02)',
                                 color: result === 'miss' ? 'var(--danger)' : 'var(--text-secondary)',
-                                fontWeight: '700', fontSize: '13px', cursor: (coords && isInsideGoal) ? 'not-allowed' : 'pointer',
+                                fontWeight: '700', fontSize: '12px', cursor: (coords && isInsideGoal) ? 'not-allowed' : 'pointer',
                                 opacity: (coords && isInsideGoal) ? 0.4 : 1,
                                 transition: 'all 0.2s'
                             }}
                         >
-                            <span style={{ fontSize: '18px' }}>❌</span>
-                            Off Target (Missed)
+                            <span style={{ fontSize: '16px' }}>💥</span>
+                            Off Target
                         </button>
                     </div>
                 </div>

@@ -534,7 +534,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         const eventId = `event-${Date.now()}`;
         
         // Add shot event to timeline
-        const eventType = result === 'goal' ? 'goal' : result === 'saved' ? 'shotOnTarget' : 'shotMissed';
+        const eventType = result === 'goal' ? 'goal' : result === 'saved' ? 'shotOnTarget' : result === 'blocked' ? 'shotBlocked' : 'shotMissed';
         const assistPlayer = assistPlayerId ? studentsById[assistPlayerId] : null;
 
         const newEvent = {
@@ -604,6 +604,9 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                         timestamp: Date.now()
                     });
                 }
+            } else if (result === 'blocked') {
+                s['Blocked Shots'] = (s['Blocked Shots'] || 0) + 1;
+                s.Shots += 1;
             } else {
                 s.Shots += 1;
             }
@@ -780,6 +783,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             homeScore, awayScore,
             playerStats,
             timeline,
+            possession: livePossession || matchData.possession || matchData.liveState?.possession || { homePct: 50, awayPct: 50 },
             status: 'completed',
             startTime: startTimeRef.current,
             endTime: Date.now(),
@@ -1241,6 +1245,20 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     period={period}
                     isPaused={isPaused}
                     onQuickLogEvent={(logData) => {
+                        if (logData.type === 'possessionSync' && logData.possession) {
+                            setLivePossession(logData.possession);
+                            if (onUpdateMatch) {
+                                onUpdateMatch({
+                                    ...matchDataRef.current,
+                                    possession: logData.possession,
+                                    liveState: {
+                                        ...(matchDataRef.current.liveState || {}),
+                                        possession: logData.possession
+                                    }
+                                });
+                            }
+                            return;
+                        }
                         if (logData.type === 'possessionChange') {
                             setTimeline(prev => [
                                 ...prev,
