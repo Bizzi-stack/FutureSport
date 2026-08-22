@@ -298,6 +298,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
     const [timeline, setTimeline] = useState(eventState.timeline || []);
     const [shotModalData, setShotModalData] = useState(null); // { player, defaultOutcome, teammates }
     const [expandedPlayer, setExpandedPlayer] = useState(null);
+    const [livePossession, setLivePossession] = useState(() => matchData?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 });
     const [showConfirm, setShowConfirm] = useState(false);
     const [hoveredBtn, setHoveredBtn] = useState(null);  // `${playerId}-${actionKey}`
 
