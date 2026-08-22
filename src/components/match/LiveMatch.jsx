@@ -777,18 +777,35 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
 
     /* end match */
     const confirmEnd = () => {
-        onEndMatch({
-            id: matchData.id,
-            homeTeamId, awayTeamId, ageGroup, matchday,
-            homeScore, awayScore,
+        const targetId = matchData?.id || match?.id;
+        const targetHomeId = homeTeamId || matchData?.homeTeamId || match?.homeTeamId;
+        const targetAwayId = awayTeamId || matchData?.awayTeamId || match?.awayTeamId;
+
+        const finalMatchPayload = {
+            ...(matchData || match || {}),
+            id: targetId,
+            homeTeamId: targetHomeId,
+            awayTeamId: targetAwayId,
+            ageGroup: ageGroup || matchData?.ageGroup || match?.ageGroup,
+            matchday: matchday || matchData?.matchday || match?.matchday,
+            homeScore,
+            awayScore,
             playerStats,
             timeline,
-            possession: livePossession || matchData.possession || matchData.liveState?.possession || { homePct: 50, awayPct: 50 },
+            possession: livePossession || matchData?.possession || match?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 },
             status: 'completed',
-            startTime: startTimeRef.current,
+            startTime: startTimeRef.current || Date.now() - (elapsed * 1000),
             endTime: Date.now(),
             date: new Date().toISOString(),
-        });
+        };
+
+        if (onEndMatch) {
+            onEndMatch(finalMatchPayload);
+        }
+        if (onUpdateMatch) {
+            onUpdateMatch(finalMatchPayload);
+        }
+        setShowConfirm(false);
     };
 
     /* Format timeline timer */
@@ -1172,11 +1189,10 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                                         </button>
                                     )}
 
-                                    {period === '2H' && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowConfirm(true)}
-                                            style={{
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirm(true)}
+                                        style={{
                                                 background: 'rgba(239, 68, 68, 0.12)',
                                                 border: '1px solid rgba(239, 68, 68, 0.25)',
                                                 borderRadius: '6px',
@@ -1193,7 +1209,6 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                                         >
                                             End Match
                                         </button>
-                                    )}
                                 </div>
                             )}
                         </div>
