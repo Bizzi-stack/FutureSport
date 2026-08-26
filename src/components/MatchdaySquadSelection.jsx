@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import StudentProfileDrawer from './StudentProfileDrawer';
+import JerseyIcon from './JerseyIcon';
 import { 
     sendRefereeSquadNotification, 
     sendDataLoggerMatchReadyNotification, 
@@ -678,39 +679,30 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                         cursor: alreadySubmitted ? 'default' : 'pointer',
                                                     }}
                                                 >
-                                                    {/* Football Kit / Jersey Graphic Pin */}
-                                                    <div style={{
-                                                        position: 'relative',
-                                                        width: player ? '40px' : '32px',
-                                                        height: player ? '40px' : '32px',
-                                                        borderRadius: '10px',
-                                                        background: player ? roleColor : 'rgba(0,0,0,0.3)',
-                                                        border: isEditingThisSlot 
-                                                            ? '2.5px solid #ffffff' 
-                                                            : player 
-                                                                ? '1.5px solid rgba(255,255,255,0.8)' 
-                                                                : '2px dashed rgba(255,255,255,0.4)',
-                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: player ? `0 4px 12px ${roleColor}b3` : 'none',
-                                                        transition: 'all 0.15s ease',
-                                                        transform: isEditingThisSlot ? 'scale(1.15)' : 'scale(1)',
-                                                    }}>
-                                                        {player ? (
-                                                            <>
-                                                                {/* Jersey Collar Detail */}
-                                                                <div style={{
-                                                                    position: 'absolute', top: '0', width: '14px', height: '5px',
-                                                                    background: 'rgba(255,255,255,0.3)', borderRadius: '0 0 5px 5px'
-                                                                }} />
-                                                                {/* Jersey Number */}
-                                                                <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                                                                    {player.jerseyNumber != null ? player.jerseyNumber : (idx + 1)}
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <span style={{ fontSize: '13px', fontWeight: '800', color: 'rgba(255,255,255,0.6)' }}>+</span>
-                                                        )}
-                                                    </div>
+                                                    {/* Football Kit SVG Jersey Graphic */}
+                                                    {player ? (
+                                                        <JerseyIcon 
+                                                            number={player.jerseyNumber != null ? player.jerseyNumber : (idx + 1)} 
+                                                            color={roleColor} 
+                                                            size={isEditingThisSlot ? 50 : 44}
+                                                            style={{
+                                                                transform: isEditingThisSlot ? 'scale(1.15)' : 'scale(1)',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div style={{
+                                                            width: '34px',
+                                                            height: '34px',
+                                                            borderRadius: '50%',
+                                                            background: 'rgba(0,0,0,0.4)',
+                                                            border: '2px dashed rgba(255,255,255,0.4)',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '14px', fontWeight: '800', color: 'rgba(255,255,255,0.7)'
+                                                        }}>
+                                                            +
+                                                        </div>
+                                                    )}
                                                     
                                                     {/* Name Tag Pill with 👤 Profile Drawer Trigger */}
                                                     <div style={{
@@ -895,13 +887,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                             cursor: alreadySubmitted ? 'default' : 'pointer'
                                                         }}
                                                     >
-                                                        <span style={{
-                                                            width: '18px', height: '18px', borderRadius: '50%', background: 'var(--warning)',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            fontSize: '8px', fontWeight: '800', color: '#fff', flexShrink: 0
-                                                        }}>
-                                                            {p?.jerseyNumber != null ? p.jerseyNumber : '—'}
-                                                        </span>
+                                                        <JerseyIcon number={p?.jerseyNumber != null ? p.jerseyNumber : '—'} color="#f59e0b" size={24} />
                                                         <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {p ? (p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim()) : `#${pid}`}
                                                         </span>
@@ -930,14 +916,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                     padding: '5px 8px', borderRadius: '6px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)'
                                                 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, minWidth: 0 }}>
-                                                        <span style={{
-                                                            width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            fontSize: '9px', fontWeight: '800', color: 'var(--text-primary)', flexShrink: 0,
-                                                            border: 'var(--border)'
-                                                        }}>
-                                                            {p.jerseyNumber != null ? p.jerseyNumber : '—'}
-                                                        </span>
+                                                        <JerseyIcon number={p.jerseyNumber != null ? p.jerseyNumber : '—'} color="#3b82f6" size={24} />
                                                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                                             <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                 {p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim()}
