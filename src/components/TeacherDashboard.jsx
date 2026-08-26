@@ -395,6 +395,7 @@ export default function TeacherDashboard({
                     allTeams={allTeams}
                     schools={schools}
                     onUpdateMatch={onUpdateMatch}
+                    onStudentClick={onStudentClick}
                 />
             )}
 
