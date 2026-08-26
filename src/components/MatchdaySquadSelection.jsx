@@ -645,7 +645,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     <div style={{
                                         position: 'relative',
                                         width: '100%',
-                                        height: '440px',
+                                        height: '520px',
                                         background: 'linear-gradient(180deg, #165c29 0%, #1c6d32 15%, #165c29 30%, #1c6d32 45%, #165c29 60%, #1c6d32 75%, #165c29 90%, #1c6d32 100%)',
                                         borderRadius: '0 0 12px 12px',
                                         overflow: 'hidden',
@@ -684,7 +684,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                         <JerseyIcon 
                                                             number={player.jerseyNumber != null ? player.jerseyNumber : (idx + 1)} 
                                                             color={roleColor} 
-                                                            size={isEditingThisSlot ? 50 : 44}
+                                                            size={isEditingThisSlot ? 62 : 54}
                                                             style={{
                                                                 transform: isEditingThisSlot ? 'scale(1.15)' : 'scale(1)',
                                                                 transition: 'all 0.15s ease'
@@ -692,13 +692,13 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                         />
                                                     ) : (
                                                         <div style={{
-                                                            width: '34px',
-                                                            height: '34px',
+                                                            width: '42px',
+                                                            height: '42px',
                                                             borderRadius: '50%',
                                                             background: 'rgba(0,0,0,0.4)',
                                                             border: '2px dashed rgba(255,255,255,0.4)',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            fontSize: '14px', fontWeight: '800', color: 'rgba(255,255,255,0.7)'
+                                                            fontSize: '16px', fontWeight: '800', color: 'rgba(255,255,255,0.7)'
                                                         }}>
                                                             +
                                                         </div>
@@ -706,17 +706,17 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                     
                                                     {/* Name Tag Pill with 👤 Profile Drawer Trigger */}
                                                     <div style={{
-                                                        display: 'flex', alignItems: 'center', gap: '3px',
-                                                        background: player ? 'rgba(15,23,42,0.92)' : 'rgba(0,0,0,0.5)',
-                                                        padding: '2px 7px',
-                                                        borderRadius: '12px',
-                                                        fontSize: '9.5px',
+                                                        display: 'flex', alignItems: 'center', gap: '4px',
+                                                        background: player ? 'rgba(15,23,42,0.95)' : 'rgba(0,0,0,0.6)',
+                                                        padding: '3px 9px',
+                                                        borderRadius: '14px',
+                                                        fontSize: '10.5px',
                                                         fontWeight: '800',
                                                         color: player ? '#ffffff' : 'rgba(255,255,255,0.7)',
                                                         whiteSpace: 'nowrap',
-                                                        maxWidth: '90px',
-                                                        border: player ? '1px solid rgba(255,255,255,0.2)' : '1px dashed rgba(255,255,255,0.2)',
-                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                                                        maxWidth: '105px',
+                                                        border: player ? '1px solid rgba(255,255,255,0.25)' : '1px dashed rgba(255,255,255,0.25)',
+                                                        boxShadow: '0 3px 8px rgba(0,0,0,0.5)',
                                                     }}>
                                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                             {player ? (player.name ? (player.name.split(' ').slice(-1)[0] || player.name) : `${player.lastName || ''}`) : slot.label}
@@ -736,15 +736,15 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                                     }
                                                                 }}
                                                                 style={{
-                                                                    background: 'rgba(99, 102, 241, 0.35)',
-                                                                    border: '1px solid rgba(165, 180, 252, 0.5)',
+                                                                    background: 'rgba(99, 102, 241, 0.4)',
+                                                                    border: '1px solid rgba(165, 180, 252, 0.6)',
                                                                     borderRadius: '50%',
-                                                                    width: '15px',
-                                                                    height: '15px',
+                                                                    width: '17px',
+                                                                    height: '17px',
                                                                     display: 'flex',
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
-                                                                    fontSize: '8.5px',
+                                                                    fontSize: '9px',
                                                                     color: '#ffffff',
                                                                     cursor: 'pointer',
                                                                     padding: 0,
