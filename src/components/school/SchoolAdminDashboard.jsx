@@ -373,7 +373,12 @@ export default function SchoolAdminDashboard({ schoolId, schools, allPlayers, al
                                                         }}>
                                                             {player.jerseyNumber || '-'}
                                                         </div>
-                                                        {player.name}
+                                                        <div>
+                                                            <div>{player.name}</div>
+                                                            <div style={{ fontSize: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#a5b4fc' }}>
+                                                                {player.playerId || `PID-2026-${String(player.id).padStart(5, '0')}`}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-primary)' }}>

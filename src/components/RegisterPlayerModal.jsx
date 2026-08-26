@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { generatePlayerId, checkDuplicatePlayer } from '../utils/playerUtils';
 
-export default function RegisterPlayerModal({ onAdd, onClose, existingNames }) {
+export default function RegisterPlayerModal({ onAdd, onClose, existingNames = [], existingPlayers = [] }) {
     const [name, setName] = useState('');
     const [dob, setDob] = useState('2010-01-01');
     const [gender, setGender] = useState('Boy');
@@ -10,22 +11,26 @@ export default function RegisterPlayerModal({ onAdd, onClose, existingNames }) {
     const [medicalInfo, setMedicalInfo] = useState('None');
     const [emergencyContact, setEmergencyContact] = useState('');
     
+    // System-generated permanent Player ID
+    const systemPlayerId = useMemo(() => generatePlayerId(), []);
+    
     // Document Upload Toggles (simulated)
     const [hasBirthCert, setHasBirthCert] = useState(true);
     const [hasEnrollment, setHasEnrollment] = useState(true);
     
     const [error, setError] = useState('');
 
+    // Check duplicate player status dynamically
+    const duplicateCheck = useMemo(() => {
+        if (!name.trim()) return { isDuplicate: false };
+        return checkDuplicatePlayer({ name: name.trim(), dob }, existingPlayers);
+    }, [name, dob, existingPlayers]);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         
         if (!name.trim()) {
             setError('Player name is required.');
-            return;
-        }
-
-        if (existingNames.some(n => n.toLowerCase() === name.trim().toLowerCase())) {
-            setError('A player with this name already exists in this squad.');
             return;
         }
 
@@ -41,6 +46,7 @@ export default function RegisterPlayerModal({ onAdd, onClose, existingNames }) {
 
         setError('');
         onAdd({
+            playerId: systemPlayerId,
             name: name.trim(),
             dob,
             gender,
@@ -53,7 +59,10 @@ export default function RegisterPlayerModal({ onAdd, onClose, existingNames }) {
                 birthCertificate: hasBirthCert,
                 schoolEnrollment: hasEnrollment
             },
-            status: 'pending' // initial status is pending until admin approves
+            status: 'pending', // initial status is pending until admin approves
+            isDuplicateFlagged: duplicateCheck.isDuplicate,
+            duplicateReason: duplicateCheck.duplicateReason || null,
+            matchingPlayer: duplicateCheck.matchingPlayer || null
         });
     };
 
@@ -69,9 +78,39 @@ export default function RegisterPlayerModal({ onAdd, onClose, existingNames }) {
                 boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', overflowY: 'auto'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Register New Player (Pending Approval)</h3>
+                    <div>
+                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Register New Player</h3>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Permanent System-Generated Registration</span>
+                    </div>
                     <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '18px', cursor: 'pointer' }}>×</button>
                 </div>
+
+                {/* System Generated Player ID Card */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.25)'
+                }}>
+                    <div>
+                        <div style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', color: '#a5b4fc', letterSpacing: '0.08em' }}>System-Generated Permanent Player ID</div>
+                        <div style={{ fontSize: '14px', fontWeight: '900', color: '#ffffff', fontFamily: 'monospace' }}>{systemPlayerId}</div>
+                    </div>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: '#818cf8', background: 'rgba(99,102,241,0.2)', padding: '4px 8px', borderRadius: '6px' }}>PERMANENT</span>
+                </div>
+
+                {/* Duplicate Registration Warning Banner */}
+                {duplicateCheck.isDuplicate && (
+                    <div style={{
+                        padding: '12px 14px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.12)',
+                        border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fbbf24', fontSize: '12px'
+                    }}>
+                        <div style={{ fontWeight: '800', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⚠️ Duplicate Record Detected</span>
+                        </div>
+                        <div>{duplicateCheck.duplicateReason}</div>
+                        <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.9 }}>This record will be flagged for administrator review to prevent duplicate registration IDs.</div>
+                    </div>
+                )}
 
                 {error && (
                     <div style={{

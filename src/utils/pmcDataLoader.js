@@ -106,8 +106,10 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
         const teamAssignments = {};
         YEARS.forEach(y => { teamAssignments[y] = teamId; });
 
+        const rawPid = scP ? String(scP.id).padStart(5, '0') : `${club.id}-${i + 1}`;
         const student = {
             id: scP ? `pmc-student-${scP.id}` : `pmc-student-${club.id}-${i + 1}`,
+            playerId: `PID-PMC-${rawPid}`,
             name: scP?.name || `${firstName} ${lastName}`,
             schoolId: club.id,
             teamAssignments,

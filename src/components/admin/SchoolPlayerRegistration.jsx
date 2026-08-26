@@ -195,7 +195,17 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
                                         </div>
                                         
                                             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                                                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</span>
+                                                    <span style={{ fontSize: '10px', fontWeight: '800', fontFamily: 'monospace', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '1px 6px', borderRadius: '4px' }}>
+                                                        {player.playerId || `PID-2026-${String(player.id).padStart(5, '0')}`}
+                                                    </span>
+                                                    {player.isDuplicateFlagged && (
+                                                        <span style={{ fontSize: '9px', fontWeight: '800', color: '#fbbf24', background: 'rgba(245,158,11,0.2)', padding: '1px 5px', borderRadius: '4px' }}>
+                                                            ⚠️ Duplicate Match
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getSchoolName(player.schoolId)}</span>
                                                     {(!player.documents?.birthCertificate || !player.documents?.enrollmentLetter) && (
@@ -232,7 +242,12 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
                                             {selectedPlayer.jerseyNumber || '#'}
                                         </div>
                                         <div>
-                                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedPlayer.name}</h3>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedPlayer.name}</h3>
+                                                <span style={{ fontSize: '11px', fontWeight: '800', fontFamily: 'monospace', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '2px 8px', borderRadius: '6px' }}>
+                                                    {selectedPlayer.playerId || `PID-2026-${String(selectedPlayer.id).padStart(5, '0')}`}
+                                                </span>
+                                            </div>
                                             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{getSchoolName(selectedPlayer.schoolId)}</span>
                                         </div>
                                     </div>
