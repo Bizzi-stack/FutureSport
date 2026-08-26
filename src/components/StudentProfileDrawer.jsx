@@ -346,7 +346,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                         {getInitials(student.name)}
                     </div>
                     <div style={{ flex: 1 }}>
-                        <h1 style={{ margin: '0 0 8px 0', fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <h1 style={{ margin: '0 0 8px 0', fontSize: '32px', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                             {student.name}
                             <span style={{
                                 fontSize: '16px',
@@ -358,6 +358,18 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                 border: '1px solid rgba(37,99,235,0.25)'
                             }}>
                                 #{student.jerseyNumber || '--'}
+                            </span>
+                            <span style={{
+                                fontSize: '13px',
+                                fontWeight: '800',
+                                fontFamily: 'monospace',
+                                padding: '4px 10px',
+                                borderRadius: '99px',
+                                background: 'rgba(99,102,241,0.15)',
+                                color: '#a5b4fc',
+                                border: '1px solid rgba(99,102,241,0.3)'
+                            }}>
+                                {student.playerId || `PID-2026-${String(student.id).padStart(5, '0')}`}
                             </span>
                         </h1>
                         <p style={{ margin: '0 0 4px 0', fontSize: '15px', color: 'var(--text-secondary)', fontWeight: '500' }}>

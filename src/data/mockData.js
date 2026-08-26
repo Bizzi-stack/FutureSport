@@ -481,8 +481,10 @@ function createCohort(schoolId, startGroupIndex, startYear, count = 25) {
 
         const jerseyNumber = i === 0 ? 1 : i === 1 ? 12 : i + 1;
 
+        const currentNumericId = nextId++;
         const student = {
-            id: nextId++,
+            id: currentNumericId,
+            playerId: `PID-2026-${String(currentNumericId).padStart(5, '0')}`,
             name: `${fn} ${ln}`,
             schoolId: schoolId,
             teamAssignments: buildAssignments(schoolId, startGroupIndex, startYear),
