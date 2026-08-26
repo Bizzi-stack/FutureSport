@@ -386,7 +386,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             startingXI,
             benchPlayers,
             submittedAt: new Date().toISOString(),
-            submittedBy: schoolName
+            submittedBy: schoolName,
+            validationStatus: 'pending_validation' // Manager submits -> Super-Admin validates
         };
 
         const updatedMatch = {
@@ -802,8 +803,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                                         <span style={{ fontSize: '11px', fontWeight: '700', color: '#fff' }}>
                                                                             {p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim()}
                                                                         </span>
-                                                                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)' }}>
-                                                                            Reg Number: {p.id} {p.position ? `• ${p.position}` : ''}
+                                                                        <span style={{ fontSize: '9px', color: '#a5b4fc', fontFamily: 'monospace', fontWeight: '700' }}>
+                                                                            Player ID: {p.playerId || `PID-2026-${String(p.id).padStart(5, '0')}`} {p.position ? `• ${p.position}` : ''}
                                                                         </span>
                                                                     </div>
                                                                 </div>

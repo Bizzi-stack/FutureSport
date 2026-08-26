@@ -185,10 +185,15 @@ export default function StatisticianDashboard({
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         {isMatchLive ? (
-                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
-                                LIVE DATA CAPTURE ACTIVE
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
+                                    LIVE DATA CAPTURE ACTIVE
+                                </span>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(99,102,241,0.3)' }}>
+                                    🛡️ Official Source: Super-Admin Validated Squads
+                                </span>
+                            </div>
                         ) : isMatchCompleted ? (
                             <span style={{ fontSize: '12px', fontWeight: '700', color: '#a5b4fc', background: 'rgba(99,102,241,0.15)', padding: '5px 14px', borderRadius: '20px', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 MATCH CONCLUDED · FULL TIME
