@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import StudentProfileDrawer from './StudentProfileDrawer';
 import { 
     sendRefereeSquadNotification, 
     sendDataLoggerMatchReadyNotification, 
@@ -151,9 +152,10 @@ const ROLE_COLORS = {
     ST: '#ef4444',
 };
 
-export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, allTeams, schools, onUpdateMatch }) {
+export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, allTeams, schools, onUpdateMatch, onStudentClick }) {
     const [selectedMatchId, setSelectedMatchId] = useState(null);
     const [formation, setFormation] = useState('4-3-3');
+    const [previewStudent, setPreviewStudent] = useState(null);
     
     // startingXI mapped to slot indices (indices 0 to 10 matching slot configuration)
     const [startingXI, setStartingXI] = useState(() => Array(11).fill(null));
@@ -671,49 +673,98 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                         left: `${slot.x}%`,
                                                         top: `${slot.y}%`,
                                                         transform: 'translate(-50%, -50%)',
-                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
                                                         zIndex: 2,
                                                         cursor: alreadySubmitted ? 'default' : 'pointer',
                                                     }}
                                                 >
-                                                    {/* Jersey or empty circle indicator */}
+                                                    {/* Football Kit / Jersey Graphic Pin */}
                                                     <div style={{
-                                                        width: player ? '38px' : '32px',
-                                                        height: player ? '38px' : '32px',
-                                                        borderRadius: '50%',
+                                                        position: 'relative',
+                                                        width: player ? '40px' : '32px',
+                                                        height: player ? '40px' : '32px',
+                                                        borderRadius: '10px',
                                                         background: player ? roleColor : 'rgba(0,0,0,0.3)',
                                                         border: isEditingThisSlot 
-                                                            ? '2px solid #ffffff' 
+                                                            ? '2.5px solid #ffffff' 
                                                             : player 
-                                                                ? '2px solid rgba(255,255,255,0.8)' 
-                                                                : '2.5px dashed rgba(255,255,255,0.4)',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        fontSize: player ? '12px' : '12px',
-                                                        fontWeight: '800',
-                                                        color: player ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                                                        boxShadow: player ? `0 3px 10px ${roleColor}99` : 'none',
+                                                                ? '1.5px solid rgba(255,255,255,0.8)' 
+                                                                : '2px dashed rgba(255,255,255,0.4)',
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                                        boxShadow: player ? `0 4px 12px ${roleColor}b3` : 'none',
                                                         transition: 'all 0.15s ease',
-                                                        transform: isEditingThisSlot ? 'scale(1.15)' : 'none',
+                                                        transform: isEditingThisSlot ? 'scale(1.15)' : 'scale(1)',
                                                     }}>
-                                                        {player ? (player.jerseyNumber != null ? player.jerseyNumber : (idx + 1)) : '+'}
+                                                        {player ? (
+                                                            <>
+                                                                {/* Jersey Collar Detail */}
+                                                                <div style={{
+                                                                    position: 'absolute', top: '0', width: '14px', height: '5px',
+                                                                    background: 'rgba(255,255,255,0.3)', borderRadius: '0 0 5px 5px'
+                                                                }} />
+                                                                {/* Jersey Number */}
+                                                                <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                                    {player.jerseyNumber != null ? player.jerseyNumber : (idx + 1)}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span style={{ fontSize: '13px', fontWeight: '800', color: 'rgba(255,255,255,0.6)' }}>+</span>
+                                                        )}
                                                     </div>
                                                     
-                                                    {/* Position & Name Labels */}
+                                                    {/* Name Tag Pill with 👤 Profile Drawer Trigger */}
                                                     <div style={{
-                                                        background: player ? 'rgba(15,15,15,0.85)' : 'rgba(0,0,0,0.5)',
-                                                        padding: '1px 6px',
-                                                        borderRadius: '4px',
-                                                        fontSize: '9px',
-                                                        fontWeight: '700',
+                                                        display: 'flex', alignItems: 'center', gap: '3px',
+                                                        background: player ? 'rgba(15,23,42,0.92)' : 'rgba(0,0,0,0.5)',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '9.5px',
+                                                        fontWeight: '800',
                                                         color: player ? '#ffffff' : 'rgba(255,255,255,0.7)',
                                                         whiteSpace: 'nowrap',
-                                                        maxWidth: '74px',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        textAlign: 'center',
-                                                        border: player ? '1px solid rgba(255,255,255,0.1)' : 'none'
+                                                        maxWidth: '90px',
+                                                        border: player ? '1px solid rgba(255,255,255,0.2)' : '1px dashed rgba(255,255,255,0.2)',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                                                     }}>
-                                                        {player ? (player.name ? (player.name.split(' ').slice(-1)[0] || player.name) : `${player.lastName || player.firstName || ''}`) : slot.label}
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {player ? (player.name ? (player.name.split(' ').slice(-1)[0] || player.name) : `${player.lastName || ''}`) : slot.label}
+                                                        </span>
+
+                                                        {/* Profile Icon Trigger Button */}
+                                                        {player && (
+                                                            <button
+                                                                type="button"
+                                                                title={`View ${player.name}'s Permanent Stats Profile (${player.playerId || `PID-${player.id}`})`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (onStudentClick) {
+                                                                        onStudentClick(player);
+                                                                    } else {
+                                                                        setPreviewStudent(player);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    background: 'rgba(99, 102, 241, 0.35)',
+                                                                    border: '1px solid rgba(165, 180, 252, 0.5)',
+                                                                    borderRadius: '50%',
+                                                                    width: '15px',
+                                                                    height: '15px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    fontSize: '8.5px',
+                                                                    color: '#ffffff',
+                                                                    cursor: 'pointer',
+                                                                    padding: 0,
+                                                                    marginLeft: '2px',
+                                                                    transition: 'transform 0.15s ease'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
+                                                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                            >
+                                                                👤
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -941,6 +992,12 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                         </div>
                     )}
                 </div>
+            )}
+            {previewStudent && (
+                <StudentProfileDrawer 
+                    student={previewStudent} 
+                    onClose={() => setPreviewStudent(null)} 
+                />
             )}
         </div>
     );
