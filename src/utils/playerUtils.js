@@ -71,7 +71,9 @@ export function checkDuplicatePlayer(newPlayerData, existingPlayers = []) {
         const isNameMatch = normNewName === normExistingName;
 
         // Date of birth match if provided
-        const isDobMatch = newPlayerData.dob && p.dob && String(newPlayerData.dob).trim() === String(p.dob).trim();
+        const newDob = newPlayerData.dob || newPlayerData.dateOfBirth;
+        const existingDob = p.dob || p.dateOfBirth;
+        const isDobMatch = newDob && existingDob && String(newDob).trim() === String(existingDob).trim();
 
         // School match if provided
         const isSchoolMatch = newPlayerData.schoolId && p.schoolId && String(newPlayerData.schoolId) === String(p.schoolId);
@@ -82,7 +84,8 @@ export function checkDuplicatePlayer(newPlayerData, existingPlayers = []) {
 
     if (match) {
         const pid = match.playerId || generatePlayerId(match.id);
-        const reason = `Matches existing registered player "${match.name}" (Player ID: ${pid}, DOB: ${match.dob || 'N/A'})`;
+        const matchDob = match.dob || match.dateOfBirth;
+        const reason = `Matches existing registered player "${match.name}" (Player ID: ${pid}, DOB: ${matchDob || 'N/A'})`;
         return {
             isDuplicate: true,
             duplicateReason: reason,
