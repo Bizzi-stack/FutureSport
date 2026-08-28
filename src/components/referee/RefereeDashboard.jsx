@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import LiveMatch from '../match/LiveMatch';
+import CountdownSheetModal from '../match/CountdownSheetModal';
 import {
     getRefereeContactSettings,
     saveRefereeContactSettings,
@@ -19,6 +20,7 @@ export default function RefereeDashboard({
 }) {
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'live'
+    const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
     
     // Referee Form States
     const [misconductNotes, setMisconductNotes] = useState('');
@@ -364,7 +366,7 @@ export default function RefereeDashboard({
                                             <span>{getSchoolName(m.awayTeamId, m)}</span>
                                         </div>
 
-                                        {/* Squad Readiness Badges & Notification Indicator */}
+                                                            {/* Squad Readiness Badges & Notification Indicator */}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                                             <div style={{ display: 'flex', gap: '6px' }}>
                                                 <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: homeSquadReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: homeSquadReady ? 'var(--success)' : 'var(--warning)', border: `1px solid ${homeSquadReady ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
@@ -381,25 +383,41 @@ export default function RefereeDashboard({
                                             )}
                                         </div>
 
-                                        {/* Kick Off Button */}
-                                        <button
-                                            onClick={() => handleKickOff(m)}
-                                            disabled={!bothReady}
-                                            style={{
-                                                padding: '8px 14px', borderRadius: '8px',
-                                                background: bothReady ? 'var(--success)' : 'rgba(255,255,255,0.03)',
-                                                color: bothReady ? '#fff' : 'var(--text-muted)',
-                                                border: bothReady ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                                                fontWeight: '800', fontSize: '12px',
-                                                cursor: bothReady ? 'pointer' : 'not-allowed',
-                                                opacity: bothReady ? 1 : 0.6,
-                                                boxShadow: bothReady ? '0 4px 12px rgba(16,185,129,0.3)' : 'none',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                                transition: 'all 0.2s'
-                                            }}
-                                        >
-                                            {bothReady ? 'Blow Whistle — Kick Off' : 'Waiting for Squad Submissions'}
-                                        </button>
+                                        {/* Action Buttons: Countdown Sheet & Kick Off */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveCountdownMatch(m)}
+                                                style={{
+                                                    padding: '8px 10px', borderRadius: '8px',
+                                                    background: 'rgba(255,199,38,0.12)',
+                                                    color: '#FFC726',
+                                                    border: '1px solid rgba(255,199,38,0.3)',
+                                                    fontWeight: '700', fontSize: '11.5px',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                                                }}
+                                            >
+                                                📋 Countdown Sheet
+                                            </button>
+                                            <button
+                                                onClick={() => handleKickOff(m)}
+                                                disabled={!bothReady}
+                                                style={{
+                                                    padding: '8px 10px', borderRadius: '8px',
+                                                    background: bothReady ? 'var(--success)' : 'rgba(255,255,255,0.03)',
+                                                    color: bothReady ? '#fff' : 'var(--text-muted)',
+                                                    border: bothReady ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                                    fontWeight: '800', fontSize: '11.5px',
+                                                    cursor: bothReady ? 'pointer' : 'not-allowed',
+                                                    opacity: bothReady ? 1 : 0.6,
+                                                    boxShadow: bothReady ? '0 4px 12px rgba(16,185,129,0.3)' : 'none',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                {bothReady ? 'Whistle Kick Off' : 'Waiting Squads'}
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -616,6 +634,29 @@ export default function RefereeDashboard({
             </div>
 
             </div>
+            {/* Countdown Sheet Modal for Referees */}
+            {activeCountdownMatch && (
+                <CountdownSheetModal
+                    match={activeCountdownMatch}
+                    allPlayers={allPlayers}
+                    schools={schools}
+                    userRole="referee"
+                    onClose={() => setActiveCountdownMatch(null)}
+                    onApplyCorrection={(matchId, correctionData) => {
+                        const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
+                        const updatedMatch = {
+                            ...activeCountdownMatch,
+                            [squadKey]: correctionData.updatedSquad || activeCountdownMatch[squadKey],
+                            preKickoffCorrections: [
+                                ...(activeCountdownMatch.preKickoffCorrections || []),
+                                correctionData
+                            ]
+                        };
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
+                />
+            )}
         </div>
     );
 }

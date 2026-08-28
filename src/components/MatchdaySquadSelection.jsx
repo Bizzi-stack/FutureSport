@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import StudentProfileDrawer from './StudentProfileDrawer';
 import JerseyIcon from './JerseyIcon';
+import CountdownSheetModal from './match/CountdownSheetModal';
 import { 
     sendRefereeSquadNotification, 
     sendDataLoggerMatchReadyNotification, 
@@ -161,6 +162,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     // startingXI mapped to slot indices (indices 0 to 10 matching slot configuration)
     const [startingXI, setStartingXI] = useState(() => Array(11).fill(null));
     const [benchPlayers, setBenchPlayers] = useState([]);
+    const [captainId, setCaptainId] = useState(null);
     
     // Active slot being selected via pop-up player picker
     const [activeSlotIndex, setActiveSlotIndex] = useState(null);
@@ -168,6 +170,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [notificationInfo, setNotificationInfo] = useState(null);
+    const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
     const [reminderSentToast, setReminderSentToast] = useState(null);
 
     const schoolName = useMemo(() => {
@@ -322,6 +325,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         if (savedSquad) {
             setFormation(savedSquad.formation || '4-3-3');
             setBenchPlayers(savedSquad.benchPlayers || []);
+            setCaptainId(savedSquad.captainId || null);
             if (Array.isArray(savedSquad.startingXI) && savedSquad.startingXI.length === 11) {
                 setStartingXI(savedSquad.startingXI);
             } else {
@@ -335,6 +339,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             setFormation('4-3-3');
             setStartingXI(Array(11).fill(null));
             setBenchPlayers([]);
+            setCaptainId(null);
         }
         
         setActiveSlotIndex(null);
@@ -388,6 +393,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             formation,
             startingXI,
             benchPlayers,
+            captainId,
             submittedAt: new Date().toISOString(),
             submittedBy: schoolName,
             validationStatus: 'pending_validation' // Manager submits -> Super-Admin validates
@@ -557,6 +563,19 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selectedMatch.ageGroup || 'PMC'} • {selectedMatch.matchday || selectedMatch.round} • {selectedMatch.venue}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {/* View Official Countdown Sheet Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveCountdownMatch(selectedMatch)}
+                                        style={{
+                                            padding: '7px 14px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700',
+                                            background: 'rgba(255,199,38,0.15)', color: '#FFC726', border: '1px solid rgba(255,199,38,0.3)',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                        }}
+                                    >
+                                        📋 View Countdown Sheet
+                                    </button>
+
                                     {selectedMatch.status === 'live' ? (
                                         <span style={{ fontSize: '11px', fontWeight: '800', color: '#4ade80', background: 'rgba(74,222,128,0.15)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(74,222,128,0.3)' }}>
                                             LIVE ({selectedMatch.homeScore} - {selectedMatch.awayScore})
@@ -703,8 +722,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                             +
                                                         </div>
                                                     )}
-                                                    
-                                                    {/* Name Tag Pill with 👤 Profile Drawer Trigger */}
+                                                    {/* Name Tag Pill with Captain (C) Indicator & Profile Drawer Trigger */}
                                                     <div style={{
                                                         display: 'flex', alignItems: 'center', gap: '4px',
                                                         background: player ? 'rgba(15,23,42,0.95)' : 'rgba(0,0,0,0.6)',
@@ -714,19 +732,73 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                         fontWeight: '800',
                                                         color: player ? '#ffffff' : 'rgba(255,255,255,0.7)',
                                                         whiteSpace: 'nowrap',
-                                                        maxWidth: '105px',
-                                                        border: player ? '1px solid rgba(255,255,255,0.25)' : '1px dashed rgba(255,255,255,0.25)',
-                                                        boxShadow: '0 3px 8px rgba(0,0,0,0.5)',
+                                                        maxWidth: '120px',
+                                                        border: (player && String(player.id) === String(captainId)) ? '1.5px solid #FFC726' : (player ? '1px solid rgba(255,255,255,0.25)' : '1px dashed rgba(255,255,255,0.25)'),
+                                                        boxShadow: (player && String(player.id) === String(captainId)) ? '0 0 10px rgba(255,199,38,0.5)' : '0 3px 8px rgba(0,0,0,0.5)'
                                                     }}>
+                                                        {/* Captain Armband Badge */}
+                                                        {player && String(player.id) === String(captainId) && (
+                                                            <span
+                                                                title="Team Captain"
+                                                                style={{
+                                                                    background: '#FFC726',
+                                                                    color: '#000000',
+                                                                    borderRadius: '50%',
+                                                                    width: '15px',
+                                                                    height: '15px',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    fontWeight: '900',
+                                                                    fontSize: '9.5px',
+                                                                    lineHeight: 1,
+                                                                    boxShadow: '0 0 6px rgba(255,199,38,0.8)',
+                                                                    flexShrink: 0
+                                                                }}
+                                                            >
+                                                                C
+                                                            </span>
+                                                        )}
+
                                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                            {player ? (player.name ? (player.name.split(' ').slice(-1)[0] || player.name) : `${player.lastName || ''}`) : slot.label}
+                                                            {player ? (player.name ? (player.name.split(' ').slice(-1)[0] || player.name) : (player.lastName || 'Player')) : slot.label}
                                                         </span>
+
+                                                        {/* Set/Unset Captain Quick Action */}
+                                                        {player && !alreadySubmitted && (
+                                                            <button
+                                                                type="button"
+                                                                title={String(player.id) === String(captainId) ? 'Current Captain (Click to unset)' : 'Nominate as Team Captain'}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setCaptainId(prev => String(prev) === String(player.id) ? null : player.id);
+                                                                }}
+                                                                style={{
+                                                                    background: String(player.id) === String(captainId) ? '#FFC726' : 'rgba(255,255,255,0.1)',
+                                                                    border: String(player.id) === String(captainId) ? 'none' : '1px solid rgba(255,255,255,0.3)',
+                                                                    borderRadius: '50%',
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    fontSize: '9px',
+                                                                    fontWeight: '900',
+                                                                    color: String(player.id) === String(captainId) ? '#000' : 'rgba(255,255,255,0.8)',
+                                                                    cursor: 'pointer',
+                                                                    padding: 0,
+                                                                    marginLeft: '1px'
+                                                                }}
+                                                            >
+                                                                C
+                                                            </button>
+                                                        )}
 
                                                         {/* Profile Icon Trigger Button */}
                                                         {player && (
                                                             <button
                                                                 type="button"
-                                                                title={`View ${player.name}'s Permanent Stats Profile (${player.playerId || `PID-${player.id}`})`}
+                                                                title={`View ${player.name || 'Player'}'s Permanent Stats Profile`}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     if (onStudentClick) {
@@ -739,8 +811,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                                     background: 'rgba(99, 102, 241, 0.4)',
                                                                     border: '1px solid rgba(165, 180, 252, 0.6)',
                                                                     borderRadius: '50%',
-                                                                    width: '17px',
-                                                                    height: '17px',
+                                                                    width: '16px',
+                                                                    height: '16px',
                                                                     display: 'flex',
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
@@ -748,11 +820,11 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                                     color: '#ffffff',
                                                                     cursor: 'pointer',
                                                                     padding: 0,
-                                                                    marginLeft: '2px',
+                                                                    marginLeft: '1px',
                                                                     transition: 'transform 0.15s ease'
                                                                 }}
-                                                                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
-                                                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.25)'; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
                                                             >
                                                                 👤
                                                             </button>
@@ -864,6 +936,70 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                 {/* ═══ SIDE PANEL: SQUAD SUMMARY & BENCH SELECTION ═══ */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     
+                                    {/* Team Captain Selection Panel */}
+                                    <div className="glass-panel" style={{ padding: '12px', background: 'rgba(255, 199, 38, 0.04)', border: '1px solid rgba(255, 199, 38, 0.25)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#FFC726', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ background: '#FFC726', color: '#000', borderRadius: '50%', width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '11px' }}>C</span>
+                                                Team Captain
+                                            </span>
+                                            {captainId && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCaptainId(null)}
+                                                    disabled={alreadySubmitted}
+                                                    style={{ background: 'none', border: 'none', color: '#ff6b6b', fontSize: '10px', cursor: 'pointer', fontWeight: '700' }}
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
+                                        </div>
+                                        
+                                        <select
+                                            value={captainId || ''}
+                                            disabled={alreadySubmitted}
+                                            onChange={e => setCaptainId(e.target.value || null)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '8px 10px',
+                                                borderRadius: '8px',
+                                                background: 'rgba(15, 23, 42, 0.8)',
+                                                color: captainId ? '#FFC726' : 'var(--text-muted)',
+                                                border: '1px solid rgba(255, 199, 38, 0.4)',
+                                                fontSize: '12px',
+                                                fontWeight: '700',
+                                                outline: 'none',
+                                                cursor: alreadySubmitted ? 'default' : 'pointer'
+                                            }}
+                                        >
+                                            <option value="">-- Select Team Captain --</option>
+                                            <optgroup label="Starting XI">
+                                                {selectedStartingXIIds.map(pid => {
+                                                    const p = getPlayerById(pid);
+                                                    if (!p) return null;
+                                                    return (
+                                                        <option key={p.id} value={p.id}>
+                                                            #{p.jerseyNumber != null ? p.jerseyNumber : '—'} {p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim()} ({p.position || 'Starter'})
+                                                        </option>
+                                                    );
+                                                })}
+                                            </optgroup>
+                                            {benchPlayers.length > 0 && (
+                                                <optgroup label="Bench">
+                                                    {benchPlayers.map(pid => {
+                                                        const p = getPlayerById(pid);
+                                                        if (!p) return null;
+                                                        return (
+                                                            <option key={p.id} value={p.id}>
+                                                                #{p.jerseyNumber != null ? p.jerseyNumber : '—'} {p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim()} (Bench)
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                    </div>
+
                                     {/* Bench Management Panel */}
                                     <div className="glass-panel" style={{ padding: '12px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -976,6 +1112,30 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                 <StudentProfileDrawer 
                     student={previewStudent} 
                     onClose={() => setPreviewStudent(null)} 
+                />
+            )}
+
+            {/* Countdown Sheet Modal for Coaches */}
+            {activeCountdownMatch && (
+                <CountdownSheetModal
+                    match={activeCountdownMatch}
+                    allPlayers={allPlayers}
+                    schools={schools}
+                    userRole="coach"
+                    onClose={() => setActiveCountdownMatch(null)}
+                    onApplyCorrection={(matchId, correctionData) => {
+                        const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
+                        const updatedMatch = {
+                            ...activeCountdownMatch,
+                            [squadKey]: correctionData.updatedSquad || activeCountdownMatch[squadKey],
+                            preKickoffCorrections: [
+                                ...(activeCountdownMatch.preKickoffCorrections || []),
+                                correctionData
+                            ]
+                        };
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
                 />
             )}
         </div>
