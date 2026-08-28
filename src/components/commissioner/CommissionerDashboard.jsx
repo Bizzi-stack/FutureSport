@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import LeagueTable from '../LeagueTable';
 import KnockoutBrackets from '../KnockoutBrackets';
+import CountdownSheetModal from '../match/CountdownSheetModal';
 import { exportPMCMatchPacket, pushMatchToPMC } from '../../utils/pmcSyncEngine';
 
 const DEFAULT_VENUES = [
@@ -24,6 +25,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
     const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'scheduling'
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
     
     // Commissioner Approval Form States
     const [incidentRating, setIncidentRating] = useState('1'); // 1 = peaceful, 5 = severe incidents
@@ -292,6 +294,22 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                     }}
                 >
                     Knockout Setup
+                </button>
+                <button
+                    onClick={() => {
+                        const firstUpcoming = matches.find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || matches[0];
+                        setActiveCountdownMatch(firstUpcoming);
+                    }}
+                    style={{
+                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
+                        background: 'rgba(255, 199, 38, 0.15)',
+                        color: '#FFC726',
+                        border: '1px solid rgba(255, 199, 38, 0.35)',
+                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none', marginLeft: 'auto',
+                        display: 'flex', alignItems: 'center', gap: '6px'
+                    }}
+                >
+                    📋 View Match Countdown Sheet
                 </button>
             </div>
 
@@ -918,6 +936,29 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Countdown Sheet Modal */}
+            {activeCountdownMatch && (
+                <CountdownSheetModal
+                    match={activeCountdownMatch}
+                    allPlayers={allStudents}
+                    schools={schools}
+                    userRole="commissioner"
+                    onClose={() => setActiveCountdownMatch(null)}
+                    onApplyCorrection={(matchId, correctionData) => {
+                        const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
+                        const updatedMatch = {
+                            ...activeCountdownMatch,
+                            [squadKey]: correctionData.updatedSquad || activeCountdownMatch[squadKey],
+                            preKickoffCorrections: [
+                                ...(activeCountdownMatch.preKickoffCorrections || []),
+                                correctionData
+                            ]
+                        };
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
+                />
             )}
         </div>
     );
