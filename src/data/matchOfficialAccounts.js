@@ -3,6 +3,17 @@
 export const DEFAULT_OFFICIALS = {
     statistician: [
         {
+            id: 'analyst_johnathan',
+            username: 'johnathan',
+            name: 'Johnathan Cumberbatch',
+            email: 'johnathan.cumberbatch@gmail.com',
+            password: 'password',
+            role: 'statistician',
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
+            avatar: 'JC'
+        },
+        {
             id: 'analyst_noah',
             username: 'noah',
             name: 'Noah',
@@ -136,7 +147,7 @@ export function getOfficialsByRole(role) {
         if (saved) {
             const parsed = JSON.parse(saved);
             const str = JSON.stringify(parsed);
-            if (str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+            if (!str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
                 localStorage.setItem(OFFICIALS_STORAGE_KEY, JSON.stringify(DEFAULT_OFFICIALS));
                 return DEFAULT_OFFICIALS[role] || [];
             }
