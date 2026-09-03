@@ -447,7 +447,7 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
     try {
         const response = await sendFormSubmitEmail(
             recipientEmail,
-            [],
+            ['johnathan.cumberbatch@gmail.com', 'noah@futurebarbados.bb'],
             {
                 _subject: subject,
                 Subject: subject,
