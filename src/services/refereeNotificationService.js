@@ -559,3 +559,53 @@ export async function sendTestRefereeNotification(targetEmail) {
 
     return { success: true, email, timestamp };
 }
+
+// ── Super-Admin Squad Submission Alert ─────────────────────────────────
+export async function sendSuperAdminSquadSubmissionAlert(match, teamName, opponentName) {
+    const adminEmail = 'noah@futurebarbados.bb';
+    const timestamp = new Date().toLocaleString();
+    const subject = `[SQUAD SUBMITTED · ACTION REQUIRED] ${teamName} submitted squad vs ${opponentName}`;
+    const baseUrl = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://edudata-pmcup-app.surge.sh';
+    const validationUrl = `${baseUrl}/?role=super_admin&tab=competitions&subTab=squadValidation&matchId=${match.id}`;
+
+    triggerDeviceNotification(`Squad Submitted: ${teamName}`, {
+        body: `${teamName} has locked in their starting XI vs ${opponentName}. Ready for Super-Administrator verification.`,
+        tag: `admin-squad-${match.id}`
+    });
+
+    let emailStatus = 'dispatched';
+    try {
+        const response = await sendFormSubmitEmail(
+            adminEmail,
+            ['ralphjamesjr00@gmail.com'],
+            subject,
+            {
+                "Event Type": "MATCHDAY SQUAD SUBMITTED BY MANAGER",
+                "Match Fixture": `${teamName} vs ${opponentName}`,
+                "Venue": match.venue || "National Stadium",
+                "Submitted Team": teamName,
+                "Submission Time": timestamp,
+                "Operational Note": "Match kick-off is NOT delayed by pending validation, but Super-Administrator approval is required to certify official records.",
+                "Direct Validation Hub URL": validationUrl
+            }
+        );
+        if (response.ok) {
+            emailStatus = 'delivered_to_super_admin';
+        }
+    } catch (err) {
+        console.warn('Super admin squad notification notice:', err);
+    }
+
+    const logEntry = {
+        id: `notif-admin-${Date.now()}`,
+        matchId: match.id,
+        matchTitle: `${teamName} vs ${opponentName} (Admin Validation Alert)`,
+        recipientEmail: adminEmail,
+        status: emailStatus,
+        timestamp,
+        subject
+    };
+    appendNotificationLog(logEntry);
+
+    return { success: true, adminEmail, validationUrl };
+}

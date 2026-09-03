@@ -23,15 +23,9 @@ const DEFAULT_OFFICIALS = [
     { id: 'off5', name: 'Adrian Hunte', role: 'Referee' },
 ];
 
-export default function CompetitionAdmin({ schools, teams, matches, allStudents, year, onAddMatches, onUpdateMatch, selectedTournament }) {
-    const [activeSubTab, setActiveSubTab] = useState('divisions'); // 'divisions' | 'squadValidation' | 'venues' | 'generator' | 'standings' | 'knockout' | 'stats' | 'alerts'
+export default function CompetitionAdmin({ schools, teams, matches = [], allStudents = [], year, onAddMatches, onUpdateMatch, selectedTournament }) {
+    const [activeSubTab, setActiveSubTab] = useState('divisions'); // 'divisions' | 'squadValidation' | 'alerts' | 'standings' | 'stats' | 'knockout' | 'venues'
     const [adminAlertToast, setAdminAlertToast] = useState(null);
-    
-    // Generator states
-    const [selectedDivision, setSelectedDivision] = useState(() => selectedTournament === 'PMC' ? 'PMC' : 'U14');
-    const [selectedVenue, setSelectedVenue] = useState('v1');
-    const [matchdayTerm, setMatchdayTerm] = useState('Matchday 1');
-    const [generationSuccess, setGenerationSuccess] = useState(false);
 
     // Group teams by division/age group
     const divisionGroups = useMemo(() => {
@@ -43,82 +37,97 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
         return { PMC, U14, U16, U19 };
     }, [teams]);
 
-    const getSchoolName = (schoolId) => {
+    const getSchoolName = (schoolId, fallbackMatchTeam = null) => {
+        if (fallbackMatchTeam && typeof fallbackMatchTeam === 'string' && fallbackMatchTeam !== 'Home Team' && fallbackMatchTeam !== 'Away Team') {
+            return fallbackMatchTeam;
+        }
         const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
         return sc ? sc.name : 'Team';
     };
 
-    const handleGenerateFixtures = () => {
-        const divisionTeams = divisionGroups[selectedDivision] || [];
-        if (divisionTeams.length < 2) return;
+    // Calculate count of submitted squads pending Super-Admin validation
+    const pendingSquadsCount = useMemo(() => {
+        return (matches || []).filter(m => {
+            const hPending = m?.homeSquadSelection && m.homeSquadSelection.validationStatus !== 'approved';
+            const aPending = m?.awaySquadSelection && m.awaySquadSelection.validationStatus !== 'approved';
+            return hPending || aPending;
+        }).length;
+    }, [matches]);
 
-        const newFixtures = [];
-        const venue = DEFAULT_VENUES.find(v => v.id === selectedVenue)?.name || 'Local Ground';
-        const referees = DEFAULT_OFFICIALS.filter(o => o.role === 'Referee');
-        const commissioners = DEFAULT_OFFICIALS.filter(o => o.role === 'Match Commissioner');
+    // Prioritize and push pending validation / live running matches to the FRONT
+    const prioritizedSquadMatches = useMemo(() => {
+        const submitted = (matches || []).filter(m => m && (m.homeSquadSelection || m.awaySquadSelection));
+        return [...submitted].sort((a, b) => {
+            const aHPending = a.homeSquadSelection && a.homeSquadSelection.validationStatus !== 'approved';
+            const aAPending = a.awaySquadSelection && a.awaySquadSelection.validationStatus !== 'approved';
+            const aHasPending = aHPending || aAPending;
 
-        // Round-robin pairing for the selected division teams
-        let matchIndex = 1;
-        for (let i = 0; i < divisionTeams.length; i++) {
-            for (let j = i + 1; j < divisionTeams.length; j++) {
-                const home = divisionTeams[i];
-                const away = divisionTeams[j];
+            const bHPending = b.homeSquadSelection && b.homeSquadSelection.validationStatus !== 'approved';
+            const bAPending = b.awaySquadSelection && b.awaySquadSelection.validationStatus !== 'approved';
+            const bHasPending = bHPending || bAPending;
 
-                const ref = referees.length > 0 ? referees[(i + j) % referees.length].name : 'Official Referee';
-                const comm = commissioners.length > 0 ? commissioners[(i + j) % commissioners.length].name : 'Match Commissioner';
+            const aIsLiveOrUpcoming = a.status === 'live' || a.status === 'upcoming' || a.status === 'scheduled';
+            const bIsLiveOrUpcoming = b.status === 'live' || b.status === 'upcoming' || b.status === 'scheduled';
 
-                const homeSchool = (schools || []).find(s => s.id === home.schoolId || s.id === home.id || s.rawId === home.schoolId);
-                const awaySchool = (schools || []).find(s => s.id === away.schoolId || s.id === away.id || s.rawId === away.schoolId);
+            // 1. Matches with pending submissions come first
+            if (aHasPending && !bHasPending) return -1;
+            if (!aHasPending && bHasPending) return 1;
 
-                newFixtures.push({
-                    id: `scheduled-${Date.now()}-${matchIndex++}`,
-                    homeTeam: homeSchool?.name || home.name || 'Home Team',
-                    awayTeam: awaySchool?.name || away.name || 'Away Team',
-                    homeTeamId: home.schoolId || home.id,
-                    awayTeamId: away.schoolId || away.id,
-                    ageGroup: selectedDivision,
-                    matchday: matchdayTerm,
-                    venue,
-                    referee: ref,
-                    commissioner: comm,
-                    status: 'scheduled',
-                    homeScore: 0,
-                    awayScore: 0,
-                    playerStats: {},
-                    timeline: [],
-                    date: new Date(Date.now() + 86400000 * matchIndex).toISOString(), // future dates
-                });
-            }
-        }
+            // 2. Active / Live running matches come next
+            if (aIsLiveOrUpcoming && !bIsLiveOrUpcoming) return -1;
+            if (!aIsLiveOrUpcoming && bIsLiveOrUpcoming) return 1;
 
-        onAddMatches(newFixtures);
-        setGenerationSuccess(true);
-        setTimeout(() => setGenerationSuccess(false), 3000);
-    };
+            return 0;
+        });
+    }, [matches]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', height: '100%', minHeight: 0 }}>
             
+            {/* Feedback Toast Banner */}
+            {adminAlertToast && (
+                <div style={{
+                    padding: '12px 20px', borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#ffffff', fontWeight: '800', fontSize: '13px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 8px 24px rgba(16,185,129,0.3)',
+                    animation: 'fadeIn 0.2s ease-in'
+                }}>
+                    <span>{adminAlertToast}</span>
+                    <button onClick={() => setAdminAlertToast(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                </div>
+            )}
+
             {/* Sub-navigation Tabs */}
-            <div style={{ display: 'flex', gap: '12px', borderBottom: 'var(--border)', paddingBottom: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '12px', borderBottom: 'var(--border)', paddingBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {[
                     { key: 'divisions', label: 'Divisions & Teams' },
-                    { key: 'squadValidation', label: '🛡️ Squad Validation Hub' },
+                    { 
+                        key: 'squadValidation', 
+                        label: `🛡️ Squad Validation Station ${pendingSquadsCount > 0 ? `(${pendingSquadsCount} Pending)` : ''}`,
+                        highlight: pendingSquadsCount > 0
+                    },
                     { key: 'alerts', label: 'Match Operations & Alerts' },
                     { key: 'standings', label: 'League Standings' },
                     { key: 'stats', label: 'Competition Stats' },
                     { key: 'knockout', label: 'Knockouts' },
-                    { key: 'venues', label: 'Venues & Officials' },
-                    { key: 'generator', label: 'Fixture Generator' }
+                    { key: 'venues', label: 'Venues & Officials' }
                 ].map(tab => (
                     <button
                         key={tab.key}
                         onClick={() => setActiveSubTab(tab.key)}
                         style={{
                             padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
-                            background: activeSubTab === tab.key ? 'rgba(37,99,235,0.18)' : 'transparent',
-                            color: activeSubTab === tab.key ? 'var(--primary-light)' : 'var(--text-secondary)',
-                            border: activeSubTab === tab.key ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
+                            background: activeSubTab === tab.key 
+                                ? 'rgba(37,99,235,0.18)' 
+                                : tab.highlight ? 'rgba(245,158,11,0.12)' : 'transparent',
+                            color: activeSubTab === tab.key 
+                                ? 'var(--primary-light)' 
+                                : tab.highlight ? '#fbbf24' : 'var(--text-secondary)',
+                            border: activeSubTab === tab.key 
+                                ? '1px solid rgba(37,99,235,0.35)' 
+                                : tab.highlight ? '1px solid rgba(245,158,11,0.35)' : '1px solid transparent',
                             cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                         }}
                     >
@@ -203,76 +212,6 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                     </div>
                 )}
 
-                {activeSubTab === 'generator' && (
-                    <div style={{ maxWidth: '600px', margin: '0 auto' }} className="glass-panel">
-                        <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', textAlign: 'center' }}>Automatic Fixture Generator</h3>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600' }}>Target Division</label>
-                                <select
-                                    value={selectedDivision}
-                                    onChange={e => setSelectedDivision(e.target.value)}
-                                    style={{ padding: '8px 12px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
-                                >
-                                    {(selectedTournament === 'PMC' || divisionGroups.PMC.length > 0) && <option value="PMC">PMC Senior Division</option>}
-                                    <option value="U14">U14 Division</option>
-                                    <option value="U16">U16 Division</option>
-                                    <option value="U19">U19 Division</option>
-                                </select>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600' }}>Default Matchday / Term</label>
-                                <select
-                                    value={matchdayTerm}
-                                    onChange={e => setMatchdayTerm(e.target.value)}
-                                    style={{ padding: '8px 12px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
-                                >
-                                    <option value="Matchday 1">Matchday 1</option>
-                                    <option value="Matchday 2">Matchday 2</option>
-                                    <option value="Matchday 3">Matchday 3</option>
-                                </select>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600' }}>Primary Ground Venue</label>
-                                <select
-                                    value={selectedVenue}
-                                    onChange={e => setSelectedVenue(e.target.value)}
-                                    style={{ padding: '8px 12px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.25)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
-                                >
-                                    {DEFAULT_VENUES.filter(v => v.status === 'Available').map(v => (
-                                        <option key={v.id} value={v.id}>{v.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {generationSuccess && (
-                                <div style={{
-                                    padding: '12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)',
-                                    border: '1px solid rgba(16, 185, 129, 0.25)', color: 'var(--success)', fontSize: '13px', fontWeight: '600', textAlign: 'center'
-                                }}>
-                                    ✓ Fixtures successfully generated and loaded into the Match Centre!
-                                </div>
-                            )}
-
-                            <button
-                                onClick={handleGenerateFixtures}
-                                style={{
-                                    padding: '12px', borderRadius: '24px', background: 'var(--primary)', border: 'none',
-                                    color: '#ffffff', fontSize: '14px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
-                                    boxShadow: '0 4px 14px rgba(37,99,235,0.3)', marginTop: '10px'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                            >
-                                Generate Round-Robin Schedule
-                            </button>
-                        </div>
-                    </div>
-                )}
-
                 {activeSubTab === 'standings' && (
                     <LeagueTable matches={matches} teams={teams} schools={schools} />
                 )}
@@ -287,18 +226,6 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
 
                 {activeSubTab === 'alerts' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        {/* Admin Alert Feedback Toast */}
-                        {adminAlertToast && (
-                            <div style={{
-                                padding: '12px 18px', borderRadius: '10px',
-                                background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)',
-                                color: '#4ade80', fontSize: '13px', fontWeight: '700',
-                                display: 'flex', alignItems: 'center', gap: '10px'
-                            }}>
-                                {adminAlertToast}
-                            </div>
-                        )}
-
                         <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
@@ -317,8 +244,8 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                             {/* Fixtures list with alert action buttons */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {(matches || []).filter(m => m.status === 'upcoming' || m.status === 'scheduled' || m.status === 'live').map(m => {
-                                    const homeName = getSchoolName(m.homeTeamId);
-                                    const awayName = getSchoolName(m.awayTeamId);
+                                    const homeName = getSchoolName(m.homeTeamId, m.homeTeam);
+                                    const awayName = getSchoolName(m.awayTeamId, m.awayTeam);
                                     const homeReady = !!m.homeSquadSelection;
                                     const awayReady = !!m.awaySquadSelection;
                                     const bothReady = homeReady && awayReady;
@@ -342,7 +269,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                     )}
                                                     {bothReady && m.status !== 'live' && (
                                                         <span style={{ fontSize: '10px', fontWeight: '800', color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '2px 8px', borderRadius: '8px' }}>
-                                                            SQUADS LOCKED
+                                                            SQUADS SUBMITTED
                                                         </span>
                                                     )}
                                                 </div>
@@ -406,7 +333,7 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
                                                     </span>
                                                 )}
 
-                                                {/* If both ready, allow manual broadcast alert */}
+                                                {/* Manual broadcast alert */}
                                                 {bothReady && (
                                                     <button
                                                         type="button"
@@ -441,163 +368,287 @@ export default function CompetitionAdmin({ schools, teams, matches, allStudents,
 
                 {activeSubTab === 'squadValidation' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
-                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        
+                        {/* Information & Regulatory Policy Banner */}
+                        <div style={{
+                            padding: '16px 20px', borderRadius: '12px',
+                            background: 'linear-gradient(135deg, rgba(30,27,75,0.7), rgba(15,23,42,0.9))',
+                            border: '1px solid rgba(165,180,252,0.25)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px'
+                        }}>
                             <div>
-                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                    🛡️ Super-Administrator Squad Validation Station
-                                </h3>
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                    Review submitted manager squads and validate Player IDs before official matchday use.
+                                <div style={{ fontSize: '14.5px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>🛡️</span> Super-Administrator Squad Validation Station
+                                    {pendingSquadsCount > 0 && (
+                                        <span style={{ fontSize: '11px', fontWeight: '900', background: 'rgba(245,158,11,0.2)', color: '#fbbf24', border: '1px solid #f59e0b', padding: '2px 8px', borderRadius: '12px' }}>
+                                            {pendingSquadsCount} Action Required
+                                        </span>
+                                    )}
+                                </div>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#cbd5e1', lineHeight: '1.45' }}>
+                                    <strong>Operational Policy:</strong> Matches do not require Super-Administrator validation before kick-off to avoid match delays. However, Super-Administrator verification is required to certify official matchday records and publish validated stats.
+                                </p>
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80' }} />
+                                Real-Time Squad Listener Active
+                            </div>
+                        </div>
+
+                        {/* List of Submitted Manager Squads (Prioritized: Urgent/Pending & Live Running Matches Pushed to Front) */}
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                    Submitted Matchday Squads &amp; Player ID Verification
+                                </h4>
+                                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                                    Matches with newly submitted rosters are prioritized at the top
                                 </span>
                             </div>
 
-                            {/* List of Submitted Manager Squads */}
-                            {(() => {
-                                const submittedSquadsMatches = (matches || []).filter(m => m && (m.homeSquadSelection || m.awaySquadSelection));
-                                if (submittedSquadsMatches.length === 0) {
-                                    return (
-                                        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                                            No manager squads have been submitted for validation yet.
-                                        </div>
-                                    );
-                                }
+                            {prioritizedSquadMatches.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                    No manager squads have been submitted for validation yet. As coaches submit rosters, fixtures will appear here automatically.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {prioritizedSquadMatches.map(m => {
+                                        const homeName = getSchoolName(m.homeTeamId, m.homeTeam);
+                                        const awayName = getSchoolName(m.awayTeamId, m.awayTeam);
 
-                                return (
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                                        {submittedSquadsMatches.map(m => {
-                                            const homeName = getSchoolName(m.homeTeamId);
-                                            const awayName = getSchoolName(m.awayTeamId);
+                                        const homeSquad = m.homeSquadSelection;
+                                        const awaySquad = m.awaySquadSelection;
 
-                                            const renderSquadCard = (squad, teamName, teamSide) => {
-                                                if (!squad) {
-                                                    return (
-                                                        <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
-                                                            {teamName}: Squad Not Submitted
-                                                        </div>
-                                                    );
-                                                }
+                                        const isHomePending = homeSquad && homeSquad.validationStatus !== 'approved';
+                                        const isAwayPending = awaySquad && awaySquad.validationStatus !== 'approved';
+                                        const hasPendingAction = isHomePending || isAwayPending;
 
-                                                const status = squad.validationStatus || 'pending_validation';
-                                                const isApproved = status === 'approved';
-                                                const isRejected = status === 'rejected';
+                                        const isMatchFullyApproved = homeSquad?.validationStatus === 'approved' && awaySquad?.validationStatus === 'approved';
 
-                                                const handleApproveSquad = () => {
-                                                    const squadKey = teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
-                                                    const updated = {
-                                                        ...m,
-                                                        [squadKey]: {
-                                                            ...squad,
-                                                            validationStatus: 'approved',
-                                                            validatedAt: new Date().toISOString(),
-                                                            validatedBy: 'Super Administrator'
-                                                        }
-                                                    };
-                                                    if (onUpdateMatch) onUpdateMatch(updated);
-                                                    setAdminAlertToast(`✓ ${teamName} Squad Approved for Matchday!`);
-                                                    setTimeout(() => setAdminAlertToast(null), 3500);
-                                                };
+                                        // Master Quick Approve Both Squads
+                                        const handleApproveAllSquads = () => {
+                                            const updated = {
+                                                ...m,
+                                                validationStatus: 'approved',
+                                                validatedAt: new Date().toISOString(),
+                                                validatedBy: 'Super Administrator',
+                                                homeSquadSelection: homeSquad ? {
+                                                    ...homeSquad,
+                                                    validationStatus: 'approved',
+                                                    validatedAt: new Date().toISOString(),
+                                                    validatedBy: 'Super Administrator'
+                                                } : homeSquad,
+                                                awaySquadSelection: awaySquad ? {
+                                                    ...awaySquad,
+                                                    validationStatus: 'approved',
+                                                    validatedAt: new Date().toISOString(),
+                                                    validatedBy: 'Super Administrator'
+                                                } : awaySquad
+                                            };
+                                            if (onUpdateMatch) onUpdateMatch(updated);
+                                            setAdminAlertToast(`✓ Both Squads Approved & Certified for ${homeName} vs ${awayName}!`);
+                                            setTimeout(() => setAdminAlertToast(null), 4000);
+                                        };
 
-                                                const handleRejectSquad = () => {
-                                                    const reason = window.prompt(`Enter rejection reason / required changes for ${teamName}:`, 'Invalid player assignment or missing document verification.');
-                                                    if (!reason) return;
-                                                    const squadKey = teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
-                                                    const updated = {
-                                                        ...m,
-                                                        [squadKey]: {
-                                                            ...squad,
-                                                            validationStatus: 'rejected',
-                                                            rejectionReason: reason,
-                                                            validatedAt: new Date().toISOString(),
-                                                            validatedBy: 'Super Administrator'
-                                                        }
-                                                    };
-                                                    if (onUpdateMatch) onUpdateMatch(updated);
-                                                    setAdminAlertToast(`✕ ${teamName} Squad Rejected with requested changes.`);
-                                                    setTimeout(() => setAdminAlertToast(null), 3500);
-                                                };
-
+                                        // Render Individual Squad Card
+                                        const renderSquadCard = (squad, teamName, teamSide) => {
+                                            if (!squad) {
                                                 return (
-                                                    <div style={{
-                                                        padding: '16px', borderRadius: '12px',
-                                                        background: isApproved ? 'rgba(34,197,94,0.06)' : isRejected ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
-                                                        border: `1px solid ${isApproved ? 'rgba(34,197,94,0.25)' : isRejected ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}`,
-                                                        display: 'flex', flexDirection: 'column', gap: '12px'
-                                                    }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <div>
-                                                                <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)' }}>{teamName}</div>
-                                                                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Manager: {squad.submittedBy || 'Head Coach'} • Formation: {squad.formation || '4-3-3'}</div>
-                                                            </div>
-                                                            <span style={{
-                                                                fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', padding: '4px 10px', borderRadius: '20px',
-                                                                background: isApproved ? 'rgba(34,197,94,0.2)' : isRejected ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
-                                                                color: isApproved ? '#4ade80' : isRejected ? '#f87171' : '#fbbf24',
-                                                                border: `1px solid ${isApproved ? '#22c55e' : isRejected ? '#ef4444' : '#f59e0b'}`
-                                                            }}>
-                                                                {isApproved ? '✓ APPROVED FOR MATCHDAY' : isRejected ? '✕ REJECTED' : '⏳ PENDING SUPER-ADMIN VALIDATION'}
-                                                            </span>
-                                                        </div>
-
-                                                        {/* Starting XI Player IDs Check */}
-                                                        <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Starting XI Players &amp; Player IDs:</div>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', maxHeight: '140px', overflowY: 'auto' }}>
-                                                            {(squad.startingXI || []).filter(Boolean).map((pid, idx) => {
-                                                                const player = (allStudents || []).find(s => String(s.id) === String(pid));
-                                                                return (
-                                                                    <div key={idx} style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                        <span style={{ fontWeight: '700', color: '#ffffff' }}>#{player?.jerseyNumber || idx+1} {player?.name || `Player #${pid}`}</span>
-                                                                        <span style={{ fontFamily: 'monospace', fontSize: '9.5px', color: '#a5b4fc', fontWeight: '800' }}>{player?.playerId || `PID-2026-${String(pid).padStart(5, '0')}`}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-
-                                                        {/* Validation Action Triggers */}
-                                                        <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleApproveSquad}
-                                                                disabled={isApproved}
-                                                                style={{
-                                                                    flex: 1, padding: '8px 14px', borderRadius: '8px', border: 'none',
-                                                                    background: isApproved ? 'rgba(34,197,94,0.15)' : 'var(--success)',
-                                                                    color: isApproved ? '#4ade80' : '#ffffff', fontSize: '12px', fontWeight: '800',
-                                                                    cursor: isApproved ? 'default' : 'pointer'
-                                                                }}
-                                                            >
-                                                                {isApproved ? '✓ Squad Approved' : '✓ Approve Squad'}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleRejectSquad}
-                                                                style={{
-                                                                    padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)',
-                                                                    background: 'rgba(239,68,68,0.12)', color: '#f87171', fontSize: '12px', fontWeight: '800',
-                                                                    cursor: 'pointer'
-                                                                }}
-                                                            >
-                                                                ✕ Request Changes
-                                                            </button>
-                                                        </div>
+                                                    <div style={{ padding: '20px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                                        {teamName}: Waiting for Manager submission...
                                                     </div>
                                                 );
+                                            }
+
+                                            const isApproved = squad.validationStatus === 'approved';
+                                            const isRejected = squad.validationStatus === 'rejected';
+
+                                            const handleApproveSingle = () => {
+                                                const squadKey = teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
+                                                const updated = {
+                                                    ...m,
+                                                    [squadKey]: {
+                                                        ...squad,
+                                                        validationStatus: 'approved',
+                                                        validatedAt: new Date().toISOString(),
+                                                        validatedBy: 'Super Administrator'
+                                                    }
+                                                };
+                                                if (onUpdateMatch) onUpdateMatch(updated);
+                                                setAdminAlertToast(`✓ ${teamName} Squad Approved!`);
+                                                setTimeout(() => setAdminAlertToast(null), 3500);
+                                            };
+
+                                            const handleRejectSingle = () => {
+                                                const reason = window.prompt(`Enter rejection reason for ${teamName}:`, 'Missing player ID verification or ineligible squad assignment.');
+                                                if (!reason) return;
+                                                const squadKey = teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
+                                                const updated = {
+                                                    ...m,
+                                                    [squadKey]: {
+                                                        ...squad,
+                                                        validationStatus: 'rejected',
+                                                        rejectionReason: reason,
+                                                        validatedAt: new Date().toISOString(),
+                                                        validatedBy: 'Super Administrator'
+                                                    }
+                                                };
+                                                if (onUpdateMatch) onUpdateMatch(updated);
+                                                setAdminAlertToast(`✕ ${teamName} Squad Flagged for Changes.`);
+                                                setTimeout(() => setAdminAlertToast(null), 3500);
                                             };
 
                                             return (
-                                                <div key={m.id} className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#38bdf8', borderBottom: 'var(--border)', paddingBottom: '6px' }}>
-                                                        Match Fixture: {homeName} vs {awayName} ({m.matchday || 'Matchday 1'})
+                                                <div style={{
+                                                    flex: 1, padding: '16px', borderRadius: '12px',
+                                                    background: isApproved ? 'rgba(34,197,94,0.06)' : isRejected ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
+                                                    border: `1px solid ${isApproved ? 'rgba(34,197,94,0.3)' : isRejected ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                                    display: 'flex', flexDirection: 'column', gap: '12px'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '14.5px', fontWeight: '800', color: 'var(--text-primary)' }}>{teamName}</div>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Manager: {squad.submittedBy || 'Team Coach'} • Formation: {squad.formation || '4-3-3'}</div>
+                                                        </div>
+                                                        <span style={{
+                                                            fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', padding: '4px 10px', borderRadius: '20px',
+                                                            background: isApproved ? 'rgba(34,197,94,0.2)' : isRejected ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
+                                                            color: isApproved ? '#4ade80' : isRejected ? '#f87171' : '#fbbf24',
+                                                            border: `1px solid ${isApproved ? '#22c55e' : isRejected ? '#ef4444' : '#f59e0b'}`
+                                                        }}>
+                                                            {isApproved ? '✓ APPROVED' : isRejected ? '✕ CHANGES REQUESTED' : '⏳ PENDING VALIDATION'}
+                                                        </span>
                                                     </div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        {renderSquadCard(m.homeSquadSelection, homeName, 'home')}
-                                                        {renderSquadCard(m.awaySquadSelection, awayName, 'away')}
+
+                                                    {/* Starting XI Player IDs Check */}
+                                                    <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Starting XI (Player IDs):</div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', maxHeight: '130px', overflowY: 'auto' }}>
+                                                        {(squad.startingXI || []).filter(Boolean).map((pid, idx) => {
+                                                            const player = (allStudents || []).find(s => String(s.id) === String(pid));
+                                                            return (
+                                                                <div key={idx} style={{ fontSize: '11px', padding: '5px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <span style={{ fontWeight: '700', color: '#ffffff' }}>#{player?.jerseyNumber || idx+1} {player?.name || `Player #${pid}`}</span>
+                                                                    <span style={{ fontFamily: 'monospace', fontSize: '9.5px', color: '#a5b4fc', fontWeight: '800' }}>{player?.playerId || `PID-PMC-${String(pid).padStart(5, '0')}`}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Individual Action Buttons */}
+                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleApproveSingle}
+                                                            disabled={isApproved}
+                                                            style={{
+                                                                flex: 1, padding: '8px 12px', borderRadius: '8px', border: 'none',
+                                                                background: isApproved ? 'rgba(34,197,94,0.15)' : 'var(--success)',
+                                                                color: isApproved ? '#4ade80' : '#ffffff', fontSize: '12px', fontWeight: '800',
+                                                                cursor: isApproved ? 'default' : 'pointer', transition: 'all 0.15s'
+                                                            }}
+                                                        >
+                                                            {isApproved ? '✓ Squad Validated' : `✓ Approve ${teamName}`}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleRejectSingle}
+                                                            style={{
+                                                                padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)',
+                                                                background: 'rgba(239,68,68,0.12)', color: '#f87171', fontSize: '12px', fontWeight: '800',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            ✕ Reject
+                                                        </button>
                                                     </div>
                                                 </div>
                                             );
-                                        })}
-                                    </div>
-                                );
-                            })()}
+                                        };
+
+                                        return (
+                                            <div 
+                                                key={m.id} 
+                                                className="glass-panel" 
+                                                style={{
+                                                    padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px',
+                                                    borderRadius: '14px',
+                                                    background: hasPendingAction 
+                                                        ? 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(15,23,42,0.95))' 
+                                                        : 'linear-gradient(135deg, rgba(34,197,94,0.04), rgba(15,23,42,0.9))',
+                                                    border: hasPendingAction 
+                                                        ? '2px solid #f59e0b' 
+                                                        : '1px solid rgba(34,197,94,0.35)',
+                                                    boxShadow: hasPendingAction 
+                                                        ? '0 0 28px rgba(245, 158, 11, 0.25)' 
+                                                        : 'none',
+                                                    transition: 'all 0.25s ease'
+                                                }}
+                                            >
+                                                {/* Header Bar with Action Light-up Badge */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{ fontSize: '16px', fontWeight: '900', color: '#ffffff' }}>
+                                                            {homeName} vs {awayName}
+                                                        </span>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                            ({m.matchday || 'Matchday 1'} · {m.venue || 'National Stadium'})
+                                                        </span>
+                                                        {m.status === 'live' && (
+                                                            <span style={{ fontSize: '10px', fontWeight: '900', background: 'rgba(34,197,94,0.2)', color: '#4ade80', padding: '2px 8px', borderRadius: '10px', border: '1px solid #22c55e' }}>
+                                                                ● LIVE RUNNING MATCH
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        {hasPendingAction ? (
+                                                            <span style={{
+                                                                fontSize: '11px', fontWeight: '900', color: '#fbbf24', background: 'rgba(245,158,11,0.2)',
+                                                                border: '1px solid #f59e0b', padding: '4px 12px', borderRadius: '20px',
+                                                                animation: 'pulse 2s infinite'
+                                                            }}>
+                                                                ⚡ SQUADS SUBMITTED — VALIDATION ACTION REQUIRED
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{
+                                                                fontSize: '11px', fontWeight: '900', color: '#4ade80', background: 'rgba(34,197,94,0.2)',
+                                                                border: '1px solid #22c55e', padding: '4px 12px', borderRadius: '20px'
+                                                            }}>
+                                                                ✓ OFFICIALLY VALIDATED BY SUPER-ADMIN
+                                                            </span>
+                                                        )}
+
+                                                        {/* One-Click Master Approval for Match */}
+                                                        {hasPendingAction && (homeSquad || awaySquad) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleApproveAllSquads}
+                                                                style={{
+                                                                    padding: '7px 16px', borderRadius: '8px', border: 'none',
+                                                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                                                    color: '#ffffff', fontSize: '12px', fontWeight: '900',
+                                                                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                            >
+                                                                ✓ Approve Both Squads
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Side-by-Side Squad Cards */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                                    {renderSquadCard(homeSquad, homeName, 'home')}
+                                                    {renderSquadCard(awaySquad, awayName, 'away')}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

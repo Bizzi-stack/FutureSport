@@ -6,6 +6,7 @@ import {
     sendRefereeSquadNotification, 
     sendDataLoggerMatchReadyNotification, 
     sendCoachSquadReminderNotification, 
+    sendSuperAdminSquadSubmissionAlert,
     getRefereeContactSettings 
 } from '../services/refereeNotificationService';
 
@@ -409,6 +410,13 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
         const homeName = getSchoolName(selectedMatch.homeTeamId, selectedMatch);
         const awayName = getSchoolName(selectedMatch.awayTeamId, selectedMatch);
+
+        // Dispatch instant alert to Super-Administrator for roster verification
+        try {
+            sendSuperAdminSquadSubmissionAlert(selectedMatch, schoolName, isHome ? awayName : homeName);
+        } catch (adminAlertErr) {
+            console.warn('Super-Admin squad notification notice:', adminAlertErr);
+        }
 
         if (opponentAlreadySubmitted) {
             setNotificationInfo({

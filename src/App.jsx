@@ -12,7 +12,6 @@ import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOL
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
 import { pushMatchesToCloud, subscribeToRealtimeSync } from './utils/realtimeSync';
 import { exportClassReport } from './utils/exportReport';
-import DataHub from './components/DataHub';
 import NationalHub from './components/NationalHub';
 import MatchCentre from './components/MatchCentre';
 import AdminLandingPage from './components/AdminLandingPage';
@@ -476,7 +475,6 @@ function App() {
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('performance');
-  const [showDataHub, setShowDataHub] = useState(false);
   const [showNationalHub, setShowNationalHub] = useState(false);
   const [showImportCsv, setShowImportCsv] = useState(false);
   const [showMatchCentre, setShowMatchCentre] = useState(false);
@@ -554,14 +552,12 @@ function App() {
       return [
         { id: 'pmc_approvals', label: 'PMC Match Verification & Approvals' },
         { id: 'competitions', label: 'PMC Fixtures & Standings' },
-        { id: 'club_rosters', label: 'Senior Club Roster Directory' },
-        { id: 'data_entry', label: 'Raw Data Sandbox' }
+        { id: 'club_rosters', label: 'Senior Club Roster Directory' }
       ];
     }
     return [
       { id: 'registrations', label: 'School & Player Registrations' },
-      { id: 'competitions', label: 'Competition Setup' },
-      { id: 'data_entry', label: 'Raw Data Sandbox' }
+      { id: 'competitions', label: 'Competition Setup' }
     ];
   }, [selectedTournament]);
 
@@ -1115,29 +1111,6 @@ function App() {
             </button>
           )}
 
-          {(userRole === 'analyst' || userRole === 'super_admin' || userRole === 'league_admin') && (
-            <button
-              onClick={() => setShowDataHub(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                padding: '8px 16px',
-                background: 'rgba(99,102,241,0.15)',
-                color: '#a5b4fc',
-                border: '1px solid rgba(99,102,241,0.3)',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.25)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(99,102,241,0.15)'; }}
-            >
-              Raw Data Sandbox
-            </button>
-          )}
-
           <button
             onClick={() => setShowSettings(true)}
             style={{
@@ -1309,24 +1282,9 @@ function App() {
                     matches={displayMatches}
                     allStudents={displayStudents}
                     year={selectedYear}
+                    onUpdateMatch={handleUpdateMatch}
                     onAddMatches={handleAddMatches}
                     selectedTournament={selectedTournament}
-                  />
-                )}
-
-                {adminTab === 'data_entry' && (
-                  <DataEntryPanel
-                    students={students}
-                    year={selectedYear}
-                    term={selectedTerm}
-                    subjects={subjects}
-                    settings={settings}
-                    onDataUpdate={handleDataUpdate}
-                    onRemoveSubject={handleRemoveSubject}
-                    onRemoveStudent={handleRemoveStudent}
-                    onStudentClick={setSelectedStudent}
-                    onAddSubjectClick={() => setShowAddSubject(true)}
-                    onOpenLogShotModal={(student, yr, tr) => setLogShotTarget({ student, year: yr, term: tr })}
                   />
                 )}
               </div>
@@ -1487,16 +1445,6 @@ function App() {
           onTransferStudent={handleTransferStudent}
           selectedYear={selectedYear}
           allSquadStudents={students}
-        />
-      )}
-
-      {showDataHub && (
-        <DataHub
-          year={selectedYear}
-          term={selectedTerm}
-          selectedSchool={selectedSchool}
-          onClose={() => setShowDataHub(false)}
-          onStudentClick={setSelectedStudent}
         />
       )}
 
