@@ -2,6 +2,19 @@
 
 export const DEFAULT_ANALYSTS = [
     {
+        id: 'analyst_johnathan',
+        username: 'johnathan',
+        name: 'Johnathan Cumberbatch (Data Analyst)',
+        email: 'johnathan.cumberbatch@gmail.com',
+        password: 'password',
+        role: 'statistician',
+        captureRole: 'all', // 'all' | 'possession' | 'shots' | 'general'
+        venue: 'National Stadium',
+        assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+        avatar: 'JC',
+        badgeColor: '#10b981'
+    },
+    {
         id: 'analyst_noah',
         username: 'noah',
         name: 'Noah (Master Lead Analyst)',
