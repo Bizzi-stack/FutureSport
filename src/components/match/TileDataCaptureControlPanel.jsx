@@ -51,8 +51,21 @@ export default function TileDataCaptureControlPanel({
     isPaused = false,
     onQuickLogEvent,
     onShotModal,
-    onGkSaveModal
+    onGkSaveModal,
+    captureRole = 'all'
 }) {
+    // Data Capturer Assigned Scope Role ('possession' | 'shots' | 'general' | 'all')
+    const [activeRole, setActiveRole] = useState(captureRole || 'all');
+
+    useEffect(() => {
+        if (captureRole) setActiveRole(captureRole);
+    }, [captureRole]);
+
+    // Permission flags for role-based scoping
+    const isPossessionEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'possession';
+    const isShotsEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'shots';
+    const isGeneralEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'general';
+
     // Active Possession Tracking State
     const [possessionSide, setPossessionSide] = useState(match?.liveState?.possession?.activeSide || null); // 'home' | 'away' | null
     const [homePossessionSecs, setHomePossessionSecs] = useState(match?.liveState?.possession?.homeSecs || 0);
@@ -218,8 +231,87 @@ export default function TileDataCaptureControlPanel({
                 </div>
             )}
 
+            {/* ── 0. DATA CAPTURER ROLE SCOPE SELECTOR BAR ───────────────────── */}
+            <div className="glass-panel" style={{
+                padding: '14px 18px', borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,27,75,0.6))',
+                border: '1px solid rgba(165,180,252,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>
+                        {activeRole === 'possession' ? '⏱️' : activeRole === 'shots' ? '⚽' : activeRole === 'general' ? '📋' : '👑'}
+                    </span>
+                    <div>
+                        <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Data Capturer Assigned Scope: 
+                            <span style={{
+                                color: activeRole === 'possession' ? '#4ade80' : activeRole === 'shots' ? '#60a5fa' : activeRole === 'general' ? '#fbbf24' : '#a5b4fc',
+                                textTransform: 'uppercase', letterSpacing: '0.04em'
+                            }}>
+                                {activeRole === 'possession' ? 'Possession Specialist (1 Logger)' :
+                                 activeRole === 'shots' ? 'Shot Specialist (2 Loggers)' :
+                                 activeRole === 'general' ? 'General Event Specialist (3 Loggers)' : 'Master Lead Analyst (All Tiles)'}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {activeRole === 'possession' ? 'ONLY Possession tiles active · Shot & General Event tiles greyed out' :
+                             activeRole === 'shots' ? 'ONLY Shot & Goal tiles active · Possession & General Event tiles greyed out' :
+                             activeRole === 'general' ? 'ONLY Fouls, Cards, Saves & Corners active · Possession & Shot tiles greyed out' :
+                             'All stat tiles active (Full Master Access)'}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Role Switcher Pills */}
+                <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {[
+                        { key: 'possession', label: '⏱️ Possession', color: '#22c55e' },
+                        { key: 'shots', label: '⚽ Shots', color: '#3b82f6' },
+                        { key: 'general', label: '📋 General Events', color: '#f59e0b' },
+                        { key: 'all', label: '👑 Master (All)', color: '#6366f1' }
+                    ].map(r => (
+                        <button
+                            key={r.key}
+                            type="button"
+                            onClick={() => setActiveRole(r.key)}
+                            style={{
+                                padding: '5px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: '800',
+                                background: activeRole === r.key ? r.color : 'transparent',
+                                color: activeRole === r.key ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                                border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                            }}
+                        >
+                            {r.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* ── 1. POSSESSION LOGGING TILES ───────────────────────────────── */}
-            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.8))' }}>
+            <div 
+                className="glass-panel" 
+                style={{
+                    padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px',
+                    background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.8))',
+                    opacity: isPossessionEnabled ? 1 : 0.35,
+                    pointerEvents: isPossessionEnabled ? 'auto' : 'none',
+                    filter: isPossessionEnabled ? 'none' : 'grayscale(85%)',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                }}
+            >
+                {!isPossessionEnabled && (
+                    <div style={{
+                        position: 'absolute', top: '12px', right: '16px',
+                        background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)',
+                        color: '#f87171', fontSize: '10.5px', fontWeight: '800',
+                        padding: '4px 10px', borderRadius: '20px', textTransform: 'uppercase'
+                    }}>
+                        🔒 Greyed Out (Restricted to Possession Logger)
+                    </div>
+                )}
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -235,6 +327,7 @@ export default function TileDataCaptureControlPanel({
                     {/* Home Possession Tile */}
                     <button
                         type="button"
+                        disabled={!isPossessionEnabled}
                         onClick={() => handleTogglePossession('home')}
                         style={{
                             padding: '18px 20px', borderRadius: '14px',
@@ -244,7 +337,7 @@ export default function TileDataCaptureControlPanel({
                             border: possessionSide === 'home'
                                 ? ((isPaused || period === 'HT') ? '2px solid #f59e0b' : '2px solid #22c55e')
                                 : '1px solid rgba(255, 255, 255, 0.1)',
-                            cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
+                            cursor: isPossessionEnabled ? 'pointer' : 'not-allowed', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
                             boxShadow: possessionSide === 'home' 
                                 ? ((isPaused || period === 'HT') ? '0 0 20px rgba(245, 158, 11, 0.2)' : '0 0 24px rgba(34, 197, 94, 0.3)') 
                                 : 'none',
@@ -282,6 +375,7 @@ export default function TileDataCaptureControlPanel({
                     {/* Away Possession Tile */}
                     <button
                         type="button"
+                        disabled={!isPossessionEnabled}
                         onClick={() => handleTogglePossession('away')}
                         style={{
                             padding: '18px 20px', borderRadius: '14px',
@@ -291,7 +385,7 @@ export default function TileDataCaptureControlPanel({
                             border: possessionSide === 'away'
                                 ? ((isPaused || period === 'HT') ? '2px solid #f59e0b' : '2px solid #818cf8')
                                 : '1px solid rgba(255, 255, 255, 0.1)',
-                            cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
+                            cursor: isPossessionEnabled ? 'pointer' : 'not-allowed', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
                             boxShadow: possessionSide === 'away' 
                                 ? ((isPaused || period === 'HT') ? '0 0 20px rgba(245, 158, 11, 0.2)' : '0 0 24px rgba(99, 102, 241, 0.3)') 
                                 : 'none',
@@ -368,35 +462,52 @@ export default function TileDataCaptureControlPanel({
                     gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
                     gap: '14px'
                 }}>
-                    {STAT_TILES.map(tile => (
-                        <button
-                            key={tile.key}
-                            type="button"
-                            onClick={() => handleTileClick(tile)}
-                            style={{
-                                padding: '16px', borderRadius: '12px',
-                                background: tile.color,
-                                border: `1px solid ${tile.border}`,
-                                color: '#ffffff',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '6px',
-                                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)',
-                                transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                        >
-                            <span style={{ fontSize: '15px', fontWeight: '800' }}>
-                                {tile.label}
-                            </span>
-                            <span style={{ fontSize: '11px', opacity: 0.85, fontWeight: '600' }}>
-                                {tile.subtitle}
-                            </span>
-                        </button>
-                    ))}
+                    {STAT_TILES.map(tile => {
+                        const isShotTile = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(tile.key);
+                        const isTileEnabled = isShotTile ? isShotsEnabled : isGeneralEnabled;
+
+                        return (
+                            <button
+                                key={tile.key}
+                                type="button"
+                                disabled={!isTileEnabled}
+                                onClick={() => isTileEnabled && handleTileClick(tile)}
+                                style={{
+                                    padding: '16px', borderRadius: '12px',
+                                    background: tile.color,
+                                    border: `1px solid ${tile.border}`,
+                                    color: '#ffffff',
+                                    cursor: isTileEnabled ? 'pointer' : 'not-allowed',
+                                    opacity: isTileEnabled ? 1 : 0.3,
+                                    filter: isTileEnabled ? 'none' : 'grayscale(85%)',
+                                    pointerEvents: isTileEnabled ? 'auto' : 'none',
+                                    textAlign: 'left',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    boxShadow: isTileEnabled ? '0 4px 14px rgba(0, 0, 0, 0.2)' : 'none',
+                                    transition: 'all 0.15s ease',
+                                    position: 'relative'
+                                }}
+                                onMouseEnter={e => isTileEnabled && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                onMouseLeave={e => isTileEnabled && (e.currentTarget.style.transform = 'translateY(0)')}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '15px', fontWeight: '800' }}>
+                                        {tile.label}
+                                    </span>
+                                    {!isTileEnabled && (
+                                        <span style={{ fontSize: '9px', fontWeight: '900', background: 'rgba(0,0,0,0.5)', color: '#f87171', padding: '2px 6px', borderRadius: '4px' }}>
+                                            🔒 GREYED OUT
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: '11px', opacity: 0.85, fontWeight: '600' }}>
+                                    {tile.subtitle}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
