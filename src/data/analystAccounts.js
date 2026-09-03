@@ -115,7 +115,7 @@ export function getAnalystAccounts() {
         if (saved) {
             const parsed = JSON.parse(saved);
             const str = JSON.stringify(parsed);
-            if (str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+            if (!str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
                 localStorage.setItem(ANALYST_STORAGE_KEY, JSON.stringify(DEFAULT_ANALYSTS));
                 return DEFAULT_ANALYSTS;
             }
