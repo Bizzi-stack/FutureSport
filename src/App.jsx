@@ -540,7 +540,7 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-matches-v3');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v4');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -551,7 +551,8 @@ function App() {
             String(m.homeTeam).includes('Kickstart') || 
             String(m.homeTeam).includes('Technique')
           );
-          if (hasPmcClub) {
+          const hasWotton = parsed.some(m => m.homeTeam === 'WOTTON' || m.awayTeam === 'WOTTON');
+          if (hasPmcClub && hasWotton && parsed.length >= 40) {
             return sanitizeMatchState(parsed);
           }
         }
@@ -571,7 +572,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v3', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v4', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -635,7 +636,7 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.setItem('eduvision-pmc-matches-v2', JSON.stringify(sanitized));
+      localStorage.setItem('eduvision-pmc-matches-v4', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
