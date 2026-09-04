@@ -414,168 +414,180 @@ function generateCompletedPmcMatch(matchId, homeClub, awayClub, homeP, awayP, md
 const generatedMatches = [];
 let matchIdCount = 1;
 
-const MATCHDAYS = [
-    { num: 1, date: '2026-08-10', offset: 1, isCompleted: true },
-    { num: 2, date: '2026-08-12', offset: 3, isCompleted: true },
-    { num: 3, date: '2026-08-15', offset: 5, isCompleted: false },
-    { num: 4, date: '2026-08-18', offset: 7, isCompleted: false }
+// Group clubs by their division (Group A through F)
+const clubsByGroup = {};
+PMC_SCHOOLS.forEach(club => {
+    const div = club.division || 'Group A';
+    if (!clubsByGroup[div]) clubsByGroup[div] = [];
+    clubsByGroup[div].push(club);
+});
+
+// Round robin pairings for 4-team groups across 4 Matchdays
+const GROUP_MATCHDAYS = [
+    { num: 1, date: '2026-08-10', isCompleted: true, pairings: [[0, 1], [2, 3]] },
+    { num: 2, date: '2026-08-12', isCompleted: true, pairings: [[0, 2], [1, 3]] },
+    { num: 3, date: '2026-08-15', isCompleted: false, pairings: [[0, 3], [1, 2]] },
+    { num: 4, date: '2026-08-18', isCompleted: false, pairings: [[1, 0], [3, 2]] }
 ];
 
-MATCHDAYS.forEach(md => {
-    const paired = new Set();
-    PMC_SCHOOLS.forEach((homeClub, i) => {
-        if (paired.has(homeClub.id)) return;
+GROUP_MATCHDAYS.forEach(md => {
+    Object.entries(clubsByGroup).forEach(([grpName, teamList]) => {
+        if (teamList.length < 2) return;
+        const pairings = teamList.length === 4 
+            ? md.pairings 
+            : [[0, 1]];
 
-        let awayIdx = (i + md.offset) % PMC_SCHOOLS.length;
-        if (awayIdx === i) awayIdx = (i + 1) % PMC_SCHOOLS.length;
+        pairings.forEach(([hIdx, aIdx]) => {
+            const homeClub = teamList[hIdx % teamList.length];
+            const awayClub = teamList[aIdx % teamList.length];
+            if (!homeClub || !awayClub || homeClub.id === awayClub.id) return;
 
-        const awayClub = PMC_SCHOOLS[awayIdx];
-        if (paired.has(awayClub.id)) return;
+            const homeP = getClubPlayerIds(homeClub.id);
+            const awayP = getClubPlayerIds(awayClub.id);
+            const venue = VENUES[matchIdCount % VENUES.length];
+            const matchId = matchIdCount++;
+            const rng = mulberry32(matchId * 777 + md.num * 333);
 
-        paired.add(homeClub.id);
-        paired.add(awayClub.id);
+            // Make WOTTON vs PARISH LAND and KICKSTART RUSH vs L & R UNITED live in Matchday 3 for instant interactive demos
+            const isLiveMatch = md.num === 3 && (
+                (homeClub.name === 'WOTTON' && awayClub.name === 'PARISH LAND') ||
+                (homeClub.name === 'KICKSTART RUSH' && awayClub.name === 'L & R UNITED')
+            );
 
-        const homeP = getClubPlayerIds(homeClub.id);
-        const awayP = getClubPlayerIds(awayClub.id);
-        const venue = VENUES[matchIdCount % VENUES.length];
-        const matchId = matchIdCount++;
-        const rng = mulberry32(matchId * 777 + md.num * 333);
+            if (md.isCompleted) {
+                generatedMatches.push(generateCompletedPmcMatch(matchId, homeClub, awayClub, homeP, awayP, md.num, md.date, venue, rng));
+            } else if (isLiveMatch) {
+                const homePlayersList = PMC_STUDENTS.filter(s => s.schoolId === homeClub.id);
+                const awayPlayersList = PMC_STUDENTS.filter(s => s.schoolId === awayClub.id);
+                const scorer = homePlayersList[0] || null;
 
-        if (md.isCompleted) {
-            generatedMatches.push(generateCompletedPmcMatch(matchId, homeClub, awayClub, homeP, awayP, md.num, md.date, venue, rng));
-        } else if (md.num === 3 && (matchId === 25 || matchId === 26)) {
-            // High-fidelity Live Mock Matches for immediate data capture & testing
-            const isMatch25 = matchId === 25;
-            const homePlayersList = PMC_STUDENTS.filter(s => s.schoolId === homeClub.id);
-            const awayPlayersList = PMC_STUDENTS.filter(s => s.schoolId === awayClub.id);
-            const scorer = isMatch25 ? homePlayersList[0] : awayPlayersList[0];
-
-            const liveTimeline = [
-                {
-                    id: `ev-live-${matchId}-1`,
-                    elapsed: 14 * 60,
-                    period: '1H',
-                    type: 'goal',
-                    playerId: scorer?.id || (isMatch25 ? homeP[0] : awayP[0]),
-                    playerName: scorer?.name || 'Striker',
-                    team: isMatch25 ? 'home' : 'away',
-                    teamName: isMatch25 ? homeClub.name : awayClub.name,
-                    x: 88,
-                    y: 48,
-                    goalType: 'foot'
-                },
-                {
-                    id: `ev-live-${matchId}-2`,
-                    elapsed: 22 * 60,
-                    period: '1H',
-                    type: 'shotOnTarget',
-                    playerId: isMatch25 ? awayP[1] : homeP[1],
-                    playerName: (isMatch25 ? awayPlayersList[1]?.name : homePlayersList[1]?.name) || 'Attacker',
-                    team: isMatch25 ? 'away' : 'home',
-                    teamName: isMatch25 ? awayClub.name : homeClub.name,
-                    x: 82,
-                    y: 52,
-                    goalType: 'foot'
-                }
-            ];
-
-            generatedMatches.push({
-                id: `pmc-fixture-${matchId}`,
-                homeTeam: homeClub.name,
-                awayTeam: awayClub.name,
-                homeTeamId: homeClub.id,
-                awayTeamId: awayClub.id,
-                homeScore: isMatch25 ? 1 : 0,
-                awayScore: isMatch25 ? 0 : 1,
-                status: 'live',
-                currentHalf: '1H',
-                matchTime: '28:15',
-                venue: isMatch25 ? 'National Stadium' : 'Usain Bolt Complex',
-                date: md.date,
-                time: '18:00',
-                round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'} (LIVE)`,
-                matchday: `Matchday ${md.num}`,
-                ageGroup: 'PMC',
-                homePlayers: homeP,
-                awayPlayers: awayP,
-                homeSquadSelection: {
-                    startingXI: homeP.slice(0, 11),
-                    benchPlayers: homeP.slice(11, 18),
-                    formation: '4-3-3',
-                    confirmedAt: new Date().toISOString()
-                },
-                awaySquadSelection: {
-                    startingXI: awayP.slice(0, 11),
-                    benchPlayers: awayP.slice(11, 18),
-                    formation: '4-2-3-1',
-                    confirmedAt: new Date().toISOString()
-                },
-                liveState: {
-                    period: '1H',
-                    isRunning: true,
-                    elapsedOffset: 28 * 60 + 15,
-                    periodStartTime: Date.now() - (28 * 60 + 15) * 1000,
-                    possession: {
-                        homeSecs: 940,
-                        awaySecs: 755,
-                        activeSide: 'home',
-                        lastToggleTime: Date.now()
+                const liveTimeline = [
+                    {
+                        id: `ev-live-${matchId}-1`,
+                        elapsed: 14 * 60,
+                        period: '1H',
+                        type: 'goal',
+                        playerId: scorer?.id || homeP[0],
+                        playerName: scorer?.name || 'Striker',
+                        team: 'home',
+                        teamName: homeClub.name,
+                        x: 88,
+                        y: 48,
+                        goalType: 'foot'
+                    },
+                    {
+                        id: `ev-live-${matchId}-2`,
+                        elapsed: 22 * 60,
+                        period: '1H',
+                        type: 'shotOnTarget',
+                        playerId: awayP[1] || awayP[0],
+                        playerName: awayPlayersList[1]?.name || 'Attacker',
+                        team: 'away',
+                        teamName: awayClub.name,
+                        x: 82,
+                        y: 52,
+                        goalType: 'foot'
                     }
-                },
-                timeline: liveTimeline,
-                playerStats: {},
-                substitutionRequests: [],
-                referee: 'Adrian Hunte',
-                commissioner: 'Sarah Rollins (Verified Official)'
-            });
-        } else {
-            // Scheduled fixture with pre-submitted Starting XIs ready for 1-click kick-off
-            generatedMatches.push({
-                id: `pmc-fixture-${matchId}`,
-                homeTeam: homeClub.name,
-                awayTeam: awayClub.name,
-                homeTeamId: homeClub.id,
-                awayTeamId: awayClub.id,
-                homeScore: 0,
-                awayScore: 0,
-                status: 'upcoming',
-                venue: venue,
-                date: md.date,
-                time: `${15 + (matchId % 5)}:00`,
-                round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'}`,
-                matchday: `Matchday ${md.num}`,
-                ageGroup: 'PMC',
-                homePlayers: homeP,
-                awayPlayers: awayP,
-                homeSquadSelection: {
-                    startingXI: homeP.slice(0, 11),
-                    benchPlayers: homeP.slice(11, 18),
-                    formation: '4-3-3',
-                    confirmedAt: new Date().toISOString()
-                },
-                awaySquadSelection: {
-                    startingXI: awayP.slice(0, 11),
-                    benchPlayers: awayP.slice(11, 18),
-                    formation: '4-2-3-1',
-                    confirmedAt: new Date().toISOString()
-                },
-                liveState: {
-                    period: '1H',
-                    isRunning: false,
-                    elapsedOffset: 0,
-                    possession: {
-                        homeSecs: 0,
-                        awaySecs: 0,
-                        activeSide: null
-                    }
-                },
-                timeline: [],
-                playerStats: {},
-                substitutionRequests: [],
-                referee: 'Michael Beckles',
-                commissioner: 'Sarah Rollins (Verified Official)'
-            });
-        }
+                ];
+
+                generatedMatches.push({
+                    id: `pmc-fixture-${matchId}`,
+                    homeTeam: homeClub.name,
+                    awayTeam: awayClub.name,
+                    homeTeamId: homeClub.id,
+                    awayTeamId: awayClub.id,
+                    homeScore: 1,
+                    awayScore: 0,
+                    status: 'live',
+                    currentHalf: '1H',
+                    matchTime: '28:15',
+                    venue: 'National Stadium',
+                    date: md.date,
+                    time: '18:00',
+                    round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'} (LIVE)`,
+                    matchday: `Matchday ${md.num}`,
+                    ageGroup: 'PMC',
+                    homePlayers: homeP,
+                    awayPlayers: awayP,
+                    homeSquadSelection: {
+                        startingXI: homeP.slice(0, 11),
+                        benchPlayers: homeP.slice(11, 18),
+                        formation: '4-3-3',
+                        confirmedAt: new Date().toISOString()
+                    },
+                    awaySquadSelection: {
+                        startingXI: awayP.slice(0, 11),
+                        benchPlayers: awayP.slice(11, 18),
+                        formation: '4-2-3-1',
+                        confirmedAt: new Date().toISOString()
+                    },
+                    liveState: {
+                        period: '1H',
+                        isRunning: true,
+                        elapsedOffset: 28 * 60 + 15,
+                        periodStartTime: Date.now() - (28 * 60 + 15) * 1000,
+                        possession: {
+                            homeSecs: 940,
+                            awaySecs: 755,
+                            activeSide: 'home',
+                            lastToggleTime: Date.now()
+                        }
+                    },
+                    timeline: liveTimeline,
+                    playerStats: {},
+                    substitutionRequests: [],
+                    referee: 'Adrian Hunte',
+                    commissioner: 'Sarah Rollins (Verified Official)'
+                });
+            } else {
+                // Scheduled fixture with pre-submitted Starting XIs ready for 1-click kick-off
+                generatedMatches.push({
+                    id: `pmc-fixture-${matchId}`,
+                    homeTeam: homeClub.name,
+                    awayTeam: awayClub.name,
+                    homeTeamId: homeClub.id,
+                    awayTeamId: awayClub.id,
+                    homeScore: 0,
+                    awayScore: 0,
+                    status: 'upcoming',
+                    venue: venue,
+                    date: md.date,
+                    time: `${15 + (matchId % 5)}:00`,
+                    round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'}`,
+                    matchday: `Matchday ${md.num}`,
+                    ageGroup: 'PMC',
+                    homePlayers: homeP,
+                    awayPlayers: awayP,
+                    homeSquadSelection: {
+                        startingXI: homeP.slice(0, 11),
+                        benchPlayers: homeP.slice(11, 18),
+                        formation: '4-3-3',
+                        confirmedAt: new Date().toISOString()
+                    },
+                    awaySquadSelection: {
+                        startingXI: awayP.slice(0, 11),
+                        benchPlayers: awayP.slice(11, 18),
+                        formation: '4-2-3-1',
+                        confirmedAt: new Date().toISOString()
+                    },
+                    liveState: {
+                        period: '1H',
+                        isRunning: false,
+                        elapsedOffset: 0,
+                        possession: {
+                            homeSecs: 0,
+                            awaySecs: 0,
+                            activeSide: null
+                        }
+                    },
+                    timeline: [],
+                    playerStats: {},
+                    substitutionRequests: [],
+                    referee: 'Michael Beckles',
+                    commissioner: 'Sarah Rollins (Verified Official)'
+                });
+            }
+        });
     });
 });
 
