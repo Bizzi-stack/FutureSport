@@ -108,36 +108,42 @@ const DotField = memo(({
     let frameCount = 0;
 
     function tick() {
-      frameCount++;
-      const dots = dotsRef.current;
-      const m = mouseRef.current;
-      const { w, h } = sizeRef.current;
-      const p = propsRef.current;
-      const len = dots.length;
-      const t = frameCount * 0.02;
+      try {
+        frameCount++;
+        const dots = dotsRef.current;
+        const m = mouseRef.current;
+        const { w, h } = sizeRef.current;
+        const p = propsRef.current;
+        const len = dots.length;
+        const t = frameCount * 0.02;
 
-      const targetEngagement = Math.min(m.speed / 5, 1);
-      engagement.current += (targetEngagement - engagement.current) * 0.06;
-      if (engagement.current < 0.001) engagement.current = 0;
-      const eng = engagement.current;
+        if (!w || !h || w <= 0 || h <= 0 || !dots || dots.length === 0) {
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
 
-      glowOpacity.current += (eng - glowOpacity.current) * 0.08;
+        const targetEngagement = Math.min(m.speed / 5, 1);
+        engagement.current += (targetEngagement - engagement.current) * 0.06;
+        if (engagement.current < 0.001) engagement.current = 0;
+        const eng = engagement.current;
 
-      if (glowEl) {
-        glowEl.setAttribute('cx', String(m.x));
-        glowEl.setAttribute('cy', String(m.y));
-        glowEl.style.opacity = String(glowOpacity.current);
-      }
+        glowOpacity.current += (eng - glowOpacity.current) * 0.08;
 
-      ctx.clearRect(0, 0, w, h);
+        if (glowEl) {
+          glowEl.setAttribute('cx', String(m.x));
+          glowEl.setAttribute('cy', String(m.y));
+          glowEl.style.opacity = String(glowOpacity.current);
+        }
 
-      const grad = ctx.createLinearGradient(0, 0, w, h);
-      grad.addColorStop(0, p.gradientFrom);
-      grad.addColorStop(1, p.gradientTo);
-      ctx.fillStyle = grad;
+        ctx.clearRect(0, 0, w, h);
 
-      const cr = p.cursorRadius;
-      const crSq = cr * cr;
+        const grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, p.gradientFrom);
+        grad.addColorStop(1, p.gradientTo);
+        ctx.fillStyle = grad;
+
+        const cr = p.cursorRadius;
+        const crSq = cr * cr;
       const rad = p.dotRadius / 2;
       const isBulge = p.bulgeOnly;
 
@@ -203,7 +209,10 @@ const DotField = memo(({
       ctx.fill();
 
       rafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      rafRef.current = requestAnimationFrame(tick);
     }
+  }
 
     doResize();
     window.addEventListener('resize', resize);

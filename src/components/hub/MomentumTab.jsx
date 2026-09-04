@@ -148,7 +148,6 @@ export default function MomentumTab({ year, term, selectedSchool, onStudentClick
             {/* ── Explainer ── */}
             <HubCard style={{ flex: 'none', borderLeft: '3px solid #a78bfa' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                    <div style={{ fontSize: 28, lineHeight: 1 }}>📐</div>
                     <div>
                         <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>Player Momentum Factor (PMF)</div>
                         <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>

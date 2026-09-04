@@ -4,27 +4,50 @@ export default function CoachLiveManagement({ match, teamId, allPlayers, year, o
     const [selectedOff, setSelectedOff] = useState(null);
     const [selectedOn, setSelectedOn] = useState(null);
 
-    const isHome = match.homeTeamId === teamId;
-    const squadSelection = isHome ? match.homeSquadSelection : match.awaySquadSelection;
-    
-    // Fallback if squadSelection was skipped
-    const fullRoster = isHome ? match.homePlayers : match.awayPlayers;
-    
-    const startingXI = useMemo(() => {
-        if (squadSelection?.startingXI) return squadSelection.startingXI.filter(Boolean);
-        if (fullRoster && fullRoster.length > 0) return fullRoster.slice(0, 11);
-        
-        // Final fallback: any players belonging to this team
-        return allPlayers?.filter(p => p.teamAssignments?.[year] === teamId).map(p => p.id).slice(0, 11) || [];
-    }, [squadSelection, fullRoster, allPlayers, teamId, year]);
+    const isHome = useMemo(() => {
+        if (!match) return false;
+        const cleanTeamId = String(teamId || '').toLowerCase().replace('-team-pmc', '');
+        const cleanHomeId = String(match.homeTeamId || '').toLowerCase().replace('-team-pmc', '');
+        return cleanHomeId === cleanTeamId || match.homeTeamId === teamId;
+    }, [match, teamId]);
 
-    const benchPlayers = useMemo(() => {
-        if (squadSelection?.benchPlayers) return squadSelection.benchPlayers;
-        if (fullRoster && fullRoster.length > 0) return fullRoster.slice(11);
-        
-        // Final fallback
-        return allPlayers?.filter(p => p.teamAssignments?.[year] === teamId).map(p => p.id).slice(11) || [];
-    }, [squadSelection, fullRoster, allPlayers, teamId, year]);
+    const squadSelection = isHome ? match.homeSquadSelection : match.awaySquadSelection;
+
+    const pendingRequests = useMemo(() => {
+        return (match.substitutionRequests || []).filter(r => r.status === 'pending');
+    }, [match.substitutionRequests]);
+
+    const pendingOffIds = useMemo(() => new Set(pendingRequests.map(r => r.playerOff)), [pendingRequests]);
+    const pendingOnIds = useMemo(() => new Set(pendingRequests.map(r => r.playerOn)), [pendingRequests]);
+
+    const approvedRequests = useMemo(() => {
+        return (match.substitutionRequests || []).filter(r => r.status === 'approved');
+    }, [match.substitutionRequests]);
+
+    const subbedOffIds = useMemo(() => new Set(approvedRequests.map(r => r.playerOff)), [approvedRequests]);
+    const subbedOnIds = useMemo(() => new Set(approvedRequests.map(r => r.playerOn)), [approvedRequests]);
+
+    // Active 11 players currently on the pitch (starting XI minus subbed off plus subbed on)
+    const currentOnFieldPlayers = useMemo(() => {
+        if (!squadSelection?.startingXI) return [];
+        const field = [...squadSelection.startingXI.filter(Boolean)];
+        // Replace subbed off players with their approved substitutes
+        approvedRequests.forEach(req => {
+            const idx = field.indexOf(req.playerOff);
+            if (idx !== -1) {
+                field[idx] = req.playerOn;
+            } else if (!field.includes(req.playerOn) && !subbedOffIds.has(req.playerOn)) {
+                field.push(req.playerOn);
+            }
+        });
+        return field.filter(id => !subbedOffIds.has(id));
+    }, [squadSelection, approvedRequests, subbedOffIds]);
+
+    // Active bench substitutes currently available to come ON
+    const currentBenchPlayers = useMemo(() => {
+        if (!squadSelection?.benchPlayers) return [];
+        return squadSelection.benchPlayers.filter(Boolean).filter(id => !subbedOnIds.has(id) && !subbedOffIds.has(id));
+    }, [squadSelection, subbedOnIds, subbedOffIds]);
 
     const getPlayerName = (playerId) => {
         const p = allPlayers?.find(p => p.id === playerId);
@@ -60,12 +83,22 @@ export default function CoachLiveManagement({ match, teamId, allPlayers, year, o
         setSelectedOn(null);
     };
 
-    const pendingRequests = (match.substitutionRequests || []).filter(r => r.teamId === teamId && r.status === 'pending');
-    const pendingOffIds = new Set(pendingRequests.map(r => r.playerOff));
-    const pendingOnIds = new Set(pendingRequests.map(r => r.playerOn));
-
-    const approvedRequests = (match.substitutionRequests || []).filter(r => r.teamId === teamId && r.status === 'approved');
-    const subbedOffIds = new Set(approvedRequests.map(r => r.playerOff));
+    // If no squad was submitted, show a warning instead of the sub panel
+    if (!squadSelection) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div className="glass-panel" style={{ padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: '800', margin: 0, color: 'var(--warning)' }}>
+                        Squad Not Submitted
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', maxWidth: '420px' }}>
+                        Your matchday squad was not submitted before kick-off. Live substitution management is unavailable. 
+                        Please contact the Fourth Official if you need to make changes.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -89,7 +122,7 @@ export default function CoachLiveManagement({ match, teamId, allPlayers, year, o
                             ↓ Select Player to Come Off
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
-                            {startingXI.filter(Boolean).map(pid => {
+                            {currentOnFieldPlayers.map(pid => {
                                 const isPending = pendingOffIds.has(pid);
                                 return (
                                 <button
@@ -119,27 +152,25 @@ export default function CoachLiveManagement({ match, teamId, allPlayers, year, o
                             ↑ Select Substitute
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '8px' }}>
-                            {benchPlayers.filter(Boolean).map(pid => {
-                                const isSubbedOff = subbedOffIds.has(pid);
+                            {currentBenchPlayers.map(pid => {
                                 const isPending = pendingOnIds.has(pid);
-                                const isDisabled = isSubbedOff || isPending;
                                 return (
                                 <button
                                     key={pid}
-                                    onClick={() => !isDisabled && setSelectedOn(pid)}
-                                    disabled={isDisabled}
+                                    onClick={() => !isPending && setSelectedOn(pid)}
+                                    disabled={isPending}
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
                                         background: selectedOn === pid ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.02)',
                                         border: selectedOn === pid ? '1px solid var(--success)' : 'var(--border)',
-                                        borderRadius: '8px', cursor: isDisabled ? 'not-allowed' : 'pointer', outline: 'none', transition: 'all 0.2s',
+                                        borderRadius: '8px', cursor: isPending ? 'not-allowed' : 'pointer', outline: 'none', transition: 'all 0.2s',
                                         color: selectedOn === pid ? 'var(--success)' : 'var(--text-primary)',
-                                        opacity: isDisabled ? 0.3 : 1
+                                        opacity: isPending ? 0.3 : 1
                                     }}
                                 >
                                     <span style={{ fontSize: '12px', fontWeight: '700', width: '24px' }}>{getPlayerNumber(pid)}</span>
                                     <span style={{ fontSize: '14px', fontWeight: '600' }}>
-                                        {getPlayerName(pid)} {isSubbedOff ? '(Subbed Off)' : isPending ? '(Pending Sub)' : ''}
+                                        {getPlayerName(pid)} {isPending ? '(Pending Sub)' : ''}
                                     </span>
                                 </button>
                                 );

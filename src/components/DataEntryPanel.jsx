@@ -132,7 +132,7 @@ export default function DataEntryPanel({
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0, padding: '4px 0', display: 'flex', flexDirection: 'column' }}>
                 <GradeTable
-                    students={students}
+                    students={statRole === 'goalkeeper' ? students.filter(s => s.position === 'Goalkeeper') : students}
                     onDataUpdate={onDataUpdate}
                     year={year}
                     term={term}

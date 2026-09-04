@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import LeagueTable from '../LeagueTable';
 import KnockoutBrackets from '../KnockoutBrackets';
+import CountdownSheetModal from '../match/CountdownSheetModal';
 import { exportPMCMatchPacket, pushMatchToPMC } from '../../utils/pmcSyncEngine';
 
 const DEFAULT_VENUES = [
@@ -23,6 +24,8 @@ const DEFAULT_OFFICIALS = [
 export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches }) {
     const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'scheduling'
     const [selectedMatch, setSelectedMatch] = useState(null);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
     
     // Commissioner Approval Form States
     const [incidentRating, setIncidentRating] = useState('1'); // 1 = peaceful, 5 = severe incidents
@@ -63,36 +66,52 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
         const statTimeline = selectedMatch.timeline || [];
         const refTimeline = selectedMatch.refereeLiveState?.timeline || [];
 
-        const statGoals = statTimeline.filter(e => e.type === 'Goal');
-        const refGoals = refTimeline.filter(e => e.type === 'Goal');
-        if (statGoals.length !== refGoals.length) {
+        const isGoalEvent = (e) => String(e?.type || '').toLowerCase().trim() === 'goal';
+        const isYellowEvent = (e) => {
+            const t = String(e?.type || '').toLowerCase().replace(/[\s_-]/g, '');
+            return t === 'yellowcard' || t === 'yellow';
+        };
+        const isRedEvent = (e) => {
+            const t = String(e?.type || '').toLowerCase().replace(/[\s_-]/g, '');
+            return t === 'redcard' || t === 'red';
+        };
+
+        const statGoals = statTimeline.filter(isGoalEvent);
+        const refGoals = refTimeline.filter(isGoalEvent);
+        if (statGoals.length !== refGoals.length && refGoals.length > 0) {
             issues.push(`Goal count mismatch: Statistician logged ${statGoals.length}, Referee logged ${refGoals.length}.`);
-        } else {
-            const statScorers = statGoals.map(g => String(g.playerId)).sort().join(',');
-            const refScorers = refGoals.map(g => String(g.playerId)).sort().join(',');
-            if (statScorers !== refScorers && statGoals.length > 0) {
+        } else if (statGoals.length > 0 && refGoals.length > 0) {
+            const statScorers = statGoals.map(g => String(g.playerId || '')).sort().join(',');
+            const refScorers = refGoals.map(g => String(g.playerId || '')).sort().join(',');
+            if (statScorers !== refScorers) {
                 issues.push(`Goal scorers mismatch between Statistician and Referee logs.`);
             }
         }
 
-        const statYellow = statTimeline.filter(e => e.type === 'Yellow Card');
-        const refYellow = refTimeline.filter(e => e.type === 'Yellow Card');
-        if (statYellow.length !== refYellow.length) {
+        const statYellow = statTimeline.filter(isYellowEvent);
+        const refYellow = refTimeline.filter(isYellowEvent);
+        if (statYellow.length !== refYellow.length && refYellow.length > 0) {
             issues.push(`Yellow Card count mismatch: Statistician logged ${statYellow.length}, Referee logged ${refYellow.length}.`);
         }
 
-        const statRed = statTimeline.filter(e => e.type === 'Red Card');
-        const refRed = refTimeline.filter(e => e.type === 'Red Card');
-        if (statRed.length !== refRed.length) {
+        const statRed = statTimeline.filter(isRedEvent);
+        const refRed = refTimeline.filter(isRedEvent);
+        if (statRed.length !== refRed.length && refRed.length > 0) {
             issues.push(`Red Card count mismatch: Statistician logged ${statRed.length}, Referee logged ${refRed.length}.`);
         }
 
         return issues;
     }, [selectedMatch]);
 
-    const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+    const getSchoolName = (schoolId, matchObj) => {
+        if (!schoolId && !matchObj) return 'Unknown Team';
+        const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
+        if (sc) return sc.name;
+        if (matchObj) {
+            if (matchObj.homeTeamId === schoolId && matchObj.homeTeam) return matchObj.homeTeam;
+            if (matchObj.awayTeamId === schoolId && matchObj.awayTeam) return matchObj.awayTeam;
+        }
+        return schoolId || 'Unknown Team';
     };
 
     const handleSelectMatch = (match) => {
@@ -101,6 +120,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
         setGeneralRemarks('');
         setCommissionerSignature('');
         setApprovalSuccess(false);
+        setIsExpanded(false);
     };
 
     // Auto round-robin fixture generator
@@ -209,6 +229,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
 
         setApprovalSuccess(true);
         setSelectedMatch(null); // return to list view
+        setIsExpanded(false);
         setTimeout(() => setApprovalSuccess(false), 3000);
     };
 
@@ -236,7 +257,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    📋 Match Approvals & Verification
+                    Match Approvals & Verification
                 </button>
                 <button
                     onClick={() => setMainTab('scheduling')}
@@ -248,7 +269,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    📅 Match Setup & Scheduling
+                    Match Setup & Scheduling
                 </button>
                 <button
                     onClick={() => setMainTab('standings')}
@@ -260,7 +281,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    📊 League Standings
+                    League Standings
                 </button>
                 <button
                     onClick={() => setMainTab('knockouts')}
@@ -272,7 +293,23 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    🏆 Knockout Setup
+                    Knockout Setup
+                </button>
+                <button
+                    onClick={() => {
+                        const firstUpcoming = matches.find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || matches[0];
+                        setActiveCountdownMatch(firstUpcoming);
+                    }}
+                    style={{
+                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
+                        background: 'rgba(255, 199, 38, 0.15)',
+                        color: '#FFC726',
+                        border: '1px solid rgba(255, 199, 38, 0.35)',
+                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none', marginLeft: 'auto',
+                        display: 'flex', alignItems: 'center', gap: '6px'
+                    }}
+                >
+                    📋 View Match Countdown Sheet
                 </button>
             </div>
 
@@ -298,7 +335,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
 
                             {pendingApprovalMatches.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                                    🎉 No matches pending commissioner approval!
+                                    No matches pending commissioner approval.
                                 </div>
                             ) : (
                                 pendingApprovalMatches.map(m => (
@@ -322,7 +359,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                             </span>
                                             <span>{getSchoolName(m.awayTeamId).split(' ')[0]}</span>
                                         </div>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>📍 Venue: {m.venue}</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Venue: {m.venue}</span>
                                     </div>
                                 ))
                             )}
@@ -340,9 +377,25 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                             {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)}
                                         </span>
                                     </div>
-                                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-light)', background: 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
-                                        Pending Review
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsExpanded(true)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                                background: 'rgba(99,102,241,0.15)', color: 'var(--primary-light)',
+                                                border: '1px solid rgba(99,102,241,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.25)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.15)'}
+                                        >
+                                            Expand Panel
+                                        </button>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary-light)', background: 'rgba(37,99,235,0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+                                            Pending Review
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -350,7 +403,6 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     {/* Discrepancy Analysis Banner */}
                                     {discrepancies.length === 0 ? (
                                         <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span style={{ fontSize: '18px' }}>✅</span>
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--success)' }}>Data Verified: No Discrepancies</span>
                                                 <span style={{ fontSize: '12px', color: 'rgba(16, 185, 129, 0.8)' }}>The Referee's event log perfectly matches the Statistician's live data entry.</span>
@@ -359,7 +411,6 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     ) : (
                                         <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <span style={{ fontSize: '18px' }}>⚠️</span>
                                                 <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--danger)' }}>Data Conflict Detected</span>
                                             </div>
                                             <ul style={{ margin: 0, paddingLeft: '28px', fontSize: '12px', color: 'var(--danger)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -371,7 +422,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                         {/* Statistician stats */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <h4 style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>📊 Live Event Log (Statistician)</h4>
+                                            <h4 style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Live Event Log (Statistician)</h4>
                                             <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                                     <span style={{ color: 'var(--text-muted)' }}>Score:</span>
@@ -384,7 +435,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                                     ) : (
                                                         selectedMatch.timeline?.map((ev, i) => (
                                                             <div key={i} style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
-                                                                ⚽ Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
+                                                                Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
                                                             </div>
                                                         ))
                                                     )}
@@ -394,7 +445,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
 
                                         {/* Referee Report */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <h4 style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>📋 Official Event Log (Referee)</h4>
+                                            <h4 style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Official Event Log (Referee)</h4>
                                             <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Referee logged events:</span>
@@ -403,7 +454,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                                     ) : (
                                                         selectedMatch.refereeLiveState?.timeline?.map((ev, i) => (
                                                             <div key={i} style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
-                                                                ⏱️ Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
+                                                                Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
                                                             </div>
                                                         ))
                                                     )}
@@ -420,7 +471,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                                 </div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '6px' }}>
                                                     <span style={{ color: 'var(--text-muted)' }}>Referee Signature:</span>
-                                                    <span style={{ fontWeight: '700', color: 'var(--primary-light)' }}>✍ {selectedMatch.refereeReport?.refereeSignature}</span>
+                                                    <span style={{ fontWeight: '700', color: 'var(--primary-light)' }}>{selectedMatch.refereeReport?.refereeSignature}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -482,7 +533,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                             </form>
                         ) : (
                             <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                                <span>👉 Select a match from the refereed list to verify and approve.</span>
+                                <span>Select a match from the refereed list to verify and approve.</span>
                             </div>
                         )}
                     </div>
@@ -505,7 +556,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     border: 'none', cursor: 'pointer'
                                 }}
                             >
-                                ⚙️ Auto Round-Robin Generator
+                                Auto Round-Robin Generator
                             </button>
                             <button
                                 onClick={() => setSchedulingMode('manual')}
@@ -516,7 +567,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     border: 'none', cursor: 'pointer'
                                 }}
                             >
-                                📝 Manual Match Setup
+                                Manual Match Setup
                             </button>
                         </div>
 
@@ -762,14 +813,153 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                 </div>
             )}
 
+            {/* TAB CONTENT: Standings */}
             {mainTab === 'standings' && (
-                <LeagueTable matches={matches} teams={allTeams} schools={schools} />
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                    <LeagueTable matches={matches} schools={schools} onSelectSchool={onSelectSchool} selectedYear={selectedYear} />
+                </div>
             )}
 
+            {/* TAB CONTENT: Knockout */}
             {mainTab === 'knockouts' && (
-                <KnockoutBrackets matches={matches} teams={allTeams} schools={schools} onAddMatches={onAddMatches} />
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                    <KnockoutBrackets matches={matches} schools={schools} selectedTournament="PMC" />
+                </div>
             )}
 
+            {/* Fullscreen Expanded Verification Modal */}
+            {isExpanded && selectedMatch && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(3, 7, 18, 0.85)', backdropFilter: 'blur(8px)',
+                    zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px'
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '100%', maxWidth: '1200px', height: '90vh',
+                        display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                        <form onSubmit={handleApproveMatch} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                            {/* Modal Header */}
+                            <div style={{ padding: '24px 30px', borderBottom: 'var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 255, 255, 0.02)' }}>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        Match Verification &amp; Authorization Console
+                                    </h2>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                        {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)} · {selectedMatch.matchday}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsExpanded(false)}
+                                        style={{
+                                            padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                                            background: 'rgba(255, 255, 255, 0.08)', color: 'var(--text-primary)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)', cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+                                    >
+                                        Close Expanded View
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Incident Assessment</label>
+                                    <select
+                                        value={incidentRating}
+                                        onChange={e => setIncidentRating(e.target.value)}
+                                        style={{ padding: '10px 14px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.4)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="1">1 - Safe / Peaceful</option>
+                                        <option value="2">2 - Minor incidents</option>
+                                        <option value="3">3 - Crowd warning issued</option>
+                                        <option value="4">4 - High risk / Misconduct</option>
+                                        <option value="5">5 - Critical issues / Interrupted</option>
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Commissioner Summary Remarks</label>
+                                    <textarea
+                                        value={generalRemarks}
+                                        onChange={e => setGeneralRemarks(e.target.value)}
+                                        placeholder="Write detailed review notes and authorization remarks..."
+                                        required
+                                        style={{ height: '110px', padding: '12px 14px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.4)', color: 'var(--text-primary)', fontSize: '14px', resize: 'none', outline: 'none', lineHeight: '1.5' }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '700' }}>Digital Authorization Signature</label>
+                                    <input
+                                        type="text"
+                                        value={commissionerSignature}
+                                        onChange={e => setCommissionerSignature(e.target.value)}
+                                        placeholder="Type your full official name to sign off..."
+                                        required
+                                        style={{ padding: '12px 14px', borderRadius: '8px', border: 'var(--border)', background: 'rgba(0,0,0,0.4)', color: 'var(--text-primary)', fontSize: '15px', fontWeight: 'bold', outline: 'none' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div style={{ padding: '20px 28px', borderTop: 'var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '14px', background: 'rgba(255,255,255,0.02)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsExpanded(false)}
+                                    style={{
+                                        padding: '10px 24px', borderRadius: '24px', background: 'transparent',
+                                        color: 'var(--text-muted)', border: 'var(--border)', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={!commissionerSignature.trim() || !generalRemarks.trim()}
+                                    style={{
+                                        padding: '12px 36px', borderRadius: '24px', background: 'var(--success)', color: '#ffffff', border: 'none',
+                                        fontWeight: '800', fontSize: '14px', cursor: 'pointer', opacity: (commissionerSignature.trim() && generalRemarks.trim()) ? 1 : 0.5,
+                                        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)'
+                                    }}
+                                >
+                                    Authorize Score &amp; Approve Standings
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* Countdown Sheet Modal */}
+            {activeCountdownMatch && (
+                <CountdownSheetModal
+                    match={activeCountdownMatch}
+                    allPlayers={allStudents}
+                    schools={schools}
+                    userRole="commissioner"
+                    onClose={() => setActiveCountdownMatch(null)}
+                    onApplyCorrection={(matchId, correctionData) => {
+                        const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
+                        const updatedMatch = {
+                            ...activeCountdownMatch,
+                            [squadKey]: correctionData.updatedSquad || activeCountdownMatch[squadKey],
+                            preKickoffCorrections: [
+                                ...(activeCountdownMatch.preKickoffCorrections || []),
+                                correctionData
+                            ]
+                        };
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
+                />
+            )}
         </div>
     );
 }

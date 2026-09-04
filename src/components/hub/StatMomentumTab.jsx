@@ -118,7 +118,6 @@ export default function StatMomentumTab({ year, term, selectedSchool, onPlayerCl
             {/* ── Explainer ── */}
             <HubCard style={{ flex: 'none', borderLeft: '3px solid #10b981' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                    <div style={{ fontSize: 28, lineHeight: 1 }}>🚦</div>
                     <div>
                         <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>Stat Momentum Heatmap</div>
                         <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>
