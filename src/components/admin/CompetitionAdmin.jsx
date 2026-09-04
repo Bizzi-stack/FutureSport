@@ -23,7 +23,7 @@ const DEFAULT_OFFICIALS = [
     { id: 'off5', name: 'Adrian Hunte', role: 'Referee' },
 ];
 
-export default function CompetitionAdmin({ schools, teams, matches = [], allStudents = [], year, onAddMatches, onUpdateMatch, selectedTournament }) {
+export default function CompetitionAdmin({ schools, teams, matches = [], allStudents = [], year, onAddMatches, onUpdateMatch, selectedTournament, readOnly = false }) {
     const [activeSubTab, setActiveSubTab] = useState('divisions'); // 'divisions' | 'squadValidation' | 'alerts' | 'standings' | 'stats' | 'knockout' | 'venues'
     const [adminAlertToast, setAdminAlertToast] = useState(null);
 
@@ -279,83 +279,91 @@ export default function CompetitionAdmin({ schools, teams, matches = [], allStud
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                {/* Home Squad Status / Remind Button */}
-                                                {!homeReady ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={async () => {
-                                                            try {
-                                                                await sendCoachSquadReminderNotification(m, homeName, '', `Coach (${homeName})`, awayName);
-                                                                setAdminAlertToast(`Squad reminder dispatched to ${homeName} Coach!`);
-                                                                setTimeout(() => setAdminAlertToast(null), 4000);
-                                                            } catch (e) {
-                                                                console.warn(e);
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
-                                                            background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
-                                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                                                        }}
-                                                    >
-                                                        Remind {homeName} Coach
-                                                    </button>
-                                                ) : (
-                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
-                                                        {homeName} Ready
+                                                {readOnly ? (
+                                                    <span style={{ fontSize: '11px', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', padding: '4px 10px', borderRadius: '8px', fontWeight: '700' }}>
+                                                        👁️ Observer View: {homeReady ? 'Home Squad Ready' : 'Home Pending'} · {awayReady ? 'Away Squad Ready' : 'Away Pending'}
                                                     </span>
-                                                )}
-
-                                                {/* Away Squad Status / Remind Button */}
-                                                {!awayReady ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={async () => {
-                                                            try {
-                                                                await sendCoachSquadReminderNotification(m, awayName, '', `Coach (${awayName})`, homeName);
-                                                                setAdminAlertToast(`Squad reminder dispatched to ${awayName} Coach!`);
-                                                                setTimeout(() => setAdminAlertToast(null), 4000);
-                                                            } catch (e) {
-                                                                console.warn(e);
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
-                                                            background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
-                                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
-                                                        }}
-                                                    >
-                                                        Remind {awayName} Coach
-                                                    </button>
                                                 ) : (
-                                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
-                                                        {awayName} Ready
-                                                    </span>
-                                                )}
+                                                    <>
+                                                        {/* Home Squad Status / Remind Button */}
+                                                        {!homeReady ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await sendCoachSquadReminderNotification(m, homeName, '', `Coach (${homeName})`, awayName);
+                                                                        setAdminAlertToast(`Squad reminder dispatched to ${homeName} Coach!`);
+                                                                        setTimeout(() => setAdminAlertToast(null), 4000);
+                                                                    } catch (e) {
+                                                                        console.warn(e);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                                                    background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
+                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                                                }}
+                                                            >
+                                                                Remind {homeName} Coach
+                                                            </button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
+                                                                {homeName} Ready
+                                                            </span>
+                                                        )}
 
-                                                {/* Manual broadcast alert */}
-                                                {bothReady && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={async () => {
-                                                            try {
-                                                                await sendRefereeSquadNotification(m, homeName, awayName, allStudents);
-                                                                await sendDataLoggerMatchReadyNotification(m, homeName, awayName, allStudents);
-                                                                setAdminAlertToast(`Official alerts & team sheets delivered to Referee and Data Loggers!`);
-                                                                setTimeout(() => setAdminAlertToast(null), 4000);
-                                                            } catch (e) {
-                                                                console.warn(e);
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            padding: '6px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
-                                                            background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff',
-                                                            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                                                            boxShadow: '0 2px 8px rgba(16,185,129,0.3)'
-                                                        }}
-                                                    >
-                                                        Alert Officials
-                                                    </button>
+                                                        {/* Away Squad Status / Remind Button */}
+                                                        {!awayReady ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await sendCoachSquadReminderNotification(m, awayName, '', `Coach (${awayName})`, homeName);
+                                                                        setAdminAlertToast(`Squad reminder dispatched to ${awayName} Coach!`);
+                                                                        setTimeout(() => setAdminAlertToast(null), 4000);
+                                                                    } catch (e) {
+                                                                        console.warn(e);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                                                    background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)',
+                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                                                }}
+                                                            >
+                                                                Remind {awayName} Coach
+                                                            </button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80', background: 'rgba(34,197,94,0.1)', padding: '4px 10px', borderRadius: '8px' }}>
+                                                                {awayName} Ready
+                                                            </span>
+                                                        )}
+
+                                                        {/* Manual broadcast alert */}
+                                                        {bothReady && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await sendRefereeSquadNotification(m, homeName, awayName, allStudents);
+                                                                        await sendDataLoggerMatchReadyNotification(m, homeName, awayName, allStudents);
+                                                                        setAdminAlertToast(`Official alerts & team sheets delivered to Referee and Data Loggers!`);
+                                                                        setTimeout(() => setAdminAlertToast(null), 4000);
+                                                                    } catch (e) {
+                                                                        console.warn(e);
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    padding: '6px 14px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                                                                    background: 'linear-gradient(135deg, #10b981, #059669)', color: '#ffffff',
+                                                                    border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                                    boxShadow: '0 2px 8px rgba(16,185,129,0.3)'
+                                                                }}
+                                                            >
+                                                                Alert Officials
+                                                            </button>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
@@ -535,32 +543,45 @@ export default function CompetitionAdmin({ schools, teams, matches = [], allStud
                                                     </div>
 
                                                     {/* Individual Action Buttons */}
-                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleApproveSingle}
-                                                            disabled={isApproved}
-                                                            style={{
-                                                                flex: 1, padding: '8px 12px', borderRadius: '8px', border: 'none',
-                                                                background: isApproved ? 'rgba(34,197,94,0.15)' : 'var(--success)',
-                                                                color: isApproved ? '#4ade80' : '#ffffff', fontSize: '12px', fontWeight: '800',
-                                                                cursor: isApproved ? 'default' : 'pointer', transition: 'all 0.15s'
-                                                            }}
-                                                        >
-                                                            {isApproved ? '✓ Squad Validated' : `✓ Approve ${teamName}`}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleRejectSingle}
-                                                            style={{
-                                                                padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)',
-                                                                background: 'rgba(239,68,68,0.12)', color: '#f87171', fontSize: '12px', fontWeight: '800',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            ✕ Reject
-                                                        </button>
-                                                    </div>
+                                                    {readOnly ? (
+                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                            <span style={{
+                                                                flex: 1, padding: '8px 12px', borderRadius: '8px', textAlign: 'center',
+                                                                background: isApproved ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)',
+                                                                color: isApproved ? '#4ade80' : 'var(--text-muted)', fontSize: '11.5px', fontWeight: '700',
+                                                                border: isApproved ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(255,255,255,0.06)'
+                                                            }}>
+                                                                {isApproved ? '✓ Squad Validated' : 'Pending Verification (Read-Only)'}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleApproveSingle}
+                                                                disabled={isApproved}
+                                                                style={{
+                                                                    flex: 1, padding: '8px 12px', borderRadius: '8px', border: 'none',
+                                                                    background: isApproved ? 'rgba(34,197,94,0.15)' : 'var(--success)',
+                                                                    color: isApproved ? '#4ade80' : '#ffffff', fontSize: '12px', fontWeight: '800',
+                                                                    cursor: isApproved ? 'default' : 'pointer', transition: 'all 0.15s'
+                                                                }}
+                                                            >
+                                                                {isApproved ? '✓ Squad Validated' : `✓ Approve ${teamName}`}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleRejectSingle}
+                                                                style={{
+                                                                    padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)',
+                                                                    background: 'rgba(239,68,68,0.12)', color: '#f87171', fontSize: '12px', fontWeight: '800',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                ✕ Reject
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         };
@@ -620,21 +641,31 @@ export default function CompetitionAdmin({ schools, teams, matches = [], allStud
 
                                                         {/* One-Click Master Approval for Match */}
                                                         {hasPendingAction && (homeSquad || awaySquad) && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleApproveAllSquads}
-                                                                style={{
-                                                                    padding: '7px 16px', borderRadius: '8px', border: 'none',
-                                                                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                                                                    color: '#ffffff', fontSize: '12px', fontWeight: '900',
-                                                                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-                                                                    transition: 'all 0.15s ease'
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                                                                onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-                                                            >
-                                                                ✓ Approve Both Squads
-                                                            </button>
+                                                            readOnly ? (
+                                                                <span style={{
+                                                                    padding: '5px 12px', borderRadius: '8px',
+                                                                    background: 'rgba(56,189,248,0.12)', color: '#38bdf8',
+                                                                    border: '1px solid rgba(56,189,248,0.3)', fontSize: '11px', fontWeight: '800'
+                                                                }}>
+                                                                    👁️ Observer View (Validation Restricted)
+                                                                </span>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleApproveAllSquads}
+                                                                    style={{
+                                                                        padding: '7px 16px', borderRadius: '8px', border: 'none',
+                                                                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                                                                        color: '#ffffff', fontSize: '12px', fontWeight: '900',
+                                                                        cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                                                                        transition: 'all 0.15s ease'
+                                                                    }}
+                                                                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                                                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                                                >
+                                                                    ✓ Approve Both Squads
+                                                                </button>
+                                                            )
                                                         )}
                                                     </div>
                                                 </div>

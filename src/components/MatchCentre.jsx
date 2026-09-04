@@ -6,8 +6,8 @@ import MatchDetail from './match/MatchDetail';
 
 const VIEWS = { SETUP: 'setup', LIVE: 'live', HISTORY: 'history', DETAIL: 'detail' };
 
-export default function MatchCentre({ allStudents, year, term, matches, onEndMatch, onUpdateMatch, onClose }) {
-    const [view, setView] = useState(VIEWS.SETUP);
+export default function MatchCentre({ allStudents, year, term, matches, onEndMatch, onUpdateMatch, onClose, readOnly = false }) {
+    const [view, setView] = useState(readOnly ? VIEWS.HISTORY : VIEWS.SETUP);
     const [activeMatchData, setActiveMatchData] = useState(null);
     const [selectedMatch, setSelectedMatch] = useState(null);
 
@@ -146,24 +146,26 @@ export default function MatchCentre({ allStudents, year, term, matches, onEndMat
                     {/* Nav tabs */}
                     {view !== VIEWS.LIVE && (
                         <>
-                            <button
-                                onClick={() => setView(VIEWS.SETUP)}
-                                style={{
-                                    padding: '6px 16px',
-                                    fontSize: '12px', fontWeight: '600',
-                                    fontFamily: 'inherit',
-                                    border: view === VIEWS.SETUP ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.06)',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    background: view === VIEWS.SETUP ? 'var(--primary-glow-sm)' : 'rgba(255,255,255,0.03)',
-                                    color: view === VIEWS.SETUP ? 'var(--primary-light)' : 'var(--text-muted)',
-                                    transition: 'all 0.2s ease',
-                                }}
-                                onMouseEnter={e => { if (view !== VIEWS.SETUP) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-primary)'; }}}
-                                onMouseLeave={e => { if (view !== VIEWS.SETUP) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'var(--text-muted)'; }}}
-                            >
-                                New Match
-                            </button>
+                            {!readOnly && (
+                                <button
+                                    onClick={() => setView(VIEWS.SETUP)}
+                                    style={{
+                                        padding: '6px 16px',
+                                        fontSize: '12px', fontWeight: '600',
+                                        fontFamily: 'inherit',
+                                        border: view === VIEWS.SETUP ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.06)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        background: view === VIEWS.SETUP ? 'var(--primary-glow-sm)' : 'rgba(255,255,255,0.03)',
+                                        color: view === VIEWS.SETUP ? 'var(--primary-light)' : 'var(--text-muted)',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onMouseEnter={e => { if (view !== VIEWS.SETUP) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-primary)'; }}}
+                                    onMouseLeave={e => { if (view !== VIEWS.SETUP) { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'var(--text-muted)'; }}}
+                                >
+                                    New Match
+                                </button>
+                            )}
                             <button
                                 onClick={() => { setSelectedMatch(null); setView(VIEWS.HISTORY); }}
                                 style={{

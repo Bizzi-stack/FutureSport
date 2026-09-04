@@ -21,7 +21,7 @@ const DEFAULT_OFFICIALS = [
     { id: 'comm-2', name: 'Harcourt Wason', role: 'Commissioner' }
 ];
 
-export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches }) {
+export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches, readOnly = false }) {
     const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'scheduling'
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -518,17 +518,28 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                 </div>
 
                                 <div style={{ padding: '16px 24px', borderTop: 'var(--border)', display: 'flex', justifyContent: 'flex-end', background: 'rgba(255,255,255,0.01)' }}>
-                                    <button
-                                        type="submit"
-                                        disabled={!commissionerSignature.trim() || !generalRemarks.trim()}
-                                        style={{
-                                            padding: '10px 32px', borderRadius: '24px', background: 'var(--success)', color: '#ffffff', border: 'none',
-                                            fontWeight: '800', fontSize: '13px', cursor: 'pointer', opacity: (commissionerSignature.trim() && generalRemarks.trim()) ? 1 : 0.5,
-                                            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
-                                        }}
-                                    >
-                                        Authorize Score & Approve Standings
-                                    </button>
+                                    {readOnly ? (
+                                        <span style={{
+                                            padding: '10px 24px', borderRadius: '24px',
+                                            background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8',
+                                            border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: '800', fontSize: '13px',
+                                            display: 'flex', alignItems: 'center', gap: '6px'
+                                        }}>
+                                            👁️ Read-Only Mode (Match Certification Restricted)
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="submit"
+                                            disabled={!commissionerSignature.trim() || !generalRemarks.trim()}
+                                            style={{
+                                                padding: '10px 32px', borderRadius: '24px', background: 'var(--success)', color: '#ffffff', border: 'none',
+                                                fontWeight: '800', fontSize: '13px', cursor: 'pointer', opacity: (commissionerSignature.trim() && generalRemarks.trim()) ? 1 : 0.5,
+                                                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
+                                            }}
+                                        >
+                                            Authorize Score & Approve Standings
+                                        </button>
+                                    )}
                                 </div>
                             </form>
                         ) : (
@@ -623,16 +634,26 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     </div>
                                 )}
 
-                                <button
-                                    onClick={handleGenerateFixtures}
-                                    style={{
-                                        padding: '10px', borderRadius: '24px', background: 'var(--primary)', border: 'none',
-                                        color: '#ffffff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
-                                        boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginTop: '8px'
-                                    }}
-                                >
-                                    Generate Round-Robin Fixtures
-                                </button>
+                                {readOnly ? (
+                                    <div style={{
+                                        padding: '10px', borderRadius: '24px', background: 'rgba(56, 189, 248, 0.1)',
+                                        border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '12px',
+                                        fontWeight: '700', textAlign: 'center', marginTop: '8px'
+                                    }}>
+                                        👁️ Observer Mode (Fixture Generation Restricted)
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={handleGenerateFixtures}
+                                        style={{
+                                            padding: '10px', borderRadius: '24px', background: 'var(--primary)', border: 'none',
+                                            color: '#ffffff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
+                                            boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginTop: '8px'
+                                        }}
+                                    >
+                                        Generate Round-Robin Fixtures
+                                    </button>
+                                )}
                             </div>
                         )}
 
@@ -759,16 +780,26 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     </div>
                                 )}
 
-                                <button
-                                    type="submit"
-                                    style={{
-                                        padding: '10px', borderRadius: '24px', background: 'var(--primary)', border: 'none',
-                                        color: '#ffffff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
-                                        boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginTop: '8px'
-                                    }}
-                                >
-                                    Schedule Custom Fixture
-                                </button>
+                                {readOnly ? (
+                                    <div style={{
+                                        padding: '10px', borderRadius: '24px', background: 'rgba(56, 189, 248, 0.1)',
+                                        border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '12px',
+                                        fontWeight: '700', textAlign: 'center', marginTop: '8px'
+                                    }}>
+                                        👁️ Observer Mode (Match Scheduling Restricted)
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="submit"
+                                        style={{
+                                            padding: '10px', borderRadius: '24px', background: 'var(--primary)', border: 'none',
+                                            color: '#ffffff', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s',
+                                            boxShadow: '0 4px 12px rgba(37,99,235,0.25)', marginTop: '8px'
+                                        }}
+                                    >
+                                        Schedule Custom Fixture
+                                    </button>
+                                )}
                             </form>
                         )}
                     </div>

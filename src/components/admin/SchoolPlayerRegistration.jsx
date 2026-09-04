@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 
-export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, schools, teams, selectedTournament }) {
+export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, schools, teams, selectedTournament, readOnly = false, onStudentClick = null }) {
     const isPmc = selectedTournament === 'PMC';
     const [statusFilter, setStatusFilter] = useState('pending'); // 'all' | 'pending' | 'approved' | 'rejected' | 'incomplete'
     const [schoolFilter, setSchoolFilter] = useState('all');
@@ -251,13 +251,33 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
                                             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{getSchoolName(selectedPlayer.schoolId)}</span>
                                         </div>
                                     </div>
-                                    <span style={{
-                                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', padding: '4px 12px', borderRadius: '20px',
-                                        background: selectedPlayer.status === 'approved' ? 'var(--success-dim)' : selectedPlayer.status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
-                                        color: selectedPlayer.status === 'approved' ? 'var(--success)' : selectedPlayer.status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
-                                    }}>
-                                        Status: {selectedPlayer.status}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        {onStudentClick && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onStudentClick(selectedPlayer)}
+                                                style={{
+                                                    padding: '5px 12px', borderRadius: '14px',
+                                                    background: 'rgba(99, 102, 241, 0.15)', color: '#a5b4fc',
+                                                    border: '1px solid rgba(99, 102, 241, 0.35)', fontSize: '11px', fontWeight: '700',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.3)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)'}
+                                                title="View detailed player stats, radar chart, and shot logs"
+                                            >
+                                                <span>📊</span> View Performance Profile
+                                            </button>
+                                        )}
+                                        <span style={{
+                                            fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', padding: '4px 12px', borderRadius: '20px',
+                                            background: selectedPlayer.status === 'approved' ? 'var(--success-dim)' : selectedPlayer.status === 'rejected' ? 'var(--danger-dim)' : 'var(--warning-dim)',
+                                            color: selectedPlayer.status === 'approved' ? 'var(--success)' : selectedPlayer.status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
+                                        }}>
+                                            Status: {selectedPlayer.status}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Details Grid */}
@@ -349,27 +369,40 @@ export default function SchoolPlayerRegistration({ allPlayers, onDataUpdate, sch
                                 {/* Actions Footer */}
                                 {selectedPlayer.status === 'pending' && (
                                     <div style={{ padding: '16px 24px', borderTop: 'var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px', background: 'rgba(255,255,255,0.01)' }}>
-                                        <button
-                                            onClick={() => setShowRejectModal(true)}
-                                            style={{
-                                                padding: '8px 20px', borderRadius: '20px', background: 'rgba(239, 68, 68, 0.1)',
-                                                color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                                        >
-                                            Flag / Reject
-                                        </button>
-                                        <button
-                                            onClick={() => handleApprove(selectedPlayer.id)}
-                                            style={{
-                                                padding: '8px 24px', borderRadius: '20px', background: 'var(--success)',
-                                                color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
-                                                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
-                                            }}
-                                        >
-                                            Approve Player
-                                        </button>
+                                        {readOnly ? (
+                                            <span style={{
+                                                padding: '8px 18px', borderRadius: '20px',
+                                                background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8',
+                                                border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '12px', fontWeight: '700',
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}>
+                                                👁️ Read-Only Observation Mode (Approvals Restricted)
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => setShowRejectModal(true)}
+                                                    style={{
+                                                        padding: '8px 20px', borderRadius: '20px', background: 'rgba(239, 68, 68, 0.1)',
+                                                        color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                                                >
+                                                    Flag / Reject
+                                                </button>
+                                                <button
+                                                    onClick={() => handleApprove(selectedPlayer.id)}
+                                                    style={{
+                                                        padding: '8px 24px', borderRadius: '20px', background: 'var(--success)',
+                                                        color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                                                    }}
+                                                >
+                                                    Approve Player
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
