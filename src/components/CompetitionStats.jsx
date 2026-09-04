@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 
 export default function CompetitionStats({ matches, teams, schools, allStudents, year }) {
-    const [selectedDivision, setSelectedDivision] = useState('U14');
+    const [selectedDivision, setSelectedDivision] = useState(() => {
+        const hasPmc = (teams || []).some(t => t?.ageGroup === 'PMC' || (typeof t?.name === 'string' && t.name.includes('PMC')));
+        return hasPmc ? 'PMC' : 'U14';
+    });
 
     const getSchoolName = (schoolId) => {
-        const sc = schools.find(s => s.id === schoolId);
-        return sc ? sc.name : 'Unknown School';
+        const sc = (schools || []).find(s => s.id === schoolId || s.rawId === schoolId);
+        return sc ? sc.name : 'Unknown Team';
     };
 
     // Filter teams for selected division
@@ -20,8 +23,8 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
     // Calculate dynamic tournament metrics
     const statsSummary = useMemo(() => {
         const approvedMatches = (matches || []).filter(m => 
-            m.status === 'approved' && 
-            (m.ageGroup === selectedDivision || (m.ageGroup === undefined && teams.find(t => t.id === m.homeTeamId)?.ageGroup === selectedDivision))
+            (m.status === 'approved' || m.status === 'completed' || m.status === 'refereed') && 
+            (m.ageGroup === selectedDivision || (m.ageGroup === undefined && (teams || []).find(t => t.id === m.homeTeamId)?.ageGroup === selectedDivision))
         );
 
         let totalGoals = 0;
@@ -54,9 +57,9 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
     // Aggregate statistics for players in the selected division
     const playerLeaderboards = useMemo(() => {
-        const divisionPlayers = allStudents.filter(student => {
+        const divisionPlayers = (allStudents || []).filter(student => {
             const assignedTeamId = student.teamAssignments?.[year];
-            return divisionTeamIds.has(assignedTeamId);
+            return divisionTeamIds.has(assignedTeamId) || divisionTeamIds.has(student.schoolId);
         });
 
         const playerStats = divisionPlayers.map(student => {
@@ -83,8 +86,8 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
                 totals.redCards += mdMatch.redCards || 0;
             });
 
-            const teamObj = teams.find(t => t.id === student.teamAssignments?.[year]);
-            const schoolObj = schools.find(s => s.id === student.schoolId);
+            const teamObj = (teams || []).find(t => t.id === student.teamAssignments?.[year] || t.schoolId === student.schoolId);
+            const schoolObj = (schools || []).find(s => s.id === student.schoolId || s.rawId === student.schoolId);
 
             return {
                 id: student.id,
@@ -101,14 +104,14 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
             .sort((a, b) => b.goals - a.goals || a.gamesPlayed - b.gamesPlayed)
             .slice(0, 5);
 
-        // Top Assists: Assists DESC -> Games Played ASC
+        // Top Playmakers: Assists DESC -> Games Played ASC
         const topAssists = [...playerStats]
             .filter(p => p.assists > 0)
             .sort((a, b) => b.assists - a.assists || a.gamesPlayed - b.gamesPlayed)
             .slice(0, 5);
 
         // Top Goalkeepers: Saves DESC
-        const topGoalkeepers = [...playerStats]
+        const topSaves = [...playerStats]
             .filter(p => p.saves > 0)
             .sort((a, b) => b.saves - a.saves)
             .slice(0, 5);
@@ -122,7 +125,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
         return {
             topScorers,
             topAssists,
-            topGoalkeepers,
+            topGoalkeepers: topSaves,
             disciplinary
         };
     }, [allStudents, year, divisionTeamIds, teams, schools]);
@@ -133,7 +136,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
             {/* Header tab section */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>📈 Competition Statistics</h3>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Competition Statistics</h3>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Aggregated division-wide tournament metrics and leaderboards</span>
                 </div>
                 <select
@@ -144,6 +147,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
                         background: 'rgba(0,0,0,0.3)', color: 'var(--text-primary)', fontSize: '13px', outline: 'none', cursor: 'pointer'
                     }}
                 >
+                    <option value="PMC">Prime Minister's Cup (PMC)</option>
                     <option value="U14">U14 Division</option>
                     <option value="U16">U16 Division</option>
                     <option value="U19">U19 Division</option>
@@ -179,7 +183,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
                 
                 {/* 1. Golden Boot (Top Scorers) */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>⚽ Golden Boot (Top Scorers)</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Golden Boot (Top Scorers)</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.topScorers.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No goals logged yet.</span>
@@ -203,7 +207,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
                 {/* 2. Playmaker Award (Top Assists) */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>👟 Playmaker (Most Assists)</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Playmaker (Most Assists)</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.topAssists.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No assists logged yet.</span>
@@ -227,7 +231,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
                 {/* 3. Golden Glove (Goalkeeper Saves) */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>🧤 Golden Glove (Saves)</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Golden Glove (Saves)</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.topGoalkeepers.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No goalkeeper saves logged yet.</span>
@@ -251,7 +255,7 @@ export default function CompetitionStats({ matches, teams, schools, allStudents,
 
                 {/* 4. Disciplinary Record */}
                 <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' }}>
-                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>🟨 Disciplinary Record</h4>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: 'var(--border)', paddingBottom: '8px' }}>Disciplinary Record</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {playerLeaderboards.disciplinary.length === 0 ? (
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '10px 0' }}>No cards issued yet.</span>

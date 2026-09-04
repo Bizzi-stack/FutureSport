@@ -9,6 +9,8 @@ import AddStudentModal from './components/AddStudentModal';
 import SettingsPanel, { useSettings } from './components/SettingsPanel';
 import StudentProfileDrawer from './components/StudentProfileDrawer';
 import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOLS, getTeamStudents } from './data/mockData';
+import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
+import { pushMatchesToCloud, subscribeToRealtimeSync } from './utils/realtimeSync';
 import { exportClassReport } from './utils/exportReport';
 import DataHub from './components/DataHub';
 import NationalHub from './components/NationalHub';
@@ -26,6 +28,10 @@ import SchoolAdminDashboard from './components/school/SchoolAdminDashboard';
 import RefereeDashboard from './components/referee/RefereeDashboard';
 import CommissionerDashboard from './components/commissioner/CommissionerDashboard';
 import FourthOfficialDashboard from './components/referee/FourthOfficialDashboard';
+import StatisticianDashboard from './components/statistician/StatisticianDashboard';
+import { sendRefereeSquadNotification, sendDataLoggerMatchReadyNotification } from './services/refereeNotificationService';
+import { getOfficialsByRole, findOfficial } from './data/matchOfficialAccounts';
+import { getAnalystAccounts, findAnalystByEmailOrId } from './data/analystAccounts';
 
 // ── Icons (inline SVG) ──────────────────────────────────────────────
 const DownloadIcon = () => (
@@ -207,6 +213,11 @@ function loadAndMergeStudents(savedList) {
   return result.length > 0 ? result : ALL_STUDENTS;
 }
 
+function sanitizeMatchState(matchList) {
+  if (!Array.isArray(matchList)) return [];
+  return matchList;
+}
+
 const DEFAULT_MATCHES = [
   {
     id: 'scheduled-seed-1',
@@ -220,6 +231,8 @@ const DEFAULT_MATCHES = [
     status: 'scheduled',
     homeScore: 0,
     awayScore: 0,
+    homeSquadSelection: null,
+    awaySquadSelection: null,
     playerStats: {},
     timeline: [],
     date: new Date(Date.now() + 86400000).toISOString()
@@ -236,6 +249,8 @@ const DEFAULT_MATCHES = [
     status: 'scheduled',
     homeScore: 0,
     awayScore: 0,
+    homeSquadSelection: null,
+    awaySquadSelection: null,
     playerStats: {},
     timeline: [],
     date: new Date(Date.now() + 172800000).toISOString()
@@ -252,6 +267,8 @@ const DEFAULT_MATCHES = [
     status: 'scheduled',
     homeScore: 0,
     awayScore: 0,
+    homeSquadSelection: null,
+    awaySquadSelection: null,
     playerStats: {},
     timeline: [],
     date: new Date(Date.now() + 86400000).toISOString()
@@ -268,6 +285,8 @@ const DEFAULT_MATCHES = [
     status: 'scheduled',
     homeScore: 0,
     awayScore: 0,
+    homeSquadSelection: null,
+    awaySquadSelection: null,
     playerStats: {},
     timeline: [],
     date: new Date(Date.now() + 86400000).toISOString()
@@ -284,6 +303,8 @@ const DEFAULT_MATCHES = [
     status: 'scheduled',
     homeScore: 0,
     awayScore: 0,
+    homeSquadSelection: null,
+    awaySquadSelection: null,
     playerStats: {},
     timeline: [],
     date: new Date(Date.now() + 172800000).toISOString()
@@ -292,9 +313,51 @@ const DEFAULT_MATCHES = [
 
 // ── Main App ────────────────────────────────────────────────────────
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [selectedTournament, setSelectedTournament] = useState('PMC'); // 'PMC' | 'NSSL'
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return sessionStorage.getItem('eduvision-authenticated') === 'true';
+    } catch { return false; }
+  });
+  const [userRole, setUserRole] = useState(() => {
+    try {
+      return sessionStorage.getItem('eduvision-role') || null;
+    } catch { return null; }
+  });
+  const [currentAnalyst, setCurrentAnalyst] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-analyst');
+      if (saved) return JSON.parse(saved);
+      const params = new URLSearchParams(window.location.search);
+      const analystIdParam = params.get('analystId') || params.get('analystEmail');
+      if (analystIdParam) return findOfficial('statistician', analystIdParam);
+    } catch { /* ignored */ }
+    return getOfficialsByRole('statistician')[0];
+  });
+  const [currentReferee, setCurrentReferee] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-referee');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignored */ }
+    return getOfficialsByRole('referee')[0];
+  });
+  const [currentFourthOfficial, setCurrentFourthOfficial] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-fourth-official');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignored */ }
+    return getOfficialsByRole('fourth_official')[0];
+  });
+  const [directMatchId, setDirectMatchId] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('matchId') || null;
+    } catch { return null; }
+  });
+  const [selectedTournament, setSelectedTournament] = useState(() => {
+    try {
+      return sessionStorage.getItem('eduvision-tournament') || 'PMC';
+    } catch { return 'PMC'; }
+  });
   const [allStudents, setAllStudents] = useState(() => {
     try {
       const saved = localStorage.getItem('eduvision-students');
@@ -355,14 +418,59 @@ function App() {
   };
 
   const [selectedSchool, setSelectedSchool] = useState(() => {
-    return (allSchools && allSchools.length > 0) ? allSchools[0].id : 's1';
+    try {
+      const saved = sessionStorage.getItem('eduvision-school');
+      if (saved) return saved;
+    } catch {}
+    const initialTourn = (typeof window !== 'undefined' && sessionStorage.getItem('eduvision-tournament')) || 'PMC';
+    const schoolList = initialTourn === 'PMC' ? PMC_SCHOOLS : (allSchools && allSchools.length > 0 ? allSchools : SCHOOLS);
+    return (schoolList && schoolList.length > 0) ? schoolList[0].id : 's1';
   });
+
   const [selectedClassroom, setSelectedClassroom] = useState(() => {
-    const defaultSchool = (allSchools && allSchools.length > 0) ? allSchools[0].id : 's1';
-    return allTeams.find(c => c.schoolId === defaultSchool)?.id || '';
+    try {
+      const saved = sessionStorage.getItem('eduvision-classroom');
+      if (saved) return saved;
+    } catch {}
+    const initialTourn = (typeof window !== 'undefined' && sessionStorage.getItem('eduvision-tournament')) || 'PMC';
+    const teamList = initialTourn === 'PMC' ? PMC_TEAMS : (allTeams && allTeams.length > 0 ? allTeams : TEAMS);
+    const schoolList = initialTourn === 'PMC' ? PMC_SCHOOLS : (allSchools && allSchools.length > 0 ? allSchools : SCHOOLS);
+    const defaultSchool = (schoolList && schoolList.length > 0) ? schoolList[0].id : 's1';
+    return teamList.find(c => c.schoolId === defaultSchool)?.id || '';
   });
-  const [selectedYear, setSelectedYear] = useState(YEARS[YEARS.length - 1]);
-  const [selectedTerm, setSelectedTerm] = useState(TERMS[0]);
+
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return '2026-2027';
+  });
+  const [selectedTerm, setSelectedTerm] = useState('Matchday 1');
+
+  // Session persistence across hard refreshes
+  useEffect(() => {
+    try {
+      if (isAuthenticated && userRole) {
+        sessionStorage.setItem('eduvision-authenticated', 'true');
+        sessionStorage.setItem('eduvision-role', userRole);
+        sessionStorage.setItem('eduvision-tournament', selectedTournament);
+        sessionStorage.setItem('eduvision-school', selectedSchool);
+        sessionStorage.setItem('eduvision-classroom', selectedClassroom);
+        if (currentAnalyst) {
+          sessionStorage.setItem('eduvision-current-analyst', JSON.stringify(currentAnalyst));
+        }
+        if (currentReferee) {
+          sessionStorage.setItem('eduvision-current-referee', JSON.stringify(currentReferee));
+        }
+        if (currentFourthOfficial) {
+          sessionStorage.setItem('eduvision-current-fourth-official', JSON.stringify(currentFourthOfficial));
+        }
+      } else {
+        sessionStorage.removeItem('eduvision-authenticated');
+        sessionStorage.removeItem('eduvision-role');
+        sessionStorage.removeItem('eduvision-current-analyst');
+        sessionStorage.removeItem('eduvision-current-referee');
+        sessionStorage.removeItem('eduvision-current-fourth-official');
+      }
+    } catch {}
+  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom, currentAnalyst, currentReferee, currentFourthOfficial]);
   const [subjects, setSubjects] = useState(DEFAULT_SUBJECTS);
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -375,27 +483,149 @@ function App() {
   const [matches, setMatches] = useState(() => {
     try {
       const saved = localStorage.getItem('eduvision-matches');
-      if (saved) return JSON.parse(saved);
+      if (saved) return sanitizeMatchState(JSON.parse(saved));
     } catch (err) {
       console.error('Error loading matches:', err);
     }
-    return DEFAULT_MATCHES;
+    return sanitizeMatchState(DEFAULT_MATCHES);
   });
 
+  const [pmcMatches, setPmcMatches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eduvision-pmc-matches-v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasPmcClub = parsed.some(m => 
+            String(m.homeTeamId).includes('pmc-club') || 
+            String(m.id).includes('pmc') || 
+            String(m.homeTeam).includes('Bagatelle') || 
+            String(m.homeTeam).includes('Kickstart') || 
+            String(m.homeTeam).includes('Technique')
+          );
+          if (hasPmcClub) {
+            return sanitizeMatchState(parsed);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error loading PMC matches:', err);
+    }
+    return sanitizeMatchState(PMC_MATCHES);
+  });
+
+  // LocalStorage persistence for matches
   useEffect(() => {
     try {
       localStorage.setItem('eduvision-matches', JSON.stringify(matches));
     } catch { /* ignored */ }
   }, [matches]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('eduvision-pmc-matches-v2', JSON.stringify(pmcMatches));
+    } catch { /* ignored */ }
+  }, [pmcMatches]);
+
+  // Realtime Cross-Device Synchronization
+  useEffect(() => {
+    const unsubscribe = subscribeToRealtimeSync((cloudMatches) => {
+      if (cloudMatches && Array.isArray(cloudMatches) && cloudMatches.length > 0) {
+        const sanitizedCloud = sanitizeMatchState(cloudMatches);
+        if (selectedTournament === 'PMC') {
+          setPmcMatches(sanitizedCloud);
+        } else {
+          setMatches(sanitizedCloud);
+        }
+      }
+    });
+    return unsubscribe;
+  }, [selectedTournament]);
+
+
+
   const { settings, updateSettings, resetSettings } = useSettings();
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [logShotTarget, setLogShotTarget] = useState(null); // { student, year, term }
-  const [adminTab, setAdminTab] = useState('registrations'); // 'registrations' | 'competitions' | 'data_entry'
+  const [adminTab, setAdminTab] = useState(() => selectedTournament === 'PMC' ? 'pmc_approvals' : 'registrations');
+
+  const adminTabs = useMemo(() => {
+    if (selectedTournament === 'PMC') {
+      return [
+        { id: 'pmc_approvals', label: 'PMC Match Verification & Approvals' },
+        { id: 'competitions', label: 'PMC Fixtures & Standings' },
+        { id: 'club_rosters', label: 'Senior Club Roster Directory' },
+        { id: 'data_entry', label: 'Raw Data Sandbox' }
+      ];
+    }
+    return [
+      { id: 'registrations', label: 'School & Player Registrations' },
+      { id: 'competitions', label: 'Competition Setup' },
+      { id: 'data_entry', label: 'Raw Data Sandbox' }
+    ];
+  }, [selectedTournament]);
+
+  useEffect(() => {
+    if (selectedTournament === 'PMC' && !['pmc_approvals', 'competitions', 'club_rosters', 'data_entry'].includes(adminTab)) {
+      setAdminTab('pmc_approvals');
+    } else if (selectedTournament !== 'PMC' && !['registrations', 'competitions', 'data_entry'].includes(adminTab)) {
+      setAdminTab('registrations');
+    }
+  }, [selectedTournament, adminTab]);
 
   const handleAddMatches = (newMatches) => {
-    setMatches(prev => [...prev, ...newMatches]);
+    const addFn = prev => {
+      const next = [...prev, ...newMatches];
+      pushMatchesToCloud(next);
+      return next;
+    };
+    if (selectedTournament === 'PMC') {
+      setPmcMatches(addFn);
+    }
+    setMatches(addFn);
   };
+
+  const handleResetPmcMatches = () => {
+    const sanitized = sanitizeMatchState(PMC_MATCHES);
+    setPmcMatches(sanitized);
+    try {
+      localStorage.setItem('eduvision-pmc-matches-v2', JSON.stringify(sanitized));
+      pushMatchesToCloud(sanitized);
+    } catch {}
+  };
+
+  // Derive active tournament datasets
+  const displaySchools = useMemo(() => selectedTournament === 'PMC' ? PMC_SCHOOLS : allSchools, [selectedTournament, allSchools]);
+  const displayTeams = useMemo(() => selectedTournament === 'PMC' ? PMC_TEAMS : allTeams, [selectedTournament, allTeams]);
+  const displayStudents = useMemo(() => selectedTournament === 'PMC' ? PMC_STUDENTS : allStudents, [selectedTournament, allStudents]);
+  const displayMatches = useMemo(() => selectedTournament === 'PMC' ? pmcMatches : matches, [selectedTournament, pmcMatches, matches]);
+  const displayYears = useMemo(() => selectedTournament === 'PMC' ? PMC_YEARS : YEARS, [selectedTournament]);
+
+  // Auto-switch active school, classroom, and year when changing tournament mode
+  useEffect(() => {
+    if (selectedTournament === 'PMC') {
+      setSelectedYear('2026-2027');
+    } else {
+      setSelectedYear(YEARS[YEARS.length - 1]);
+    }
+    if (displaySchools && displaySchools.length > 0) {
+      const firstSchool = displaySchools[0].id;
+      setSelectedSchool(firstSchool);
+      const firstTeam = displayTeams.find(c => c.schoolId === firstSchool);
+      if (firstTeam) setSelectedClassroom(firstTeam.id);
+      else setSelectedClassroom('');
+    }
+  }, [selectedTournament]);
+
+  // Filter students for the currently selected team + year
+  const students = useMemo(() => {
+    if (selectedSchool === 'ALL') return displayStudents;
+    if (selectedClassroom && selectedClassroom !== 'ALL') {
+      const teamSts = getTeamStudents(displayStudents, selectedClassroom, selectedYear);
+      if (teamSts.length > 0) return teamSts;
+    }
+    return displayStudents.filter(s => s.schoolId === selectedSchool);
+  }, [displayStudents, selectedSchool, selectedClassroom, selectedYear]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const searchContainerRef = useRef(null);
@@ -403,8 +633,9 @@ function App() {
   const searchResults = useMemo(() => {
     if (searchQuery.trim().length < 2) return [];
     const query = searchQuery.toLowerCase();
-    return allStudents.filter(s => s.name.toLowerCase().includes(query)).slice(0, 8);
-  }, [allStudents, searchQuery]);
+    const searchable = userRole === 'coach' ? students : displayStudents;
+    return searchable.filter(s => s.name.toLowerCase().includes(query)).slice(0, 8);
+  }, [displayStudents, students, searchQuery, userRole]);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -415,81 +646,19 @@ function App() {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
-
-  const handleLogShot = (result, x, y, goalType) => {
-    if (!logShotTarget) return;
-    const { student, year, term } = logShotTarget;
-
-    const newShot = {
-      id: `${student.id}-${year}-${term}-u-${Date.now()}`,
-      year,
-      term,
-      result,
-      x,
-      y,
-      goalType: goalType || 'foot',
-      timestamp: Date.now()
-    };
-
-    const updatedStudents = allStudents.map(s => {
-      if (String(s.id) !== String(student.id)) return s;
-      
-      const newS = { 
-        ...s, 
-        shotLogs: [...(s.shotLogs || []), newShot],
-        performance: { ...s.performance } 
-      };
-
-      if (!newS.performance[year]) newS.performance[year] = {};
-      newS.performance[year] = { 
-        ...newS.performance[year], 
-        [term]: { ...(newS.performance[year][term] || {}) } 
-      };
-
-      const current = newS.performance[year][term];
-      current['Shots'] = (current['Shots'] || 0) + 1;
-      
-      if (result === 'goal' || result === 'saved') {
-        current['Shots on Target'] = (current['Shots on Target'] || 0) + 1;
-      }
-      if (result === 'goal') {
-        current['Goals'] = (current['Goals'] || 0) + 1;
-      }
-      
-      if (current['Shots'] > 0) {
-        const accuracy = Math.round(((current['Shots on Target'] || 0) / current['Shots']) * 100);
-        current['Shot Accuracy'] = accuracy;
-      }
-
-      return newS;
-    });
-
-    setAllStudents(updatedStudents);
-    
-    // Also update selectedStudent reference if drawer is open
-    if (selectedStudent && String(selectedStudent.id) === String(student.id)) {
-      const updatedSel = updatedStudents.find(s => String(s.id) === String(student.id));
-      setSelectedStudent(updatedSel);
-    }
-    
-    setLogShotTarget(null);
-  };
-
-  // Filter students for the currently selected team + year
-  const students = selectedSchool === 'ALL' ? [] : getTeamStudents(allStudents, selectedClassroom, selectedYear);
-  const currentClassroom = TEAMS.find(c => c.id === selectedClassroom);
+  const currentClassroom = displayTeams.find(c => c.id === selectedClassroom);
 
   const handleSchoolChange = (e) => {
     const newSchoolId = e.target.value;
     setSelectedSchool(newSchoolId);
     if (newSchoolId !== 'ALL') {
-      const firstClass = allTeams.find(c => c.schoolId === newSchoolId);
+      const firstClass = displayTeams.find(c => c.schoolId === newSchoolId);
       if (firstClass) setSelectedClassroom(firstClass.id);
     }
   };
 
-  const schoolClassrooms = selectedSchool === 'ALL' ? [] : allTeams.filter(c => c.schoolId === selectedSchool);
-  const currentSchool = allSchools.find(s => s.id === selectedSchool) || { name: 'All Academies' };
+  const schoolClassrooms = selectedSchool === 'ALL' ? [] : displayTeams.filter(c => c.schoolId === selectedSchool);
+  const currentSchool = displaySchools.find(s => s.id === selectedSchool) || { name: 'All Academies' };
 
   // Merge an updated subset of students back into the master list
   const handleDataUpdate = (updatedSubset) =>
@@ -597,19 +766,45 @@ function App() {
   // ── Match Centre: End Match handler ──────────────────────────────
   const handleEndMatch = (matchResult) => {
     const matchId = matchResult.id || `match-${Date.now()}`;
-    setMatches(prev => {
+    const endFn = prev => {
       const exists = prev.some(m => m.id === matchId);
-      if (exists) {
-        return prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m);
-      } else {
-        return [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
-      }
-    });
+      const next = exists
+        ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
+        : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
+      pushMatchesToCloud(next);
+      return next;
+    };
+    setPmcMatches(endFn);
+    setMatches(endFn);
   };
 
   // ── Dynamic Match Update & Standings Propagation ───────────────────
   const handleUpdateMatch = (updatedMatch) => {
-    setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+    const prevMatch = (pmcMatches || []).find(m => m.id === updatedMatch.id);
+    const wasBothReady = !!prevMatch?.homeSquadSelection && !!prevMatch?.awaySquadSelection;
+    const isNowBothReady = !!updatedMatch?.homeSquadSelection && !!updatedMatch?.awaySquadSelection;
+
+    if (!wasBothReady && isNowBothReady) {
+      const schoolsList = displaySchools || allSchools || [];
+      const homeSc = schoolsList.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
+      const awaySc = schoolsList.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
+      const homeName = homeSc?.name || updatedMatch.homeTeam || 'Home Team';
+      const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
+      try {
+        sendRefereeSquadNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
+        sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
+      } catch (err) {
+        console.warn('Match ready notifications warning:', err);
+      }
+    }
+
+    const updateFn = prev => {
+      const next = prev.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      pushMatchesToCloud(next);
+      return next;
+    };
+    setPmcMatches(updateFn);
+    setMatches(updateFn);
 
     // Propagate statistics only if the match transitions to 'approved'
     if (updatedMatch.status === 'approved') {
@@ -692,36 +887,56 @@ function App() {
 
   if (!isAuthenticated || !userRole) {
     return <AdminLandingPage 
-      allTeams={allTeams}
-      allSchools={allSchools}
-      onLogin={(role, coachTeamId) => {
-      setUserRole(role);
-      let activeSchool = selectedSchool;
+      allTeams={displayTeams}
+      allSchools={displaySchools}
+      pmcTeams={PMC_TEAMS}
+      pmcSchools={PMC_SCHOOLS}
+      nsslTeams={TEAMS}
+      nsslSchools={SCHOOLS}
+      selectedTournament={selectedTournament}
+      setSelectedTournament={setSelectedTournament}
+      onLogin={(role, coachTeamId, officialProfile, deepLinkedMatchId) => {
+        setUserRole(role);
+        let activeSchool = selectedSchool;
 
-      if (role === 'coach' && coachTeamId) {
-        // Coach chose a specific team at login
-        const teamObj = allTeams.find(t => t.id === coachTeamId);
-        if (teamObj) {
-            activeSchool = teamObj.schoolId;
-            setSelectedSchool(activeSchool);
-            setSelectedClassroom(coachTeamId);
+        if (role === 'referee') {
+          const ref = officialProfile || getOfficialsByRole('referee')[0];
+          setCurrentReferee(ref);
+        } else if (role === 'fourth_official') {
+          const fo = officialProfile || getOfficialsByRole('fourth_official')[0];
+          setCurrentFourthOfficial(fo);
+        } else if (role === 'statistician') {
+          const acc = officialProfile || getOfficialsByRole('statistician')[0];
+          setCurrentAnalyst(acc);
+          if (deepLinkedMatchId) {
+            setDirectMatchId(deepLinkedMatchId);
+          }
         }
-      } else {
-        if (role === 'school_admin' || role === 'teacher' || role === 'principal') {
-            if (selectedSchool === 'ALL') {
-            activeSchool = allSchools[0].id;
-            setSelectedSchool(activeSchool);
-            }
+
+        if (role === 'coach' && coachTeamId) {
+          // Coach chose a specific team at login
+          const teamObj = displayTeams.find(t => t.id === coachTeamId);
+          if (teamObj) {
+              activeSchool = teamObj.schoolId;
+              setSelectedSchool(activeSchool);
+              setSelectedClassroom(coachTeamId);
+          }
+        } else {
+          if (role === 'school_admin' || role === 'teacher' || role === 'principal') {
+              if (selectedSchool === 'ALL') {
+              activeSchool = allSchools[0].id;
+              setSelectedSchool(activeSchool);
+              }
+          }
+          if (role === 'principal' || role === 'school_admin') {
+              setSelectedClassroom('ALL');
+          } else if (role === 'teacher') {
+              const firstClass = allTeams.find(c => c.schoolId === activeSchool);
+              if (firstClass) setSelectedClassroom(firstClass.id);
+          }
         }
-        if (role === 'principal' || role === 'school_admin') {
-            setSelectedClassroom('ALL');
-        } else if (role === 'teacher') {
-            const firstClass = allTeams.find(c => c.schoolId === activeSchool);
-            if (firstClass) setSelectedClassroom(firstClass.id);
-        }
-      }
-      setIsAuthenticated(true);
-    }} />;
+        setIsAuthenticated(true);
+      }} />;
   }
 
   return (
@@ -741,35 +956,46 @@ function App() {
         top: 0,
         zIndex: 100,
       }}>
-        {/* Logo + Brand */}
+        {/* Logo + Brand / Locked Tournament Session Indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '4px',
-            background: 'rgba(0, 38, 127, 0.35)', border: '1px solid rgba(255, 199, 38, 0.4)',
-            padding: '4px', borderRadius: '12px'
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: selectedTournament === 'PMC' ? 'rgba(0, 38, 127, 0.45)' : 'rgba(37, 99, 235, 0.15)',
+            border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(37, 99, 235, 0.4)',
+            padding: '6px 14px', borderRadius: '12px'
           }}>
-            <button
-              onClick={() => setSelectedTournament('PMC')}
-              style={{
-                padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
-                background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
-                color: selectedTournament === 'PMC' ? '#00267F' : 'var(--text-secondary)',
-                border: 'none', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
-              }}
-            >
-              🏆 Prime Minister's Cup
-            </button>
-            <button
-              onClick={() => setSelectedTournament('NSSL')}
-              style={{
-                padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
-                background: selectedTournament === 'NSSL' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                color: selectedTournament === 'NSSL' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                border: 'none', cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
-              }}
-            >
-              ⚽ National League
-            </button>
+            <span style={{
+              fontSize: '13px', fontWeight: '800',
+              color: selectedTournament === 'PMC' ? '#FFC726' : 'var(--primary-light)'
+            }}>
+              {selectedTournament === 'PMC' ? "Prime Minister's Cup" : "National Schools League"}
+            </span>
+            <span style={{
+              fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px',
+              background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }} title="Tournament mode is locked during session. Log out to switch tournaments.">
+              Active Session
+            </span>
+            {selectedTournament === 'PMC' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Reset PMC fixtures back to official default schedule (Bagatelle, Technique, Kickstart, UWI, Wales, Paradise)?")) {
+                    handleResetPmcMatches();
+                  }
+                }}
+                style={{
+                  fontSize: '10px', fontWeight: '800', padding: '3px 9px', borderRadius: '6px',
+                  background: 'rgba(255, 199, 38, 0.2)', color: '#FFC726',
+                  border: '1px solid rgba(255, 199, 38, 0.4)', cursor: 'pointer',
+                  marginLeft: '4px'
+                }}
+                title="Restore default Prime Minister's Cup fixture schedule"
+              >
+                Reset PMC Schedule
+              </button>
+            )}
           </div>
         </div>
 
@@ -885,11 +1111,11 @@ function App() {
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.22)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(34,197,94,0.12)'; }}
             >
-              ⚽ Match Centre
+              Match Centre
             </button>
           )}
 
-          {(userRole === 'analyst' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'league_admin') && (
+          {(userRole === 'analyst' || userRole === 'super_admin' || userRole === 'league_admin') && (
             <button
               onClick={() => setShowDataHub(true)}
               style={{
@@ -957,73 +1183,75 @@ function App() {
       <main style={{ flex: 1, padding: '20px 28px 24px', width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', minHeight: 0 }}>
 
         {/* Page Title & Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flexShrink: 0, marginBottom: '16px' }}>
-          <div>
-            <p style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Football Performance Dashboard
-            </p>
-            <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-0.5px', lineHeight: 1.1, color: 'var(--text-primary)', margin: '0 0 6px 0' }}>
-              {selectedSchool === 'ALL' ? 'Global Overview' : currentClassroom?.name}
-            </h1>
-            <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text-secondary)' }}>
-                {selectedSchool === 'ALL' ? `${currentSchool.name} · Open Data Hub for Analytics` : `${currentSchool.name} · ${currentClassroom?.ageGroup || ''} · ${students.length} players`}
-            </span>
+        {!['statistician', 'fourth_official', 'referee', 'commissioner'].includes(userRole) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flexShrink: 0, marginBottom: '16px' }}>
+            <div>
+              <p style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                Football Performance Dashboard
+              </p>
+              <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-0.5px', lineHeight: 1.1, color: 'var(--text-primary)', margin: '0 0 6px 0' }}>
+                {selectedSchool === 'ALL' ? 'Global Overview' : currentClassroom?.name}
+              </h1>
+              <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text-secondary)' }}>
+                  {selectedSchool === 'ALL' ? `${currentSchool.name} · Open Data Hub for Analytics` : `${currentSchool.name} · ${currentClassroom?.ageGroup || ''} · ${students.length} players`}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', position: 'relative', zIndex: 10 }}>
+               {/* Context Selectors */}
+               <CustomSelect
+                 value={selectedSchool}
+                 onChange={handleSchoolChange}
+                 disabled={userRole === 'coach'}
+                 placeholder="Select Academy / Club..."
+                 options={[
+                   { value: 'ALL', label: 'All Academies / Clubs' },
+                   ...displaySchools.map(s => ({ value: s.id, label: s.name }))
+                 ]}
+                 selectStyle={{
+                   padding: '8px 32px 8px 16px',
+                   borderRadius: '20px',
+                   fontSize: '13px',
+                   fontWeight: '600',
+                   boxShadow: 'var(--shadow-sm)',
+                 }}
+               />
+
+               {/* Team selector */}
+               <CustomSelect
+                 value={selectedClassroom}
+                 onChange={e => setSelectedClassroom(e.target.value)}
+                 disabled={selectedSchool === 'ALL' || userRole === 'coach'}
+                 placeholder="Select Squad..."
+                 options={[
+                   ...((userRole === 'principal' || userRole === 'school_admin') ? [{ value: 'ALL', label: 'All Squads' }] : []),
+                   ...schoolClassrooms.map(c => ({ value: c.id, label: c.name }))
+                 ]}
+                 selectStyle={{
+                   padding: '8px 32px 8px 16px',
+                   borderRadius: '20px',
+                   fontSize: '13px',
+                   fontWeight: '600',
+                   boxShadow: 'var(--shadow-sm)',
+                 }}
+                 style={{
+                   opacity: selectedSchool === 'ALL' ? 0.5 : 1,
+                 }}
+               />
+
+               <NavSelect value={selectedYear} onChange={e => setSelectedYear(e.target.value)} options={displayYears} />
+
+               {/* Actions */}
+               {selectedSchool !== 'ALL' && (
+                 <>
+                   <button onClick={() => setShowAddStudent(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Add Player </button>
+                   <button onClick={() => exportClassReport(students, subjects, selectedYear, selectedTerm, currentClassroom?.name, settings)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Export CSV </button>
+                   <button onClick={() => setShowImportCsv(true)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> Upload CSV </button>
+                 </>
+               )}
+            </div>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', position: 'relative', zIndex: 10 }}>
-             {/* Context Selectors */}
-             <CustomSelect
-               value={selectedSchool}
-               onChange={handleSchoolChange}
-               disabled={userRole === 'coach'}
-               placeholder="Select Academy..."
-               options={[
-                 { value: 'ALL', label: 'All Academies' },
-                 ...allSchools.map(s => ({ value: s.id, label: s.name }))
-               ]}
-               selectStyle={{
-                 padding: '8px 32px 8px 16px',
-                 borderRadius: '20px',
-                 fontSize: '13px',
-                 fontWeight: '600',
-                 boxShadow: 'var(--shadow-sm)',
-               }}
-             />
-
-             {/* Team selector */}
-             <CustomSelect
-               value={selectedClassroom}
-               onChange={e => setSelectedClassroom(e.target.value)}
-               disabled={selectedSchool === 'ALL' || userRole === 'coach'}
-               placeholder="Select Squad..."
-               options={[
-                 ...((userRole === 'principal' || userRole === 'school_admin') ? [{ value: 'ALL', label: 'All Squads' }] : []),
-                 ...schoolClassrooms.map(c => ({ value: c.id, label: c.name }))
-               ]}
-               selectStyle={{
-                 padding: '8px 32px 8px 16px',
-                 borderRadius: '20px',
-                 fontSize: '13px',
-                 fontWeight: '600',
-                 boxShadow: 'var(--shadow-sm)',
-               }}
-               style={{
-                 opacity: selectedSchool === 'ALL' ? 0.5 : 1,
-               }}
-             />
-
-             <NavSelect value={selectedYear} onChange={e => setSelectedYear(e.target.value)} options={YEARS} />
-
-             {/* Actions */}
-             {selectedSchool !== 'ALL' && (
-               <>
-                 <button onClick={() => setShowAddStudent(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Add Player </button>
-                 <button onClick={() => exportClassReport(students, subjects, selectedYear, selectedTerm, currentClassroom?.name, settings)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Export CSV </button>
-                 <button onClick={() => setShowImportCsv(true)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> Upload CSV </button>
-               </>
-             )}
-          </div>
-        </div>
+        )}
 
         {/* ── Dashboard Grid ──────────────────────────────────────── */}
         <div style={{ 
@@ -1036,19 +1264,15 @@ function App() {
           {(userRole === 'super_admin' || userRole === 'league_admin') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, minHeight: 0 }}>
               <div style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', padding: '4px', borderRadius: '10px', width: 'fit-content', border: 'var(--border)' }}>
-                {[
-                  { id: 'registrations', label: '📋 School & Player Registrations' },
-                  { id: 'competitions', label: '🛡️ Competition Setup' },
-                  { id: 'data_entry', label: '📊 Raw Data Sandbox' }
-                ].map(tab => (
+                {adminTabs.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setAdminTab(tab.id)}
                     style={{
                       padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
-                      background: adminTab === tab.id ? 'rgba(255,255,255,0.08)' : 'transparent',
-                      color: adminTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      cursor: 'pointer', transition: 'all 0.2s', border: 'none', outline: 'none'
+                      background: adminTab === tab.id ? (selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.18)' : 'rgba(255,255,255,0.08)') : 'transparent',
+                      color: adminTab === tab.id ? (selectedTournament === 'PMC' ? '#FFC726' : 'var(--text-primary)') : 'var(--text-secondary)',
+                      cursor: 'pointer', transition: 'all 0.2s', border: adminTab === tab.id && selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.35)' : 'none', outline: 'none'
                     }}
                   >
                     {tab.label}
@@ -1057,23 +1281,36 @@ function App() {
               </div>
               
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                {adminTab === 'registrations' && (
+                {adminTab === 'pmc_approvals' && (
+                  <CommissionerDashboard
+                    matches={displayMatches}
+                    schools={displaySchools}
+                    allTeams={displayTeams}
+                    allStudents={displayStudents}
+                    onUpdateMatch={handleUpdateMatch}
+                    onAddMatches={handleAddMatches}
+                  />
+                )}
+
+                {(adminTab === 'registrations' || adminTab === 'club_rosters') && (
                   <SchoolPlayerRegistration
-                    allPlayers={allStudents}
+                    allPlayers={displayStudents}
                     onDataUpdate={setAllStudents}
-                    schools={SCHOOLS}
-                    teams={allTeams}
+                    schools={displaySchools}
+                    teams={displayTeams}
+                    selectedTournament={selectedTournament}
                   />
                 )}
 
                 {adminTab === 'competitions' && (
                   <CompetitionAdmin
-                    schools={allSchools}
-                    teams={allTeams}
-                    matches={matches}
-                    allStudents={allStudents}
+                    schools={displaySchools}
+                    teams={displayTeams}
+                    matches={displayMatches}
+                    allStudents={displayStudents}
                     year={selectedYear}
                     onAddMatches={handleAddMatches}
+                    selectedTournament={selectedTournament}
                   />
                 )}
 
@@ -1112,13 +1349,13 @@ function App() {
                   onAddSubjectClick={() => setShowAddSubject(true)}
                   onOpenLogShotModal={(student, yr, tr) => setLogShotTarget({ student, year: yr, term: tr })}
                   schoolId={selectedSchool}
-                  schools={allSchools}
-                  allTeams={allTeams}
+                  schools={displaySchools}
+                  allTeams={displayTeams}
                   onAddTeam={handleAddTeam}
                   onAddPlayer={handleAddPlayer}
                   userRole={userRole}
-                  matches={matches}
-                  allPlayers={allStudents}
+                  matches={displayMatches}
+                  allPlayers={displayStudents}
                   onUpdateMatch={handleUpdateMatch}
               />
           )}
@@ -1127,7 +1364,7 @@ function App() {
           {(userRole === 'principal' && selectedClassroom === 'ALL') && (
               <PrincipalDashboard
                   students={students}
-                  allStudents={allStudents}
+                  allStudents={displayStudents}
                   selectedSchool={selectedSchool}
                   year={selectedYear}
                   term={selectedTerm}
@@ -1138,10 +1375,10 @@ function App() {
           {userRole === 'school_admin' && (
               <SchoolAdminDashboard
                   schoolId={selectedSchool}
-                  schools={allSchools}
-                  allPlayers={allStudents}
-                  allTeams={allTeams}
-                  matches={matches}
+                  schools={displaySchools}
+                  allPlayers={displayStudents}
+                  allTeams={displayTeams}
+                  matches={displayMatches}
                   onUpdateSchool={handleUpdateSchool}
                   onDataUpdate={setAllStudents}
               />
@@ -1150,37 +1387,67 @@ function App() {
           {/* Referee View */}
           {userRole === 'referee' && (
               <RefereeDashboard
-                  matches={matches}
-                  schools={allSchools}
-                  allPlayers={allStudents}
+                  matches={displayMatches}
+                  schools={displaySchools}
+                  allPlayers={displayStudents}
                   year={selectedYear}
+                  currentReferee={currentReferee}
                   onUpdateMatch={handleUpdateMatch}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentReferee(null);
+                  }}
               />
           )}
 
           {/* Fourth Official View */}
           {userRole === 'fourth_official' && (
               <FourthOfficialDashboard
-                  matches={matches}
-                  schools={allSchools}
-                  allPlayers={allStudents}
+                  matches={displayMatches}
+                  schools={displaySchools}
+                  allPlayers={displayStudents}
+                  currentOfficial={currentFourthOfficial}
                   onUpdateMatch={handleUpdateMatch}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentFourthOfficial(null);
+                  }}
               />
           )}
 
           {/* Match Commissioner View */}
           {userRole === 'commissioner' && (
               <CommissionerDashboard
-                  matches={matches}
-                  schools={allSchools}
-                  allTeams={allTeams}
+                  matches={displayMatches}
+                  schools={displaySchools}
+                  allTeams={displayTeams}
                   onUpdateMatch={handleUpdateMatch}
                   onAddMatches={handleAddMatches}
               />
           )}
 
-          {/* Statistician & Analyst View */}
-          {(userRole === 'analyst' || userRole === 'statistician') && (
+          {/* Field Live Data Capturer (Statistician View) */}
+          {userRole === 'statistician' && (
+              <StatisticianDashboard
+                  matches={displayMatches}
+                  schools={displaySchools}
+                  allPlayers={displayStudents}
+                  year={selectedYear}
+                  currentAnalyst={currentAnalyst}
+                  initialDirectMatchId={directMatchId}
+                  onClearDirectMatchId={() => setDirectMatchId(null)}
+                  onUpdateMatch={handleUpdateMatch}
+                  onEndMatch={handleEndMatch}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentAnalyst(null);
+                      setDirectMatchId(null);
+                  }}
+              />
+          )}
+
+          {/* Analyst Raw Data Sandbox View */}
+          {userRole === 'analyst' && (
               <DataEntryPanel
                   students={students}
                   year={selectedYear}
@@ -1244,10 +1511,10 @@ function App() {
 
       {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin') && (
         <MatchCentre
-          allStudents={allStudents}
+          allStudents={displayStudents}
           year={selectedYear}
           term={selectedTerm}
-          matches={matches}
+          matches={displayMatches}
           onEndMatch={handleEndMatch}
           onUpdateMatch={handleUpdateMatch}
           onClose={() => setShowMatchCentre(false)}
