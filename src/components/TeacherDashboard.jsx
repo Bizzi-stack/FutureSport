@@ -15,7 +15,7 @@ export default function TeacherDashboard({
     onStudentClick, onDataUpdate, onRemoveSubject, onRemoveStudent, onAddSubjectClick,
     onOpenLogShotModal,
     schoolId, schools, allTeams, onAddTeam, onAddPlayer, onImportPlayers,
-    userRole, matches, allPlayers, onUpdateMatch, selectedClassroom
+    userRole, matches, allPlayers, onUpdateMatch, selectedClassroom, readOnly = false
 }) {
     const [alerts, setAlerts] = useState([]);
     const [dismissedIds, setDismissedIds] = useState(new Set());
@@ -324,27 +324,40 @@ export default function TeacherDashboard({
                             >
                                 <span>📄</span> Download CSV Template
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowUploadCsvModal(true)}
-                                style={{
-                                    padding: '8px 18px', borderRadius: '20px', background: 'rgba(99, 102, 241, 0.15)',
-                                    color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.35)', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer',
+                            {!readOnly && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowUploadCsvModal(true)}
+                                        style={{
+                                            padding: '8px 18px', borderRadius: '20px', background: 'rgba(99, 102, 241, 0.15)',
+                                            color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.35)', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '6px'
+                                        }}
+                                    >
+                                        <span>📥</span> Upload CSV Roster
+                                    </button>
+                                    <button
+                                        onClick={() => setShowRegisterPlayer(true)}
+                                        style={{
+                                            padding: '8px 20px', borderRadius: '20px', background: 'var(--primary)',
+                                            color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
+                                        }}
+                                    >
+                                        + Register New Player
+                                    </button>
+                                </>
+                            )}
+                            {readOnly && (
+                                <span style={{
+                                    padding: '6px 14px', borderRadius: '20px', background: 'rgba(56, 189, 248, 0.1)',
+                                    color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '12px', fontWeight: '700',
                                     display: 'flex', alignItems: 'center', gap: '6px'
-                                }}
-                            >
-                                <span>📥</span> Upload CSV Roster
-                            </button>
-                            <button
-                                onClick={() => setShowRegisterPlayer(true)}
-                                style={{
-                                    padding: '8px 20px', borderRadius: '20px', background: 'var(--primary)',
-                                    color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
-                                }}
-                            >
-                                + Register New Player
-                            </button>
+                                }}>
+                                    👁️ Read-Only Roster Mode
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -365,7 +378,14 @@ export default function TeacherDashboard({
                                 const status = player.status || 'approved';
                                 const pid = player.playerId || `PID-PMC-${String(player.id).padStart(5, '0')}`;
                                 return (
-                                    <tr key={player.id} style={{ borderBottom: 'var(--border)' }}>
+                                    <tr 
+                                        key={player.id} 
+                                        onClick={() => onStudentClick && onStudentClick(player)}
+                                        style={{ borderBottom: 'var(--border)', cursor: 'pointer', transition: 'background 0.15s ease' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        title="Click to view full player stats, pizza radar chart, and shot logs"
+                                    >
                                         <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <div style={{

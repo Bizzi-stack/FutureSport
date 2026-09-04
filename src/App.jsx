@@ -598,27 +598,38 @@ function App() {
   const [logShotTarget, setLogShotTarget] = useState(null); // { student, year, term }
   const [adminTab, setAdminTab] = useState(() => selectedTournament === 'PMC' ? 'pmc_approvals' : 'registrations');
 
+  const isSupervisor = userRole === 'supervisor';
+  const isReadOnly = isSupervisor;
+
   const adminTabs = useMemo(() => {
     if (selectedTournament === 'PMC') {
-      return [
+      const tabs = [
+        { id: 'club_rosters', label: 'Senior Club Roster Directory' },
         { id: 'pmc_approvals', label: 'PMC Match Verification & Approvals' },
-        { id: 'competitions', label: 'PMC Fixtures & Standings' },
-        { id: 'club_rosters', label: 'Senior Club Roster Directory' }
+        { id: 'competitions', label: 'PMC Fixtures & Standings' }
       ];
+      if (userRole === 'supervisor') {
+        tabs.push({ id: 'club_hub', label: 'Club Stats & Tactics Hub' });
+      }
+      return tabs;
     }
-    return [
+    const tabs = [
       { id: 'registrations', label: 'School & Player Registrations' },
       { id: 'competitions', label: 'Competition Setup' }
     ];
-  }, [selectedTournament]);
+    if (userRole === 'supervisor') {
+      tabs.push({ id: 'club_hub', label: 'School Stats & Squad Hub' });
+    }
+    return tabs;
+  }, [selectedTournament, userRole]);
 
   useEffect(() => {
-    if (selectedTournament === 'PMC' && !['pmc_approvals', 'competitions', 'club_rosters', 'data_entry'].includes(adminTab)) {
-      setAdminTab('pmc_approvals');
-    } else if (selectedTournament !== 'PMC' && !['registrations', 'competitions', 'data_entry'].includes(adminTab)) {
+    if (selectedTournament === 'PMC' && !['pmc_approvals', 'competitions', 'club_rosters', 'club_hub', 'data_entry'].includes(adminTab)) {
+      setAdminTab(userRole === 'supervisor' ? 'club_rosters' : 'pmc_approvals');
+    } else if (selectedTournament !== 'PMC' && !['registrations', 'competitions', 'club_hub', 'data_entry'].includes(adminTab)) {
       setAdminTab('registrations');
     }
-  }, [selectedTournament, adminTab]);
+  }, [selectedTournament, adminTab, userRole]);
 
   const handleAddMatches = (newMatches) => {
     const addFn = prev => {
@@ -1014,7 +1025,16 @@ function App() {
           }
         }
 
-        if (role === 'coach' && coachTeamId) {
+        if (role === 'supervisor') {
+          // Initialize supervisor to first school and team for seamless browsing
+          if (displaySchools && displaySchools.length > 0) {
+            activeSchool = displaySchools[0].id;
+            setSelectedSchool(activeSchool);
+            const firstTeam = displayTeams.find(c => c.schoolId === activeSchool);
+            if (firstTeam) setSelectedClassroom(firstTeam.id);
+          }
+          setAdminTab(selectedTournament === 'PMC' ? 'club_rosters' : 'registrations');
+        } else if (role === 'coach' && coachTeamId) {
           // Coach chose a specific team at login
           const teamObj = displayTeams.find(t => t.id === coachTeamId);
           if (teamObj) {
@@ -1078,7 +1098,16 @@ function App() {
             }} title="Tournament mode is locked during session. Log out to switch tournaments.">
               Active Session
             </span>
-            {selectedTournament === 'PMC' && (
+            {isSupervisor && (
+              <span style={{
+                fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '6px',
+                background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.45)', display: 'flex', alignItems: 'center', gap: '5px'
+              }} title="Executive Supervisor: Read-only observation across all clubs and records">
+                👁️ Supervisor (Read-Only)
+              </span>
+            )}
+            {selectedTournament === 'PMC' && !isReadOnly && (
               <button
                 type="button"
                 onClick={() => {
@@ -1193,7 +1222,7 @@ function App() {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
 
 
-          {(userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin') && (
+          {(userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'supervisor') && (
             <button
               onClick={() => setShowMatchCentre(true)}
               style={{
@@ -1234,7 +1263,10 @@ function App() {
           </button>
 
           <button
-            onClick={() => setUserRole(null)}
+            onClick={() => {
+              setUserRole(null);
+              setIsAuthenticated(false);
+            }}
             style={{
               width: '38px', height: '38px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1322,9 +1354,13 @@ function App() {
                {/* Actions */}
                {selectedSchool !== 'ALL' && (
                  <>
-                   <button onClick={() => setShowAddStudent(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Add Player </button>
+                   {!isReadOnly && (
+                     <button onClick={() => setShowAddStudent(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Add Player </button>
+                   )}
                    <button onClick={() => exportClassReport(students, subjects, selectedYear, selectedTerm, currentClassroom?.name, settings)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}> Export CSV </button>
-                   <button onClick={() => setShowImportCsv(true)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> Upload CSV </button>
+                   {!isReadOnly && (
+                     <button onClick={() => setShowImportCsv(true)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 20px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-primary)', border: 'var(--border)', borderRadius: '20px', fontSize: '13px', fontWeight: '600', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg> Upload CSV </button>
+                   )}
                  </>
                )}
             </div>
@@ -1338,8 +1374,8 @@ function App() {
           gap: '20px', flex: 1, minHeight: 0 
         }}>
 
-          {/* Super Admin & League Admin Tabbed Layout */}
-          {(userRole === 'super_admin' || userRole === 'league_admin') && (
+          {/* Super Admin & League Admin & Supervisor Tabbed Layout */}
+          {(userRole === 'super_admin' || userRole === 'league_admin' || userRole === 'supervisor') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, minHeight: 0 }}>
               <div style={{ display: 'flex', gap: '4px', background: 'rgba(255, 255, 255, 0.03)', padding: '4px', borderRadius: '10px', width: 'fit-content', border: 'var(--border)' }}>
                 {adminTabs.map(tab => (
@@ -1367,6 +1403,7 @@ function App() {
                     allStudents={displayStudents}
                     onUpdateMatch={handleUpdateMatch}
                     onAddMatches={handleAddMatches}
+                    readOnly={isReadOnly}
                   />
                 )}
 
@@ -1378,6 +1415,8 @@ function App() {
                     schools={displaySchools}
                     teams={displayTeams}
                     selectedTournament={selectedTournament}
+                    readOnly={isReadOnly}
+                    onStudentClick={setSelectedStudent}
                   />
                 )}
 
@@ -1391,6 +1430,35 @@ function App() {
                     onUpdateMatch={handleUpdateMatch}
                     onAddMatches={handleAddMatches}
                     selectedTournament={selectedTournament}
+                    readOnly={isReadOnly}
+                  />
+                )}
+
+                {adminTab === 'club_hub' && (
+                  <TeacherDashboard 
+                      students={students} 
+                      year={selectedYear} 
+                      term={selectedTerm} 
+                      subjects={subjects}
+                      settings={settings}
+                      selectedClassroom={selectedClassroom}
+                      onStudentClick={setSelectedStudent} 
+                      onDataUpdate={handleDataUpdate}
+                      onRemoveSubject={handleRemoveSubject}
+                      onRemoveStudent={handleRemoveStudent}
+                      onAddSubjectClick={() => setShowAddSubject(true)}
+                      onOpenLogShotModal={(student, yr, tr) => setLogShotTarget({ student, year: yr, term: tr })}
+                      schoolId={selectedSchool}
+                      schools={displaySchools}
+                      allTeams={displayTeams}
+                      onAddTeam={handleAddTeam}
+                      onAddPlayer={handleAddPlayer}
+                      onImportPlayers={handleImportPlayers}
+                      userRole={userRole}
+                      matches={displayMatches}
+                      allPlayers={displayStudents}
+                      onUpdateMatch={handleUpdateMatch}
+                      readOnly={isReadOnly}
                   />
                 )}
               </div>
@@ -1564,7 +1632,7 @@ function App() {
         />
       )}
 
-      {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin') && (
+      {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'supervisor') && (
         <MatchCentre
           allStudents={displayStudents}
           year={selectedYear}
@@ -1573,6 +1641,7 @@ function App() {
           onEndMatch={handleEndMatch}
           onUpdateMatch={handleUpdateMatch}
           onClose={() => setShowMatchCentre(false)}
+          readOnly={isReadOnly}
         />
       )}
 

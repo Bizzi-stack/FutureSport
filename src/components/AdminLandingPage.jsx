@@ -279,6 +279,7 @@ const AdminLandingPage = ({
                     <option value="super_admin">
                       {selectedTournament === 'PMC' ? "PMC Tournament Director / Super Admin" : "Schools League Super Administrator"}
                     </option>
+                    <option value="supervisor">Executive Supervisor / Observer (Read-Only)</option>
                     {selectedTournament !== 'PMC' && <option value="league_admin">League Administrator</option>}
                     {selectedTournament !== 'PMC' && <option value="school_admin">School Administrator</option>}
                     <option value="coach">Coach / Team Manager</option>
@@ -472,6 +473,23 @@ const AdminLandingPage = ({
                   </div>
                 )}
 
+                {/* Supervisor Role Notice */}
+                {selectedRole === 'supervisor' && (
+                  <div style={{
+                    padding: '10px 14px', borderRadius: '8px',
+                    background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)',
+                    color: '#38bdf8', fontSize: '12px', lineHeight: '1.45',
+                    display: 'flex', flexDirection: 'column', gap: '4px'
+                  }}>
+                    <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>👁️</span> Executive Supervisor Session (Read-Only)
+                    </div>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '11px' }}>
+                      Allows complete observation access to inspect all clubs, player rosters, performance radar profiles, fixtures, and commissioner verifications without modifying any data.
+                    </span>
+                  </div>
+                )}
+
                 {/* Password Input */}
                 <div className="login-form-group" style={{ marginBottom: 0 }}>
                   <label htmlFor="password-input" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
@@ -492,6 +510,11 @@ const AdminLandingPage = ({
                   Log in to Dashboard
                 </button>
 
+                {selectedRole === 'supervisor' && (
+                  <div style={{ textAlign: 'center', fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '2px' }}>
+                    Supervisor Access Password: <code style={{ color: '#38bdf8', fontWeight: '700' }}>password</code>
+                  </div>
+                )}
               </form>
             </div>
 
