@@ -229,7 +229,7 @@ export default function TeacherDashboard({
                             Matchday Squad
                         </button>
                     )}
-                    {liveMatch && userRole === 'coach' && (
+                    {userRole === 'coach' && (
                         <button
                             onClick={() => setMainTab('live')}
                             style={{
@@ -237,16 +237,24 @@ export default function TeacherDashboard({
                                 borderRadius: '20px',
                                 fontSize: '13px',
                                 fontWeight: '800',
-                                background: mainTab === 'live' ? 'rgba(244,63,94,0.15)' : 'transparent',
-                                color: mainTab === 'live' ? 'var(--danger)' : 'var(--text-secondary)',
-                                border: mainTab === 'live' ? '1px solid rgba(244,63,94,0.3)' : '1px solid transparent',
+                                background: mainTab === 'live' ? 'rgba(34,197,94,0.18)' : (liveMatch ? 'rgba(244,63,94,0.12)' : 'rgba(255,255,255,0.04)'),
+                                color: mainTab === 'live' ? '#4ade80' : (liveMatch ? 'var(--danger)' : 'var(--text-secondary)'),
+                                border: mainTab === 'live' ? '1px solid rgba(34,197,94,0.4)' : (liveMatch ? '1px solid rgba(244,63,94,0.3)' : '1px solid rgba(255,255,255,0.08)'),
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                display: 'flex', alignItems: 'center', gap: '6px'
+                                display: 'flex', alignItems: 'center', gap: '8px'
                             }}
                         >
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', boxShadow: '0 0 8px var(--danger)' }}></span>
-                            LIVE MATCH
+                            {liveMatch ? (
+                                <>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', boxShadow: '0 0 8px var(--danger)' }}></span>
+                                    <span>LIVE TACTICS &amp; SUBS ({liveMatch.homeScore ?? 0} - {liveMatch.awayScore ?? 0})</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>⚡ In-Game Tactics &amp; Subs</span>
+                                </>
+                            )}
                         </button>
                     )}
                     <button
@@ -433,11 +441,15 @@ export default function TeacherDashboard({
                 />
             )}
 
-            {mainTab === 'live' && liveMatch && userRole === 'coach' && (
+            {mainTab === 'live' && userRole === 'coach' && (
                 <CoachLiveManagement
                     match={liveMatch}
+                    matches={matches}
+                    schoolId={schoolId}
+                    schools={schools}
+                    allTeams={allTeams}
                     teamId={selectedClassroom}
-                    allPlayers={allPlayers}
+                    allPlayers={allPlayers || students}
                     year={year}
                     onUpdateMatch={onUpdateMatch}
                 />
