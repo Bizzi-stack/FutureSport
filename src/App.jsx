@@ -540,19 +540,15 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-matches-v4');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v5');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasPmcClub = parsed.some(m => 
-            String(m.homeTeamId).includes('pmc-club') || 
-            String(m.id).includes('pmc') || 
-            String(m.homeTeam).includes('Bagatelle') || 
-            String(m.homeTeam).includes('Kickstart') || 
-            String(m.homeTeam).includes('Technique')
-          );
+        if (Array.isArray(parsed) && parsed.length >= 40) {
+          const hasPmcClub = parsed.some(m => String(m.homeTeamId || '').includes('pmc-club'));
           const hasWotton = parsed.some(m => m.homeTeam === 'WOTTON' || m.awayTeam === 'WOTTON');
-          if (hasPmcClub && hasWotton && parsed.length >= 40) {
+          // Verify upcoming matches are fresh (not locked with pre-confirmed squads)
+          const hasFreshUpcoming = parsed.some(m => (m.status === 'upcoming' || m.status === 'scheduled') && !m.homeSquadSelection?.confirmedAt);
+          if (hasPmcClub && hasWotton && hasFreshUpcoming) {
             return sanitizeMatchState(parsed);
           }
         }
@@ -572,7 +568,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v4', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v5', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -581,7 +577,14 @@ function App() {
     const unsubscribe = subscribeToRealtimeSync((cloudMatches) => {
       if (cloudMatches && Array.isArray(cloudMatches) && cloudMatches.length > 0) {
         const sanitizedCloud = sanitizeMatchState(cloudMatches);
-        if (selectedTournament === 'PMC') {
+        // Accurately route cloud dataset to PMC or NSSL by inspecting match identifiers
+        const isPmcDataset = sanitizedCloud.some(m => 
+          String(m.homeTeamId || '').includes('pmc-club') || 
+          String(m.id || '').includes('pmc') ||
+          m.ageGroup === 'PMC'
+        );
+
+        if (isPmcDataset) {
           setPmcMatches(sanitizedCloud);
         } else {
           setMatches(sanitizedCloud);
@@ -647,7 +650,7 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.setItem('eduvision-pmc-matches-v4', JSON.stringify(sanitized));
+      localStorage.setItem('eduvision-pmc-matches-v5', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
