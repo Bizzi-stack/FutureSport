@@ -540,7 +540,7 @@ GROUP_MATCHDAYS.forEach(md => {
                     commissioner: 'Sarah Rollins (Verified Official)'
                 });
             } else {
-                // Scheduled fixture with pre-submitted Starting XIs ready for 1-click kick-off
+                // Scheduled fixture ready for fresh coach matchday squad selection and submission
                 generatedMatches.push({
                     id: `pmc-fixture-${matchId}`,
                     homeTeam: homeClub.name,
@@ -558,18 +558,8 @@ GROUP_MATCHDAYS.forEach(md => {
                     ageGroup: 'PMC',
                     homePlayers: homeP,
                     awayPlayers: awayP,
-                    homeSquadSelection: {
-                        startingXI: homeP.slice(0, 11),
-                        benchPlayers: homeP.slice(11, 18),
-                        formation: '4-3-3',
-                        confirmedAt: new Date().toISOString()
-                    },
-                    awaySquadSelection: {
-                        startingXI: awayP.slice(0, 11),
-                        benchPlayers: awayP.slice(11, 18),
-                        formation: '4-2-3-1',
-                        confirmedAt: new Date().toISOString()
-                    },
+                    homeSquadSelection: null,
+                    awaySquadSelection: null,
                     liveState: {
                         period: '1H',
                         isRunning: false,

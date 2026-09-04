@@ -11,6 +11,7 @@ import {
     sendSuperAdminSquadSubmissionAlert,
     getRefereeContactSettings 
 } from '../services/refereeNotificationService';
+import { PMC_MATCHES } from '../utils/pmcDataLoader';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 // Each row has: y position (% from top), count of players, role, and position labels
@@ -187,6 +188,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     }, [allTeams, schoolId]);
 
     const myMatches = useMemo(() => {
+        const pool = (matches && matches.length > 0) ? matches : (PMC_MATCHES || []);
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
         const schoolNameStr = schoolObj?.name || schoolName || '';
         const cleanSchoolId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
@@ -195,20 +197,47 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             schoolId, cleanSchoolId, schoolNameStr,
             schoolObj?.id, schoolObj?.name, schoolObj?.rawId,
             ...(allTeams || []).filter(t => t.schoolId === schoolId || t.schoolId === schoolObj?.id).flatMap(t => [t.id, t.name, t.schoolId])
-        ].filter(Boolean).map(x => String(x).toLowerCase());
+        ].filter(Boolean).map(x => String(x).toLowerCase().trim());
 
-        return (matches || []).filter(m => {
-            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase());
-            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+        const filterFromList = (list) => (list || []).filter(m => {
+            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase().trim());
+            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase().trim());
 
             const isHome = homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
             const isAway = awayVals.some(a => targets.some(t => a.includes(t) || t.includes(a)));
             return isHome || isAway;
         });
+
+        let found = filterFromList(pool);
+        // Fallback 1: If parent matches lacked fixtures for this school, check master PMC_MATCHES
+        if (found.length === 0 && pool !== PMC_MATCHES) {
+            found = filterFromList(PMC_MATCHES);
+        }
+        // Fallback 2: Normalized fuzzy substring match on team/club name
+        if (found.length === 0 && schoolNameStr) {
+            const normTarget = schoolNameStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+            found = (PMC_MATCHES || []).filter(m => {
+                const hNorm = String(m.homeTeam || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const aNorm = String(m.awayTeam || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                return (hNorm && (hNorm.includes(normTarget) || normTarget.includes(hNorm))) ||
+                       (aNorm && (aNorm.includes(normTarget) || normTarget.includes(aNorm)));
+            });
+        }
+        return found;
     }, [matches, schoolId, schoolName, schools, allTeams]);
 
     const selectedMatch = useMemo(() => {
-        return myMatches.find(m => m.id === selectedMatchId) || myMatches[0] || null;
+        if (!myMatches || myMatches.length === 0) return null;
+        if (selectedMatchId) {
+            const found = myMatches.find(m => m.id === selectedMatchId);
+            if (found) return found;
+        }
+        // Default to upcoming/scheduled fixture so coach lands directly on match requiring squad selection
+        const upcoming = myMatches.find(m => m.status === 'upcoming' || m.status === 'scheduled');
+        if (upcoming) return upcoming;
+        const live = myMatches.find(m => m.status === 'live');
+        if (live) return live;
+        return myMatches[0];
     }, [myMatches, selectedMatchId]);
 
     const isHome = useMemo(() => {
@@ -444,6 +473,18 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         }, 6000);
     };
 
+    const handleReopenSquad = () => {
+        if (!selectedMatch) return;
+        const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+        const updatedMatch = {
+            ...selectedMatch,
+            [squadKey]: null
+        };
+        onUpdateMatch(updatedMatch);
+        setSubmitSuccess(false);
+        setNotificationInfo(null);
+    };
+
     const handleSendCoachSelfReminder = async () => {
         if (!selectedMatch) return;
         const opponentId = isHome ? selectedMatch.awayTeamId : selectedMatch.homeTeamId;
@@ -466,7 +507,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     const alreadySubmitted = useMemo(() => {
         if (!selectedMatch) return false;
         const key = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
-        return !!selectedMatch[key];
+        return !!(selectedMatch[key]?.confirmedAt || selectedMatch[key]?.submittedAt);
     }, [selectedMatch, isHome]);
 
     const pitchSlots = useMemo(() => {
@@ -534,9 +575,12 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             {myMatches.map(m => {
-                                const isMatchHome = String(m.homeTeamId).toLowerCase().includes(String(schoolId).toLowerCase().replace('-team-pmc', ''));
+                                const cleanId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
+                                const cleanName = String(schoolName || '').toLowerCase().trim();
+                                const isMatchHome = String(m.homeTeamId || '').toLowerCase().includes(cleanId) ||
+                                                    String(m.homeTeam || '').toLowerCase().includes(cleanName);
                                 const squadKey = isMatchHome ? 'homeSquadSelection' : 'awaySquadSelection';
-                                const submitted = !!m[squadKey];
+                                const submitted = !!(m[squadKey]?.confirmedAt || m[squadKey]?.submittedAt);
                                 const isFinished = m.status === 'completed' || m.status === 'refereed';
                                 return (
                                     <div key={m.id} onClick={() => handleSelectMatch(m.id)} style={{
@@ -598,7 +642,22 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                             Match Completed ({selectedMatch.homeScore} - {selectedMatch.awayScore})
                                         </span>
                                     ) : alreadySubmitted ? (
-                                        <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>Squad Submitted</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>Squad Submitted</span>
+                                            <button
+                                                type="button"
+                                                onClick={handleReopenSquad}
+                                                style={{
+                                                    padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '800',
+                                                    background: 'rgba(255,199,38,0.15)', color: '#FFC726', border: '1px solid rgba(255,199,38,0.4)',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'
+                                                }}
+                                                title="Reopen pitch to make changes and submit again"
+                                            >
+                                                <span>✏️</span>
+                                                <span>Edit / Reopen Squad</span>
+                                            </button>
+                                        </div>
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <button
@@ -1153,17 +1212,42 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     ✓ Squad submitted! The statistician will see your Starting XI and Bench for this match.
                                 </div>
                             )}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-                                <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11 || alreadySubmitted} style={{
-                                    padding: '10px 28px', borderRadius: '24px', fontSize: '13px', fontWeight: '800',
-                                    background: (selectedStartingXIIds.length === 11 && !alreadySubmitted) ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                    color: (selectedStartingXIIds.length === 11 && !alreadySubmitted) ? '#ffffff' : 'var(--text-muted)',
-                                    border: 'none', cursor: (selectedStartingXIIds.length === 11 && !alreadySubmitted) ? 'pointer' : 'not-allowed',
-                                    boxShadow: (selectedStartingXIIds.length === 11 && !alreadySubmitted) ? '0 4px 14px rgba(37,99,235,0.3)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}>
-                                    {alreadySubmitted ? 'Squad Already Submitted' : `Submit Squad (${formation})`}
-                                </button>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                                {alreadySubmitted ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={handleReopenSquad}
+                                            style={{
+                                                padding: '10px 24px', borderRadius: '24px', fontSize: '13px', fontWeight: '800',
+                                                background: 'rgba(255, 199, 38, 0.15)', color: '#FFC726',
+                                                border: '1px solid rgba(255, 199, 38, 0.4)', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s'
+                                            }}
+                                            title="Reopen pitch to make modifications to starting XI or bench"
+                                        >
+                                            <span>✏️</span>
+                                            <span>Edit / Resubmit Squad</span>
+                                        </button>
+                                        <div style={{
+                                            padding: '10px 20px', borderRadius: '24px', fontSize: '13px', fontWeight: '700',
+                                            background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)'
+                                        }}>
+                                            ✓ Squad Submitted
+                                        </div>
+                                    </>
+                                ) : (
+                                    <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{
+                                        padding: '10px 28px', borderRadius: '24px', fontSize: '13px', fontWeight: '800',
+                                        background: selectedStartingXIIds.length === 11 ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                        color: selectedStartingXIIds.length === 11 ? '#ffffff' : 'var(--text-muted)',
+                                        border: 'none', cursor: selectedStartingXIIds.length === 11 ? 'pointer' : 'not-allowed',
+                                        boxShadow: selectedStartingXIIds.length === 11 ? '0 4px 14px rgba(37,99,235,0.3)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}>
+                                        Submit Matchday Squad ({formation})
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
