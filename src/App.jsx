@@ -378,6 +378,25 @@ function App() {
       localStorage.setItem('eduvision-students', JSON.stringify(cleaned));
     } catch { /* ignored */ }
   }, [allStudents]);
+
+  const [pmcStudents, setPmcStudents] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eduvision-pmc-students-v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (err) {
+      console.error("Error loading eduvision-pmc-students:", err);
+    }
+    return PMC_STUDENTS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eduvision-pmc-students-v1', JSON.stringify(pmcStudents));
+    } catch {}
+  }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
     try {
       const saved = localStorage.getItem('eduvision-teams');
@@ -593,7 +612,7 @@ function App() {
   // Derive active tournament datasets
   const displaySchools = useMemo(() => selectedTournament === 'PMC' ? PMC_SCHOOLS : allSchools, [selectedTournament, allSchools]);
   const displayTeams = useMemo(() => selectedTournament === 'PMC' ? PMC_TEAMS : allTeams, [selectedTournament, allTeams]);
-  const displayStudents = useMemo(() => selectedTournament === 'PMC' ? PMC_STUDENTS : allStudents, [selectedTournament, allStudents]);
+  const displayStudents = useMemo(() => selectedTournament === 'PMC' ? pmcStudents : allStudents, [selectedTournament, pmcStudents, allStudents]);
   const displayMatches = useMemo(() => selectedTournament === 'PMC' ? pmcMatches : matches, [selectedTournament, pmcMatches, matches]);
   const displayYears = useMemo(() => selectedTournament === 'PMC' ? PMC_YEARS : YEARS, [selectedTournament]);
 
@@ -678,25 +697,79 @@ function App() {
   };
 
   const handleAddPlayer = (playerInfo) => {
-    const maxId = allStudents.reduce((m, s) => Math.max(m, s.id), 0);
+    const isPmc = selectedTournament === 'PMC';
+    const currentList = isPmc ? pmcStudents : allStudents;
+    const maxId = currentList.reduce((m, s) => Math.max(m, Number(s.id) || 0), 0);
+    const newId = maxId + 1;
+    const newPid = playerInfo.playerId || `PID-${isPmc ? 'PMC' : '2026'}-${String(newId).padStart(5, '0')}`;
+
     const newPlayer = {
-      id: maxId + 1,
+      id: newId,
+      playerId: newPid,
       name: playerInfo.name,
-      schoolId: selectedSchool,
+      schoolId: playerInfo.schoolId || selectedSchool,
       teamAssignments: { [selectedYear]: selectedClassroom },
       performance: {},
       matchStats: {},
       extracurriculars: [],
-      dob: playerInfo.dob,
-      gender: playerInfo.gender,
-      position: playerInfo.position,
-      preferredFoot: playerInfo.preferredFoot,
-      jerseyNumber: playerInfo.jerseyNumber,
-      medicalInfo: playerInfo.medicalInfo,
-      emergencyContact: playerInfo.emergencyContact,
-      status: 'pending'
+      dob: playerInfo.dob || '2008-01-01',
+      age: playerInfo.age || 18,
+      gender: playerInfo.gender || 'Boy',
+      position: playerInfo.position || 'Midfielder',
+      preferredFoot: playerInfo.preferredFoot || 'Right',
+      jerseyNumber: playerInfo.jerseyNumber != null ? Number(playerInfo.jerseyNumber) : null,
+      medicalInfo: playerInfo.medicalInfo || 'None',
+      emergencyContact: playerInfo.emergencyContact || 'Team Staff',
+      documents: playerInfo.documents || { birthCertificate: true, schoolEnrollment: true },
+      status: playerInfo.status || 'approved'
     };
-    setAllStudents(prev => [...prev, newPlayer]);
+
+    if (isPmc) {
+      setPmcStudents(prev => [...prev, newPlayer]);
+    } else {
+      setAllStudents(prev => [...prev, newPlayer]);
+    }
+    return newPlayer;
+  };
+
+  const handleImportPlayers = (newPlayersList) => {
+    if (!Array.isArray(newPlayersList) || newPlayersList.length === 0) return;
+    const isPmc = selectedTournament === 'PMC';
+
+    const enrichPlayer = (p, idx, baseMaxId) => {
+      const pId = Number(p.id) || (baseMaxId + idx + 1);
+      const pidStr = p.playerId || `PID-${isPmc ? 'PMC' : '2026'}-${String(pId).padStart(5, '0')}`;
+      return {
+        ...p,
+        id: pId,
+        playerId: pidStr,
+        schoolId: p.schoolId || selectedSchool,
+        teamAssignments: p.teamAssignments || { [selectedYear]: selectedClassroom },
+        status: p.status || 'approved'
+      };
+    };
+
+    if (isPmc) {
+      setPmcStudents(prev => {
+        const baseMax = prev.reduce((m, s) => Math.max(m, Number(s.id) || 0), 0);
+        const existingIds = new Set(prev.map(p => String(p.id)));
+        const existingPids = new Set(prev.map(p => String(p.playerId)));
+        
+        const toAdd = newPlayersList.map((p, i) => enrichPlayer(p, i, baseMax))
+          .filter(p => !existingIds.has(String(p.id)) && !existingPids.has(String(p.playerId)));
+        return [...prev, ...toAdd];
+      });
+    } else {
+      setAllStudents(prev => {
+        const baseMax = prev.reduce((m, s) => Math.max(m, Number(s.id) || 0), 0);
+        const existingIds = new Set(prev.map(p => String(p.id)));
+        const existingPids = new Set(prev.map(p => String(p.playerId)));
+        
+        const toAdd = newPlayersList.map((p, i) => enrichPlayer(p, i, baseMax))
+          .filter(p => !existingIds.has(String(p.id)) && !existingPids.has(String(p.playerId)));
+        return [...prev, ...toAdd];
+      });
+    }
   };
 
   const handleAddStudent = (fullName) => {
@@ -1268,7 +1341,8 @@ function App() {
                 {(adminTab === 'registrations' || adminTab === 'club_rosters') && (
                   <SchoolPlayerRegistration
                     allPlayers={displayStudents}
-                    onDataUpdate={setAllStudents}
+                    onDataUpdate={selectedTournament === 'PMC' ? setPmcStudents : setAllStudents}
+                    onImportPlayers={handleImportPlayers}
                     schools={displaySchools}
                     teams={displayTeams}
                     selectedTournament={selectedTournament}
@@ -1311,6 +1385,7 @@ function App() {
                   allTeams={displayTeams}
                   onAddTeam={handleAddTeam}
                   onAddPlayer={handleAddPlayer}
+                  onImportPlayers={handleImportPlayers}
                   userRole={userRole}
                   matches={displayMatches}
                   allPlayers={displayStudents}

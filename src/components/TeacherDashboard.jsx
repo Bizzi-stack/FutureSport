@@ -7,12 +7,14 @@ import MatchdaySquadSelection from './MatchdaySquadSelection';
 import LeagueTable from './LeagueTable';
 import CoachLiveManagement from './match/CoachLiveManagement';
 import CoachPostGameStatsHub from './coach/CoachPostGameStatsHub';
+import UploadPlayerRosterModal from './UploadPlayerRosterModal';
+import { downloadPlayerCsvTemplate } from '../utils/playerCsvImport';
 
 export default function TeacherDashboard({ 
     students, year, term, subjects, settings,
     onStudentClick, onDataUpdate, onRemoveSubject, onRemoveStudent, onAddSubjectClick,
     onOpenLogShotModal,
-    schoolId, schools, allTeams, onAddTeam, onAddPlayer,
+    schoolId, schools, allTeams, onAddTeam, onAddPlayer, onImportPlayers,
     userRole, matches, allPlayers, onUpdateMatch, selectedClassroom
 }) {
     const [alerts, setAlerts] = useState([]);
@@ -21,6 +23,7 @@ export default function TeacherDashboard({
 
     const [showRegisterPlayer, setShowRegisterPlayer] = useState(false);
     const [showCreateSquad, setShowCreateSquad] = useState(false);
+    const [showUploadCsvModal, setShowUploadCsvModal] = useState(false);
 
     // Generate alerts whenever the core data changes
     useEffect(() => {
@@ -296,29 +299,54 @@ export default function TeacherDashboard({
 
             {mainTab === 'registration' && (
                 <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 'var(--border)', paddingBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>Roster Registration Panel</h3>
-                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Submit player details to the league for eligibility approval.</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Register squad players with permanent Player IDs, kit numbers, and league eligibility.</p>
                         </div>
-                        <button
-                            onClick={() => setShowRegisterPlayer(true)}
-                            style={{
-                                padding: '8px 20px', borderRadius: '20px', background: 'var(--primary)',
-                                color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
-                                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
-                            }}
-                        >
-                            Register New Player
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <button
+                                type="button"
+                                onClick={() => downloadPlayerCsvTemplate(selectedClassroom || schoolId || 'Squad')}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '20px', background: 'rgba(255,255,255,0.06)',
+                                    color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.12)', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <span>📄</span> Download CSV Template
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowUploadCsvModal(true)}
+                                style={{
+                                    padding: '8px 18px', borderRadius: '20px', background: 'rgba(99, 102, 241, 0.15)',
+                                    color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.35)', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <span>📥</span> Upload CSV Roster
+                            </button>
+                            <button
+                                onClick={() => setShowRegisterPlayer(true)}
+                                style={{
+                                    padding: '8px 20px', borderRadius: '20px', background: 'var(--primary)',
+                                    color: '#ffffff', border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+                                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
+                                }}
+                            >
+                                + Register New Player
+                            </button>
+                        </div>
                     </div>
 
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ borderBottom: 'var(--border)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px', textTransform: 'uppercase', background: 'rgba(255,255,255,0.02)' }}>
-                                <th style={{ padding: '12px 16px', fontWeight: '600' }}>Jersey # & Player</th>
+                                <th style={{ padding: '12px 16px', fontWeight: '600' }}>Kit # &amp; Player</th>
+                                <th style={{ padding: '12px 16px', fontWeight: '600' }}>Unique Player ID</th>
                                 <th style={{ padding: '12px 16px', fontWeight: '600' }}>Position</th>
-                                <th style={{ padding: '12px 16px', fontWeight: '600' }}>DOB</th>
+                                <th style={{ padding: '12px 16px', fontWeight: '600' }}>Age / DOB</th>
                                 <th style={{ padding: '12px 16px', fontWeight: '600' }}>Foot</th>
                                 <th style={{ padding: '12px 16px', fontWeight: '600' }}>Emergency Contact</th>
                                 <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'center' }}>Approval Status</th>
@@ -327,21 +355,26 @@ export default function TeacherDashboard({
                         <tbody>
                             {students.map(player => {
                                 const status = player.status || 'approved';
+                                const pid = player.playerId || `PID-PMC-${String(player.id).padStart(5, '0')}`;
                                 return (
                                     <tr key={player.id} style={{ borderBottom: 'var(--border)' }}>
                                         <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <div style={{
-                                                    width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800'
+                                                    width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(37,99,235,0.2)',
+                                                    border: '1px solid rgba(37,99,235,0.4)', color: '#93c5fd',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900'
                                                 }}>
-                                                    {player.jerseyNumber || '-'}
+                                                    #{player.jerseyNumber != null ? player.jerseyNumber : '-'}
                                                 </div>
                                                 {player.name}
                                             </div>
                                         </td>
+                                        <td style={{ padding: '14px 16px', fontSize: '12px', fontFamily: 'monospace', fontWeight: '800', color: '#a5b4fc' }}>
+                                            {pid}
+                                        </td>
                                         <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-primary)' }}>{player.position || '—'}</td>
-                                        <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>{player.dob || '—'}</td>
+                                        <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>{player.age ? `${player.age} yrs` : (player.dob || '—')}</td>
                                         <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>{player.preferredFoot || '—'}</td>
                                         <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--text-primary)' }}>{player.emergencyContact || '—'}</td>
                                         <td style={{ padding: '14px 16px', fontSize: '13px', textAlign: 'center' }}>
@@ -352,7 +385,7 @@ export default function TeacherDashboard({
                                                     color: status === 'approved' ? 'var(--success)' : status === 'rejected' ? 'var(--danger)' : 'var(--warning)',
                                                     border: status === 'approved' ? '1px solid rgba(16,185,129,0.2)' : status === 'rejected' ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(245,158,11,0.2)'
                                                 }}>
-                                                    {status}
+                                                    {status === 'approved' ? '✓ CERTIFIED' : status}
                                                 </span>
                                                 {status === 'rejected' && player.rejectionReason && (
                                                     <span style={{ fontSize: '10px', color: 'var(--danger)', fontStyle: 'italic', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={player.rejectionReason}>
@@ -396,6 +429,7 @@ export default function TeacherDashboard({
                     schools={schools}
                     onUpdateMatch={onUpdateMatch}
                     onStudentClick={onStudentClick}
+                    onImportPlayers={onImportPlayers}
                 />
             )}
 
@@ -435,6 +469,23 @@ export default function TeacherDashboard({
                     }}
                     onClose={() => setShowCreateSquad(false)}
                     existingSquads={allTeams}
+                />
+            )}
+
+            {showUploadCsvModal && (
+                <UploadPlayerRosterModal
+                    isOpen={showUploadCsvModal}
+                    onClose={() => setShowUploadCsvModal(false)}
+                    onImportPlayers={(imported) => {
+                        if (onImportPlayers) onImportPlayers(imported);
+                        setShowUploadCsvModal(false);
+                    }}
+                    existingPlayers={allPlayers || students}
+                    targetSchoolId={schoolId}
+                    targetTeamId={selectedClassroom}
+                    targetYear={year}
+                    teamName={selectedClassroom || schoolId || 'Team'}
+                    isPmc={true}
                 />
             )}
         </div>
