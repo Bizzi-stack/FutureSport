@@ -10,7 +10,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         captureRole: 'all', // 'all' | 'possession' | 'shots' | 'general'
         venue: 'National Stadium',
-        assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+        assignedMatchIds: ['pmc-fixture-25', 'pmc-fixture-26', 'pmc-fixture-27', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
         avatar: 'JC',
         badgeColor: '#10b981'
     },
@@ -23,7 +23,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         captureRole: 'all', // 'all' | 'possession' | 'shots' | 'general'
         venue: 'National Stadium',
-        assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+        assignedMatchIds: ['pmc-fixture-25', 'pmc-fixture-26', 'pmc-fixture-27', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
         avatar: 'N',
         badgeColor: '#38bdf8'
     },
@@ -36,7 +36,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         captureRole: 'possession',
         venue: 'National Stadium',
-        assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
+        assignedMatchIds: ['pmc-fixture-25', 'pmc-fixture-26', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
         avatar: 'P',
         badgeColor: '#22c55e'
     },
@@ -49,7 +49,7 @@ export const DEFAULT_ANALYSTS = [
         role: 'statistician',
         captureRole: 'shots',
         venue: 'National Stadium',
-        assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
+        assignedMatchIds: ['pmc-fixture-25', 'pmc-fixture-26', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
         avatar: 'S1',
         badgeColor: '#3b82f6'
     },

@@ -443,7 +443,93 @@ MATCHDAYS.forEach(md => {
 
         if (md.isCompleted) {
             generatedMatches.push(generateCompletedPmcMatch(matchId, homeClub, awayClub, homeP, awayP, md.num, md.date, venue, rng));
+        } else if (md.num === 3 && (matchId === 25 || matchId === 26)) {
+            // High-fidelity Live Mock Matches for immediate data capture & testing
+            const isMatch25 = matchId === 25;
+            const homePlayersList = PMC_STUDENTS.filter(s => s.schoolId === homeClub.id);
+            const awayPlayersList = PMC_STUDENTS.filter(s => s.schoolId === awayClub.id);
+            const scorer = isMatch25 ? homePlayersList[0] : awayPlayersList[0];
+
+            const liveTimeline = [
+                {
+                    id: `ev-live-${matchId}-1`,
+                    elapsed: 14 * 60,
+                    period: '1H',
+                    type: 'goal',
+                    playerId: scorer?.id || (isMatch25 ? homeP[0] : awayP[0]),
+                    playerName: scorer?.name || 'Striker',
+                    team: isMatch25 ? 'home' : 'away',
+                    teamName: isMatch25 ? homeClub.name : awayClub.name,
+                    x: 88,
+                    y: 48,
+                    goalType: 'foot'
+                },
+                {
+                    id: `ev-live-${matchId}-2`,
+                    elapsed: 22 * 60,
+                    period: '1H',
+                    type: 'shotOnTarget',
+                    playerId: isMatch25 ? awayP[1] : homeP[1],
+                    playerName: (isMatch25 ? awayPlayersList[1]?.name : homePlayersList[1]?.name) || 'Attacker',
+                    team: isMatch25 ? 'away' : 'home',
+                    teamName: isMatch25 ? awayClub.name : homeClub.name,
+                    x: 82,
+                    y: 52,
+                    goalType: 'foot'
+                }
+            ];
+
+            generatedMatches.push({
+                id: `pmc-fixture-${matchId}`,
+                homeTeam: homeClub.name,
+                awayTeam: awayClub.name,
+                homeTeamId: homeClub.id,
+                awayTeamId: awayClub.id,
+                homeScore: isMatch25 ? 1 : 0,
+                awayScore: isMatch25 ? 0 : 1,
+                status: 'live',
+                currentHalf: '1H',
+                matchTime: '28:15',
+                venue: isMatch25 ? 'National Stadium' : 'Usain Bolt Complex',
+                date: md.date,
+                time: '18:00',
+                round: `Matchday ${md.num} · ${homeClub.division || 'PMC Group Stage'} (LIVE)`,
+                matchday: `Matchday ${md.num}`,
+                ageGroup: 'PMC',
+                homePlayers: homeP,
+                awayPlayers: awayP,
+                homeSquadSelection: {
+                    startingXI: homeP.slice(0, 11),
+                    benchPlayers: homeP.slice(11, 18),
+                    formation: '4-3-3',
+                    confirmedAt: new Date().toISOString()
+                },
+                awaySquadSelection: {
+                    startingXI: awayP.slice(0, 11),
+                    benchPlayers: awayP.slice(11, 18),
+                    formation: '4-2-3-1',
+                    confirmedAt: new Date().toISOString()
+                },
+                liveState: {
+                    period: '1H',
+                    isRunning: true,
+                    elapsedOffset: 28 * 60 + 15,
+                    periodStartTime: Date.now() - (28 * 60 + 15) * 1000,
+                    possession: {
+                        homeSecs: 940,
+                        awaySecs: 755,
+                        activeSide: 'home',
+                        lastToggleTime: Date.now()
+                    }
+                },
+                timeline: liveTimeline,
+                playerStats: {},
+                substitutionRequests: [],
+                referee: 'Adrian Hunte',
+                commissioner: 'Sarah Rollins (Verified Official)'
+            });
         } else {
+            // Scheduled fixture with pre-submitted Starting XIs ready for 1-click kick-off
             generatedMatches.push({
                 id: `pmc-fixture-${matchId}`,
                 homeTeam: homeClub.name,
@@ -461,9 +547,33 @@ MATCHDAYS.forEach(md => {
                 ageGroup: 'PMC',
                 homePlayers: homeP,
                 awayPlayers: awayP,
-                homeSquadSelection: null,
-                awaySquadSelection: null,
-                substitutionRequests: []
+                homeSquadSelection: {
+                    startingXI: homeP.slice(0, 11),
+                    benchPlayers: homeP.slice(11, 18),
+                    formation: '4-3-3',
+                    confirmedAt: new Date().toISOString()
+                },
+                awaySquadSelection: {
+                    startingXI: awayP.slice(0, 11),
+                    benchPlayers: awayP.slice(11, 18),
+                    formation: '4-2-3-1',
+                    confirmedAt: new Date().toISOString()
+                },
+                liveState: {
+                    period: '1H',
+                    isRunning: false,
+                    elapsedOffset: 0,
+                    possession: {
+                        homeSecs: 0,
+                        awaySecs: 0,
+                        activeSide: null
+                    }
+                },
+                timeline: [],
+                playerStats: {},
+                substitutionRequests: [],
+                referee: 'Michael Beckles',
+                commissioner: 'Sarah Rollins (Verified Official)'
             });
         }
     });

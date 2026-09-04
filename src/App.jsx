@@ -227,14 +227,45 @@ const DEFAULT_MATCHES = [
     venue: 'Harrison College Field',
     referee: 'Michael Beckles',
     commissioner: 'Sarah Rollins',
-    status: 'scheduled',
-    homeScore: 0,
+    status: 'live',
+    currentHalf: '1H',
+    matchTime: '24:30',
+    homeScore: 1,
     awayScore: 0,
-    homeSquadSelection: null,
-    awaySquadSelection: null,
+    homeSquadSelection: {
+      startingXI: ['s1-p1', 's1-p2', 's1-p3', 's1-p4', 's1-p5', 's1-p6', 's1-p7', 's1-p8', 's1-p9', 's1-p10', 's1-p11'],
+      benchPlayers: ['s1-p12', 's1-p13', 's1-p14', 's1-p15', 's1-p16'],
+      formation: '4-3-3'
+    },
+    awaySquadSelection: {
+      startingXI: ['s2-p1', 's2-p2', 's2-p3', 's2-p4', 's2-p5', 's2-p6', 's2-p7', 's2-p8', 's2-p9', 's2-p10', 's2-p11'],
+      benchPlayers: ['s2-p12', 's2-p13', 's2-p14', 's2-p15'],
+      formation: '4-2-3-1'
+    },
+    liveState: {
+      period: '1H',
+      isRunning: true,
+      elapsedOffset: 24 * 60 + 30,
+      possession: {
+        homeSecs: 820,
+        awaySecs: 650,
+        activeSide: 'home'
+      }
+    },
     playerStats: {},
-    timeline: [],
-    date: new Date(Date.now() + 86400000).toISOString()
+    timeline: [
+      {
+        id: 'ev-seed-1',
+        elapsed: 12 * 60,
+        period: '1H',
+        type: 'goal',
+        playerId: 's1-p9',
+        playerName: 'Marcus Harrison',
+        team: 'home',
+        goalType: 'foot'
+      }
+    ],
+    date: new Date().toISOString()
   },
   {
     id: 'scheduled-seed-2',
@@ -509,7 +540,7 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-matches-v2');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v3');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -540,7 +571,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v2', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v3', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
