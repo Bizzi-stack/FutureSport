@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import StudentProfileDrawer from './StudentProfileDrawer';
 import JerseyIcon from './JerseyIcon';
 import CountdownSheetModal from './match/CountdownSheetModal';
+import UploadPlayerRosterModal from './UploadPlayerRosterModal';
+import { downloadPlayerCsvTemplate } from '../utils/playerCsvImport';
 import { 
     sendRefereeSquadNotification, 
     sendDataLoggerMatchReadyNotification, 
@@ -25,7 +27,7 @@ const FORMATION_LAYOUTS = {
             { y: 46, x: 50, role: 'MID', label: 'CM' },
             { y: 44, x: 75, role: 'MID', label: 'RM' },
             { y: 20, x: 20, role: 'FWD', label: 'LW' },
-            { y: 18, x: 50, role: 'FWD', label: 'ST' },
+            { y: 16, x: 50, role: 'ST', label: 'ST' },
             { y: 20, x: 80, role: 'FWD', label: 'RW' }
         ]
     },
@@ -49,32 +51,32 @@ const FORMATION_LAYOUTS = {
         label: '4-2-3-1', 
         slots: [
             { y: 88, x: 50, role: 'GK', label: 'GK' },
-            { y: 72, x: 15, role: 'DEF', label: 'LB' },
-            { y: 72, x: 38, role: 'DEF', label: 'CB' },
-            { y: 72, x: 62, role: 'DEF', label: 'CB' },
-            { y: 72, x: 85, role: 'DEF', label: 'RB' },
-            { y: 56, x: 35, role: 'CDM', label: 'LDM' },
-            { y: 56, x: 65, role: 'CDM', label: 'RDM' },
-            { y: 38, x: 20, role: 'CAM', label: 'LAM' },
-            { y: 36, x: 50, role: 'CAM', label: 'CAM' },
-            { y: 38, x: 80, role: 'CAM', label: 'RAM' },
-            { y: 16, x: 50, role: 'ST', label: 'ST' }
+            { y: 70, x: 15, role: 'DEF', label: 'LB' },
+            { y: 70, x: 38, role: 'DEF', label: 'CB' },
+            { y: 70, x: 62, role: 'DEF', label: 'CB' },
+            { y: 70, x: 85, role: 'DEF', label: 'RB' },
+            { y: 52, x: 35, role: 'CDM', label: 'DM' },
+            { y: 52, x: 65, role: 'CDM', label: 'DM' },
+            { y: 32, x: 20, role: 'CAM', label: 'LAM' },
+            { y: 30, x: 50, role: 'CAM', label: 'CAM' },
+            { y: 32, x: 80, role: 'CAM', label: 'RAM' },
+            { y: 15, x: 50, role: 'ST', label: 'ST' }
         ]
     },
     '3-5-2': { 
         label: '3-5-2', 
         slots: [
             { y: 88, x: 50, role: 'GK', label: 'GK' },
-            { y: 68, x: 25, role: 'DEF', label: 'CB' },
-            { y: 68, x: 50, role: 'DEF', label: 'CB' },
-            { y: 68, x: 75, role: 'DEF', label: 'CB' },
-            { y: 44, x: 15, role: 'MID', label: 'LWB' },
-            { y: 46, x: 35, role: 'MID', label: 'CM' },
-            { y: 48, x: 50, role: 'MID', label: 'CDM' },
-            { y: 46, x: 65, role: 'MID', label: 'CM' },
-            { y: 44, x: 85, role: 'MID', label: 'RWB' },
-            { y: 20, x: 35, role: 'FWD', label: 'ST' },
-            { y: 20, x: 65, role: 'FWD', label: 'ST' }
+            { y: 70, x: 25, role: 'DEF', label: 'CB' },
+            { y: 70, x: 50, role: 'DEF', label: 'CB' },
+            { y: 70, x: 75, role: 'DEF', label: 'CB' },
+            { y: 46, x: 12, role: 'MID', label: 'LWB' },
+            { y: 46, x: 32, role: 'MID', label: 'CM' },
+            { y: 48, x: 50, role: 'MID', label: 'CM' },
+            { y: 46, x: 68, role: 'MID', label: 'CM' },
+            { y: 46, x: 88, role: 'MID', label: 'RWB' },
+            { y: 18, x: 35, role: 'ST', label: 'ST' },
+            { y: 18, x: 65, role: 'ST', label: 'ST' }
         ]
     },
     '3-4-3': { 
@@ -155,10 +157,11 @@ const ROLE_COLORS = {
     ST: '#ef4444',
 };
 
-export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, allTeams, schools, onUpdateMatch, onStudentClick }) {
+export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, allTeams, schools, onUpdateMatch, onStudentClick, onImportPlayers }) {
     const [selectedMatchId, setSelectedMatchId] = useState(null);
     const [formation, setFormation] = useState('4-3-3');
     const [previewStudent, setPreviewStudent] = useState(null);
+    const [showSquadUploadModal, setShowSquadUploadModal] = useState(false);
     
     // startingXI mapped to slot indices (indices 0 to 10 matching slot configuration)
     const [startingXI, setStartingXI] = useState(() => Array(11).fill(null));
@@ -249,7 +252,9 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             (p.firstName && p.firstName.toLowerCase().includes(q)) || 
             (p.lastName && p.lastName.toLowerCase().includes(q)) ||
             (p.jerseyNumber != null && String(p.jerseyNumber).includes(q)) ||
-            (p.position && p.position.toLowerCase().includes(q))
+            (p.position && p.position.toLowerCase().includes(q)) ||
+            (p.playerId && p.playerId.toLowerCase().includes(q)) ||
+            (p.id && String(p.id).toLowerCase().includes(q))
         );
     }, [availablePlayers, searchQuery]);
 
@@ -636,20 +641,68 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                 </div>
                             )}
 
-                            {/* Formation selector */}
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                {Object.keys(FORMATION_LAYOUTS).map(f => (
-                                    <button key={f} disabled={alreadySubmitted} onClick={() => { setFormation(f); setStartingXI(Array(11).fill(null)); }} style={{
-                                        padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: '700',
-                                        background: formation === f ? 'rgba(37,99,235,0.18)' : 'rgba(255,255,255,0.03)',
-                                        color: formation === f ? 'var(--primary-light)' : 'var(--text-secondary)',
-                                        border: formation === f ? '1px solid rgba(37,99,235,0.35)' : 'var(--border)',
-                                        cursor: alreadySubmitted ? 'default' : 'pointer', transition: 'all 0.15s',
-                                        opacity: alreadySubmitted ? 0.6 : 1
-                                    }}>
-                                        {f}
-                                    </button>
-                                ))}
+                            {/* Formation selector & Quick CSV Upload Bar */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginRight: '4px' }}>Formation:</span>
+                                    {Object.keys(FORMATION_LAYOUTS).map(f => (
+                                        <button key={f} disabled={alreadySubmitted} onClick={() => { setFormation(f); setStartingXI(Array(11).fill(null)); }} style={{
+                                            padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: '700',
+                                            background: formation === f ? 'rgba(37,99,235,0.18)' : 'rgba(255,255,255,0.03)',
+                                            color: formation === f ? 'var(--primary-light)' : 'var(--text-secondary)',
+                                            border: formation === f ? '1px solid rgba(37,99,235,0.35)' : 'var(--border)',
+                                            cursor: alreadySubmitted ? 'default' : 'pointer', transition: 'all 0.15s',
+                                            opacity: alreadySubmitted ? 0.6 : 1
+                                        }}>
+                                            {f}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {!alreadySubmitted && (
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => downloadPlayerCsvTemplate()}
+                                            title="Download editable CSV roster template with Squad Numbers and Player IDs"
+                                            style={{
+                                                padding: '6px 12px',
+                                                borderRadius: '8px',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                color: 'var(--text-secondary)',
+                                                border: '1px solid var(--border)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            📄 CSV Template
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowSquadUploadModal(true)}
+                                            style={{
+                                                padding: '6px 14px',
+                                                borderRadius: '8px',
+                                                fontSize: '11px',
+                                                fontWeight: '800',
+                                                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                                                color: '#fff',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)'
+                                            }}
+                                        >
+                                            📥 Upload Squad CSV
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Layout containing Pitch (fixed/contained aspect ratio) & Side Panel */}
@@ -1065,8 +1118,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                             <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                                 {p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim()}
                                                             </span>
-                                                            <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
-                                                                Reg No: {p.id} {p.jerseyNumber != null ? `• #${p.jerseyNumber}` : ''}
+                                                            <span style={{ fontSize: '9px', color: '#a5b4fc', fontFamily: 'monospace', fontWeight: '700' }}>
+                                                                {p.playerId || `PID-2026-${String(p.id).padStart(5, '0')}`} {p.jerseyNumber != null ? `• #${p.jerseyNumber}` : ''}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -1144,6 +1197,23 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                         onUpdateMatch(updatedMatch);
                         setActiveCountdownMatch(updatedMatch);
                     }}
+                />
+            )}
+
+            {showSquadUploadModal && (
+                <UploadPlayerRosterModal
+                    isOpen={showSquadUploadModal}
+                    onClose={() => setShowSquadUploadModal(false)}
+                    onImportPlayers={(imported) => {
+                        if (onImportPlayers) onImportPlayers(imported);
+                        setShowSquadUploadModal(false);
+                    }}
+                    existingPlayers={allPlayers}
+                    targetSchoolId={schoolId}
+                    targetTeamId={myTeamIds[0] || (selectedMatch ? (isHome ? selectedMatch.homeTeamId : selectedMatch.awayTeamId) : '')}
+                    targetYear="2025/2026"
+                    teamName={schoolName || 'My School Squad'}
+                    isPmc={true}
                 />
             )}
         </div>
