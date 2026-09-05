@@ -456,7 +456,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             ? homePlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean)
             : awayPlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean);
 
-        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'shotBlocked', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
 
         if (isShotAction) {
             let defaultGoalType = 'foot';
@@ -468,6 +468,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             if (actionKey === 'ownGoal') defaultGoalType = 'own-goal';
 
             if (actionKey === 'shotOnTarget') defaultOutcome = 'saved';
+            if (actionKey === 'shotBlocked') defaultOutcome = 'blocked';
             if (actionKey === 'shotMissed') defaultOutcome = 'miss';
 
             // Open LiveShotModal to place shot on goalmouth map
@@ -555,13 +556,24 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             minute: elapsedMins,
             period: period,
             type: eventType,
+            result: result,
+            outcome: result === 'goal' ? 'Goal' : result === 'saved' ? 'Saved' : result === 'blocked' ? 'Blocked' : 'Off Target',
             playerId,
             playerName: resolvedShooterName,
             team: isHome ? 'home' : 'away',
             teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
             teamName: isHome ? home.name : away.name,
-            x, y,
-            goalType,
+            x: Math.round(x),
+            y: Math.round(y),
+            goalType: goalType || 'foot',
+            shotType: goalType || 'foot',
+            shotDetail: {
+                x: Math.round(x),
+                y: Math.round(y),
+                result,
+                goalType: goalType || 'foot',
+                technique: goalType || 'foot'
+            },
             assistingPlayerId: assistPlayerId || null,
             assistingPlayerName: assistPlayerName || null
         };
