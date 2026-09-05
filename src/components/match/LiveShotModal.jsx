@@ -76,13 +76,13 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
     };
 
     const isInsideGoal = coords && coords.x >= 10 && coords.x <= 90 && coords.y >= 20 && coords.y <= 95;
-    const dotColor = result === 'goal' ? '#22c55e' : result === 'saved' ? '#6366f1' : '#ef4444';
+    const dotColor = result === 'goal' ? '#22c55e' : result === 'saved' ? '#6366f1' : result === 'blocked' ? '#a855f7' : '#ef4444';
 
     const goalTypes = [
-        { key: 'foot', label: '👟 Feet (Normal)' },
-        { key: 'header', label: '🦪 Header' },
-        { key: 'freekick', label: '🎯 Free Kick' },
-        { key: 'penalty', label: '🥅 Penalty' },
+        { key: 'foot', label: '👟 Foot' },
+        { key: 'header', label: '🗣️ Header' },
+        { key: 'freekick', label: '📐 Free Kick' },
+        { key: 'penalty', label: '🎯 Penalty' },
         { key: 'own-goal', label: '⚠️ Own Goal' }
     ];
 
@@ -212,6 +212,37 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
                         </div>
                     </div>
 
+                    {/* Shot Technique / Type Selector */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                            2. Shot Technique / Type
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+                            {goalTypes.map(t => {
+                                const isSelected = goalType === t.key;
+                                return (
+                                    <button
+                                        key={t.key}
+                                        type="button"
+                                        onClick={() => setGoalType(t.key)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                                            padding: '8px 2px', borderRadius: '10px', border: '1px solid',
+                                            borderColor: isSelected ? '#3b82f6' : 'rgba(255,255,255,0.08)',
+                                            background: isSelected ? 'rgba(59, 130, 246, 0.22)' : 'rgba(255,255,255,0.02)',
+                                            color: isSelected ? '#93c5fd' : 'var(--text-muted)',
+                                            fontWeight: '800', fontSize: '11px', cursor: 'pointer',
+                                            fontFamily: 'inherit',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {t.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     {/* Assist player selection (Only for goals) */}
                     {result === 'goal' && (
                         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', padding: '14px', borderRadius: '12px' }}>
@@ -239,7 +270,7 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                2. Click goal grid to place shot
+                                3. Click goal grid to place shot
                             </label>
                             {coords && (
                                 <span style={{ fontSize: '11px', color: dotColor, fontWeight: '700' }}>

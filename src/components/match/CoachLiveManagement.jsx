@@ -293,7 +293,8 @@ export default function CoachLiveManagement({
             e.type === 'shotOnTarget' || 
             e.type === 'shotMissed' || 
             e.type === 'shotBlocked' || 
-            e.type === 'shot'
+            e.type === 'shot' ||
+            e.shotDetail
         ).map(s => {
             const isHomeTeam = s.team === 'home' || s.teamId === currentMatch?.homeTeamId;
             const isAwayTeam = s.team === 'away' || s.teamId === currentMatch?.awayTeamId;
@@ -304,13 +305,29 @@ export default function CoachLiveManagement({
             // Check club name match
             const isMyClubName = myClubName && s.teamName && s.teamName.toLowerCase().includes(myClubName);
 
-            const isMyTeam = isMyPlayer || isMyClubName || (isHome ? isHomeTeam : isAwayTeam);
-            const result = s.type === 'goal' ? 'goal' : s.type === 'shotOnTarget' ? 'saved' : s.type === 'shotBlocked' ? 'blocked' : 'missed';
+            // Check team ID
+            const isMyTeamId = (schoolId && (s.teamId === schoolId || s.clubId === schoolId)) || (teamId && (s.teamId === teamId));
+
+            const isMyTeam = isMyPlayer || isMyClubName || isMyTeamId || (isHome ? isHomeTeam : isAwayTeam);
+            
+            const result = (s.result === 'goal' || s.outcome === 'Goal' || s.type === 'goal') ? 'goal'
+                : (s.result === 'saved' || s.outcome === 'Saved' || s.type === 'shotOnTarget') ? 'saved'
+                : (s.result === 'blocked' || s.outcome === 'Blocked' || s.type === 'shotBlocked') ? 'blocked'
+                : (s.result === 'miss' || s.result === 'missed' || s.outcome === 'Off Target' || s.type === 'shotMissed') ? 'missed'
+                : 'saved';
+
+            const goalType = s.goalType || s.shotType || s.technique || s.shotDetail?.goalType || 'foot';
+            const x = s.x !== undefined ? Number(s.x) : (s.shotDetail?.x !== undefined ? Number(s.shotDetail.x) : 50);
+            const y = s.y !== undefined ? Number(s.y) : (s.shotDetail?.y !== undefined ? Number(s.shotDetail.y) : 55);
+
             return {
                 ...s,
                 result,
+                goalType,
+                x,
+                y,
                 isMyTeam,
-                minute: s.minute || (s.elapsed ? Math.floor(s.elapsed / 60) + 1 : 40),
+                minute: s.minute || (s.elapsed ? Math.floor(s.elapsed / 60) + 1 : 45),
                 period: s.period || ((s.minute && s.minute <= 45) ? '1H' : '2H')
             };
         });
@@ -338,14 +355,17 @@ export default function CoachLiveManagement({
         const accuracy = total > 0 ? Math.round((onTarget / total) * 100) : 0;
         const conversion = onTarget > 0 ? Math.round((goals / onTarget) * 100) : 0;
 
-        const leftZone = filteredShots.filter(s => (s.x || 50) < 35).length;
-        const centerZone = filteredShots.filter(s => (s.x || 50) >= 35 && (s.x || 50) <= 65 && (s.y || 50) <= 45).length;
-        const rightZone = filteredShots.filter(s => (s.x || 50) > 65).length;
-        const longRange = filteredShots.filter(s => (s.y || 50) > 45).length;
+        // Goalmouth placement zones (Goal frame: x 10%-90%, y 20%-95%)
+        const highCorners = filteredShots.filter(s => s.y < 50 && ((s.x >= 10 && s.x <= 36.6) || (s.x >= 63.3 && s.x <= 90))).length;
+        const lowCorners = filteredShots.filter(s => s.y >= 70 && s.y <= 95 && ((s.x >= 10 && s.x <= 36.6) || (s.x >= 63.3 && s.x <= 90))).length;
+        const centralGoal = filteredShots.filter(s => (s.x > 36.6 && s.x < 63.3 && s.y >= 20 && s.y <= 95) || (s.y >= 50 && s.y < 70 && s.x >= 10 && s.x <= 90)).length;
 
-        const rightFoot = filteredShots.filter(s => s.goalType === 'right-foot' || s.goalType === 'foot' || !s.goalType).length;
-        const leftFoot = filteredShots.filter(s => s.goalType === 'left-foot').length;
-        const header = filteredShots.filter(s => s.goalType === 'header').length;
+        // Shot technique metrics
+        const openPlay = filteredShots.filter(s => s.goalType === 'foot' || s.goalType === 'normal' || !s.goalType).length;
+        const headers = filteredShots.filter(s => s.goalType === 'header').length;
+        const freekicks = filteredShots.filter(s => s.goalType === 'freekick').length;
+        const penalties = filteredShots.filter(s => s.goalType === 'penalty').length;
+        const ownGoals = filteredShots.filter(s => s.goalType === 'own-goal').length;
 
         return {
             total,
@@ -356,13 +376,20 @@ export default function CoachLiveManagement({
             onTarget,
             accuracy,
             conversion,
-            leftZone,
-            centerZone,
-            rightZone,
-            longRange,
-            rightFoot,
-            leftFoot,
-            header
+            highCorners,
+            lowCorners,
+            centralGoal,
+            openPlay,
+            headers,
+            freekicks,
+            penalties,
+            ownGoals,
+            // Backwards-compatible aliases
+            leftZone: lowCorners,
+            centerZone: centralGoal,
+            rightZone: highCorners,
+            longRange: freekicks + openPlay,
+            header: headers
         };
     }, [filteredShots]);
 
@@ -1333,50 +1360,142 @@ export default function CoachLiveManagement({
                         </div>
                     </div>
 
-                    {/* Layout: Interactive 2D Pitch Shot Map (Left) & Tactical Insights (Right) */}
+                    {/* Layout: Interactive Goal Map (Left) & Tactical Insights (Right) */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '16px', alignItems: 'start' }}>
                         
-                        {/* ═══ 2D ATTACKING THIRD SHOT MAP ═══ */}
+                        {/* ═══ GOAL MAP SHOT ANALYSIS ═══ */}
                         <div className="glass-panel" style={{ padding: '16px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
-                                    Attacking Half Shot Plot Map ({filteredShots.length} Shots Plotted)
-                                </span>
+                                <div>
+                                    <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                        Goal Map Shot Analysis ({filteredShots.length} Shots Plotted)
+                                    </span>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Logged directly from goal mouth target grid
+                                    </div>
+                                </div>
                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                    Tap marker for shot breakdown
+                                    Tap marker on goal frame for breakdown
                                 </span>
                             </div>
 
-                            {/* Pitch Graphic Surface (Attacking Goal View) */}
+                            {/* Goal Visualizer Surface */}
                             <div style={{
                                 position: 'relative',
                                 width: '100%',
                                 height: '380px',
-                                background: 'linear-gradient(180deg, #165c29 0%, #1e7a37 25%, #165c29 50%, #1e7a37 75%, #165c29 100%)',
-                                borderRadius: '12px',
+                                background: 'radial-gradient(ellipse at 50% 30%, #0d1527 0%, #060a13 100%)',
+                                borderRadius: '14px',
                                 overflow: 'hidden',
-                                border: '1px solid rgba(255, 255, 255, 0.2)'
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                boxShadow: 'inset 0 4px 25px rgba(0,0,0,0.8)'
                             }}>
-                                {/* Pitch Markings for Attacking Third */}
-                                <div style={{ position: 'absolute', inset: '4%', border: '2px solid rgba(255, 255, 255, 0.3)', borderBottom: 'none' }} />
-                                {/* Penalty Box */}
-                                <div style={{ position: 'absolute', left: '22%', right: '22%', top: '4%', height: '42%', border: '2px solid rgba(255, 255, 255, 0.35)', borderTop: 'none' }} />
-                                {/* 6-Yard Box */}
-                                <div style={{ position: 'absolute', left: '36%', right: '36%', top: '4%', height: '18%', border: '2px solid rgba(255, 255, 255, 0.35)', borderTop: 'none' }} />
-                                {/* Penalty Spot */}
-                                <div style={{ position: 'absolute', left: '50%', top: '30%', width: '6px', height: '6px', transform: 'translate(-50%, -50%)', background: '#ffffff', borderRadius: '50%' }} />
-                                {/* Penalty Arc */}
-                                <div style={{ position: 'absolute', left: '50%', top: '46%', width: '18%', height: '14%', transform: 'translate(-50%, -50%)', border: '2px solid rgba(255, 255, 255, 0.3)', borderTop: 'none', borderRadius: '0 0 100px 100px' }} />
-                                {/* Goal Mouth */}
-                                <div style={{ position: 'absolute', left: '42%', right: '42%', top: '1%', height: '3%', background: 'rgba(255, 255, 255, 0.9)', borderRadius: '2px', boxShadow: '0 0 8px #ffffff' }} />
+                                {/* Stadium Floodlight Ambiance */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 0, left: 0, right: 0, height: '40%',
+                                    background: 'radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.25), transparent 70%)',
+                                    pointerEvents: 'none'
+                                }} />
 
-                                {/* Plotted Shot Markers */}
+                                {/* Off-target guide labels */}
+                                <div style={{
+                                    position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)',
+                                    color: 'rgba(255,255,255,0.3)', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none'
+                                }}>
+                                    Off Target (Over Crossbar)
+                                </div>
+                                <div style={{
+                                    position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%) rotate(-90deg)',
+                                    color: 'rgba(255,255,255,0.3)', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none'
+                                }}>
+                                    Wide Left
+                                </div>
+                                <div style={{
+                                    position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%) rotate(90deg)',
+                                    color: 'rgba(255,255,255,0.3)', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', pointerEvents: 'none'
+                                }}>
+                                    Wide Right
+                                </div>
+
+                                {/* Goalmouth Structure (X: 10% to 90%, Y: 20% to 95%) */}
+                                <div style={{
+                                    position: 'absolute',
+                                    left: '10%', right: '10%',
+                                    top: '20%', bottom: '5%',
+                                    border: '5px solid #ffffff',
+                                    borderBottom: 'none',
+                                    borderRadius: '4px 4px 0 0',
+                                    background: `repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 12px),
+                                                 repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 12px)`,
+                                    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+                                    boxShadow: '0 0 20px rgba(255, 255, 255, 0.2), inset 0 10px 30px rgba(0, 0, 0, 0.7)'
+                                }}>
+                                    {/* 3x3 Tactical Target Grid Overlay */}
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr', gridTemplateRows: '1fr 1fr 1fr',
+                                        pointerEvents: 'none'
+                                    }}>
+                                        <div style={{ borderRight: '1px dashed rgba(255,255,255,0.1)', borderBottom: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'flex-start', padding: '6px' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>TOP L</span>
+                                        </div>
+                                        <div style={{ borderRight: '1px dashed rgba(255,255,255,0.1)', borderBottom: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '6px' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>HIGH C</span>
+                                        </div>
+                                        <div style={{ borderBottom: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '6px' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>TOP R</span>
+                                        </div>
+                                        <div style={{ borderRight: '1px dashed rgba(255,255,255,0.1)', borderBottom: '1px dashed rgba(255,255,255,0.1)' }} />
+                                        <div style={{ borderRight: '1px dashed rgba(255,255,255,0.1)', borderBottom: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '900', color: 'rgba(255,255,255,0.08)', letterSpacing: '0.2em' }}>ON TARGET</span>
+                                        </div>
+                                        <div style={{ borderBottom: '1px dashed rgba(255,255,255,0.1)' }} />
+                                        <div style={{ borderRight: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'flex-end', padding: '6px' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>LOW L</span>
+                                        </div>
+                                        <div style={{ borderRight: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '6px' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>LOW C</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '6px' }}>
+                                            <span style={{ fontSize: '9px', fontWeight: '800', color: 'rgba(255,255,255,0.2)' }}>LOW R</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Turf Surface at Goal Base */}
+                                <div style={{
+                                    position: 'absolute',
+                                    left: 0, right: 0, bottom: 0, height: '5%',
+                                    background: 'linear-gradient(180deg, #15803d 0%, #14532d 100%)',
+                                    borderTop: '2px solid #22c55e',
+                                    pointerEvents: 'none'
+                                }} />
+
+                                {/* Goal Line */}
+                                <div style={{
+                                    position: 'absolute',
+                                    left: '10%', right: '10%', bottom: '5%', height: '3px',
+                                    background: '#ffffff',
+                                    boxShadow: '0 0 8px rgba(255,255,255,0.8)',
+                                    pointerEvents: 'none'
+                                }} />
+
+                                {/* Plotted Goal Markers */}
                                 {filteredShots.map((shot, sIdx) => {
                                     const isGoal = shot.result === 'goal';
                                     const isSaved = shot.result === 'saved';
                                     const isBlocked = shot.result === 'blocked';
-                                    const color = isGoal ? '#22c55e' : isSaved ? '#f59e0b' : isBlocked ? '#94a3b8' : '#ef4444';
+                                    const isMiss = shot.result === 'missed';
+
+                                    const bg = isGoal ? '#22c55e' : isSaved ? '#f59e0b' : isBlocked ? '#a855f7' : '#ef4444';
                                     const isSelected = selectedShotDetail?.id === shot.id;
+                                    const outcomeIcon = isGoal ? '⚽' : isSaved ? '🧤' : isBlocked ? '🛡️' : '💥';
+                                    
+                                    const tech = shot.goalType || shot.shotType;
+                                    const techIcon = tech === 'header' ? '🗣️' : tech === 'penalty' ? '🎯' : tech === 'freekick' ? '📐' : tech === 'own-goal' ? '⚠️' : '👟';
+
+                                    const resolvedName = resolvePlayerName(shot.playerId || shot.playerName, allPlayers) || shot.playerName || 'Player';
 
                                     return (
                                         <div
@@ -1385,26 +1504,40 @@ export default function CoachLiveManagement({
                                             style={{
                                                 position: 'absolute',
                                                 left: `${shot.x || 50}%`,
-                                                top: `${shot.y || 40}%`,
+                                                top: `${shot.y || 55}%`,
                                                 transform: `translate(-50%, -50%) ${isSelected ? 'scale(1.4)' : 'scale(1)'}`,
-                                                width: isGoal ? '18px' : '14px',
-                                                height: isGoal ? '18px' : '14px',
+                                                width: isGoal ? '26px' : '22px',
+                                                height: isGoal ? '26px' : '22px',
                                                 borderRadius: '50%',
-                                                background: color,
-                                                border: '2px solid #ffffff',
-                                                boxShadow: isGoal ? '0 0 12px #22c55e, 0 2px 6px rgba(0,0,0,0.8)' : '0 2px 6px rgba(0,0,0,0.6)',
+                                                background: bg,
+                                                border: isSelected ? '3px solid #38bdf8' : '2px solid #ffffff',
+                                                boxShadow: isGoal ? '0 0 16px #22c55e, 0 3px 8px rgba(0,0,0,0.8)' : isSelected ? '0 0 14px #38bdf8' : '0 2px 6px rgba(0,0,0,0.7)',
                                                 cursor: 'pointer',
-                                                zIndex: isSelected ? 30 : 10,
+                                                zIndex: isSelected ? 40 : 20,
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                fontSize: '9px',
-                                                color: '#000',
-                                                transition: 'transform 0.15s ease'
+                                                fontSize: isGoal ? '13px' : '11px',
+                                                transition: 'all 0.15s ease'
                                             }}
-                                            title={`${shot.playerName || 'Player'} (${shot.minute}') - ${shot.result?.toUpperCase()}`}
+                                            title={`${resolvedName} (${shot.minute}') • ${shot.result?.toUpperCase()} • ${shot.goalType || 'Foot'}`}
                                         >
-                                            {isGoal ? '⚽' : ''}
+                                            {outcomeIcon}
+                                            {/* Technique indicator badge */}
+                                            {['header', 'penalty', 'freekick', 'own-goal'].includes(tech) && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: '-6px', right: '-6px',
+                                                    background: '#0f172a',
+                                                    border: '1px solid rgba(255,255,255,0.4)',
+                                                    borderRadius: '50%',
+                                                    width: '12px', height: '12px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: '8px'
+                                                }}>
+                                                    {techIcon}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -1414,19 +1547,19 @@ export default function CoachLiveManagement({
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '4px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                                     <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }} />
-                                    Goal ({shotMetrics.goals})
+                                    ⚽ Goal ({shotMetrics.goals})
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                                     <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
-                                    Saved ({shotMetrics.saved})
+                                    🧤 Saved ({shotMetrics.saved})
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#94a3b8' }} />
-                                    Blocked ({shotMetrics.blocked})
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#a855f7' }} />
+                                    🛡️ Blocked ({shotMetrics.blocked})
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                                     <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
-                                    Off Target ({shotMetrics.missed})
+                                    💥 Off Target ({shotMetrics.missed})
                                 </div>
                             </div>
                         </div>
@@ -1438,7 +1571,7 @@ export default function CoachLiveManagement({
                             {selectedShotDetail ? (
                                 <div className="glass-panel" style={{
                                     padding: '16px', borderRadius: '14px',
-                                    border: `1px solid ${selectedShotDetail.result === 'goal' ? '#22c55e' : '#3b82f6'}`,
+                                    border: `1px solid ${selectedShotDetail.result === 'goal' ? '#22c55e' : selectedShotDetail.result === 'saved' ? '#f59e0b' : selectedShotDetail.result === 'blocked' ? '#a855f7' : '#ef4444'}`,
                                     background: 'rgba(15, 23, 42, 0.95)'
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1456,53 +1589,88 @@ export default function CoachLiveManagement({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                                         <span style={{
                                             padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '900',
-                                            background: selectedShotDetail.result === 'goal' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                                            color: selectedShotDetail.result === 'goal' ? '#4ade80' : '#fbbf24'
+                                            background: selectedShotDetail.result === 'goal' ? 'rgba(34, 197, 94, 0.2)' : selectedShotDetail.result === 'saved' ? 'rgba(245, 158, 11, 0.2)' : selectedShotDetail.result === 'blocked' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                            color: selectedShotDetail.result === 'goal' ? '#4ade80' : selectedShotDetail.result === 'saved' ? '#fbbf24' : selectedShotDetail.result === 'blocked' ? '#c084fc' : '#f87171'
                                         }}>
                                             {selectedShotDetail.result?.toUpperCase()}
                                         </span>
                                         <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>
-                                            {selectedShotDetail.playerName || 'Shooter'}
+                                            {resolvePlayerName(selectedShotDetail.playerId || selectedShotDetail.playerName, allPlayers) || selectedShotDetail.playerName || 'Shooter'}
                                         </span>
                                         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                             {selectedShotDetail.minute}'
                                         </span>
                                     </div>
                                     <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <div><strong>Type:</strong> {selectedShotDetail.goalType || 'Right Foot'}</div>
+                                        <div><strong>Technique:</strong> {
+                                            selectedShotDetail.goalType === 'header' ? '🗣️ Header' :
+                                            selectedShotDetail.goalType === 'freekick' ? '📐 Free Kick' :
+                                            selectedShotDetail.goalType === 'penalty' ? '🎯 Penalty' :
+                                            selectedShotDetail.goalType === 'own-goal' ? '⚠️ Own Goal' : '👟 Open Play (Foot)'
+                                        }</div>
+                                        <div><strong>Goal Zone:</strong> {
+                                            (selectedShotDetail.y < 20) ? 'Over Crossbar' :
+                                            (selectedShotDetail.x < 10) ? 'Wide Left' :
+                                            (selectedShotDetail.x > 90) ? 'Wide Right' :
+                                            (selectedShotDetail.y < 50 && ((selectedShotDetail.x >= 10 && selectedShotDetail.x <= 36.6) || (selectedShotDetail.x >= 63.3 && selectedShotDetail.x <= 90))) ? 'Top Corner' :
+                                            (selectedShotDetail.y >= 70 && ((selectedShotDetail.x >= 10 && selectedShotDetail.x <= 36.6) || (selectedShotDetail.x >= 63.3 && selectedShotDetail.x <= 90))) ? 'Bottom Corner' :
+                                            'Central Goalmouth'
+                                        } [{selectedShotDetail.x || 50}%, {selectedShotDetail.y || 55}%]</div>
                                         {selectedShotDetail.assistingPlayerName && (
-                                            <div><strong>Assist:</strong> {selectedShotDetail.assistingPlayerName}</div>
+                                            <div><strong>Assist:</strong> {resolvePlayerName(selectedShotDetail.assistingPlayerId || selectedShotDetail.assistingPlayerName, allPlayers) || selectedShotDetail.assistingPlayerName}</div>
                                         )}
                                         <div><strong>Period:</strong> {selectedShotDetail.period === '1H' ? 'First Half' : 'Second Half'}</div>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="glass-panel" style={{ padding: '14px', borderRadius: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11.5px' }}>
-                                    Tap any shot marker on the pitch map above to view shooter details and assist notes.
+                                    Tap any shot marker on the goal frame above to view shooter details and technique notes.
                                 </div>
                             )}
 
-                            {/* Shot Zones Distribution */}
+                            {/* Goal Placement & Technique Breakdown */}
                             <div className="glass-panel" style={{ padding: '16px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                 <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '10px' }}>
-                                    Halftime Tactical Zone Breakdown
+                                    Goal Placement &amp; Technique Breakdown
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Central Danger Box:</span>
-                                        <strong style={{ color: '#4ade80' }}>{shotMetrics.centerZone} shots</strong>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '10px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase' }}>TARGET ZONES</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Top Corners / High:</span>
+                                            <strong style={{ color: '#4ade80' }}>{shotMetrics.highCorners}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Low Corners / Low:</span>
+                                            <strong style={{ color: '#60a5fa' }}>{shotMetrics.lowCorners}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Central Target:</span>
+                                            <strong style={{ color: '#fbbf24' }}>{shotMetrics.centralGoal}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Off Target:</span>
+                                            <strong style={{ color: '#f87171' }}>{shotMetrics.missed}</strong>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Left Flank / Box:</span>
-                                        <strong style={{ color: '#ffffff' }}>{shotMetrics.leftZone} shots</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Right Flank / Box:</span>
-                                        <strong style={{ color: '#ffffff' }}>{shotMetrics.rightZone} shots</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Outside 18-Yard Box (Long):</span>
-                                        <strong style={{ color: '#fbbf24' }}>{shotMetrics.longRange} shots</strong>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '10px' }}>
+                                        <span style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase' }}>TECHNIQUE</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>👟 Open Play:</span>
+                                            <strong style={{ color: '#ffffff' }}>{shotMetrics.openPlay}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>🗣️ Headers:</span>
+                                            <strong style={{ color: '#38bdf8' }}>{shotMetrics.headers}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>📐 Free Kicks:</span>
+                                            <strong style={{ color: '#a78bfa' }}>{shotMetrics.freekicks}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>🎯 Penalties:</span>
+                                            <strong style={{ color: '#f43f5e' }}>{shotMetrics.penalties}</strong>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1515,12 +1683,16 @@ export default function CoachLiveManagement({
                                 background: 'rgba(59, 130, 246, 0.05)'
                             }}>
                                 <div style={{ fontSize: '12px', fontWeight: '800', color: '#93c5fd', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>💡</span> Halftime Tactical Adjustment Note
+                                    <span>💡</span> Tactical In-Game Adjustment Note
                                 </div>
                                 <p style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.8)', margin: 0, lineHeight: 1.5 }}>
-                                    {shotMetrics.conversion > 30 
-                                        ? "Strong finishing in the first half! Maintain central penetration through the penalty area. Consider bringing on a fresh winger to exploit wide defensive fatigue."
-                                        : "Most attempts were registered outside the penalty arc. Consider switching to central overloads or introducing an agile box striker via the Tactical Pitch tab to capitalize on rebounds."}
+                                    {shotMetrics.conversion > 25
+                                        ? "Clinical finishing in key target areas! Maintain shot selection into the corners and continue testing the opposing goalkeeper."
+                                        : shotMetrics.centralGoal > (shotMetrics.highCorners + shotMetrics.lowCorners)
+                                        ? "High volume of attempts directed straight into the goalkeeper's central reach. Instruct attackers to target low and high corners with greater placement accuracy."
+                                        : shotMetrics.headers > 1
+                                        ? "Strong aerial threat from crosses and set pieces. Continue exploiting wide wing deliveries and set-piece headers into the box."
+                                        : "Encourage attackers to test the goalkeeper with early strikes on frame and attack second-phase rebounds."}
                                 </p>
                             </div>
                         </div>
