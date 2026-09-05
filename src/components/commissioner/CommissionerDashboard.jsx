@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import LeagueTable from '../LeagueTable';
 import KnockoutBrackets from '../KnockoutBrackets';
 import CountdownSheetModal from '../match/CountdownSheetModal';
+import JerseyIcon from '../JerseyIcon';
 import { exportPMCMatchPacket, pushMatchToPMC } from '../../utils/pmcSyncEngine';
 
 const DEFAULT_VENUES = [
@@ -22,7 +23,7 @@ const DEFAULT_OFFICIALS = [
 ];
 
 export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches, readOnly = false }) {
-    const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'scheduling'
+    const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'operations' | 'scheduling' | 'standings' | 'knockouts'
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
@@ -32,6 +33,10 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
     const [generalRemarks, setGeneralRemarks] = useState('');
     const [commissionerSignature, setCommissionerSignature] = useState('');
     const [approvalSuccess, setApprovalSuccess] = useState(false);
+
+    // Matchday Operations & Substitutions States
+    const [subMinuteOverrides, setSubMinuteOverrides] = useState({});
+    const [opSuccessToast, setOpSuccessToast] = useState(null);
 
     // Match Scheduling Tab States
     const [schedulingMode, setSchedulingMode] = useState('generator'); // 'generator' | 'manual'
@@ -58,6 +63,241 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
     const upcomingScheduledMatches = useMemo(() => {
         return matches.filter(m => m.status === 'scheduled');
     }, [matches]);
+
+    // Matchday Operations: Pending Pre-Match Warm-Up Injury Amendments
+    const pendingWarmupAmendments = useMemo(() => {
+        const list = [];
+        (matches || []).forEach(match => {
+            (match.warmupAmendments || []).forEach(amendment => {
+                if (amendment.status === 'pending_commissioner' || amendment.status === 'pending') {
+                    list.push({ ...amendment, match });
+                }
+            });
+        });
+        return list;
+    }, [matches]);
+
+    const historicalWarmupAmendments = useMemo(() => {
+        const list = [];
+        (matches || []).forEach(match => {
+            (match.warmupAmendments || []).forEach(amendment => {
+                if (amendment.status === 'approved' || amendment.status === 'rejected') {
+                    list.push({ ...amendment, match });
+                }
+            });
+        });
+        return list;
+    }, [matches]);
+
+    // Matchday Operations: Pending In-Match Substitution Requests
+    const pendingSubstitutions = useMemo(() => {
+        const list = [];
+        (matches || []).forEach(match => {
+            (match.substitutionRequests || []).forEach(req => {
+                if (req.status === 'pending') {
+                    list.push({ ...req, match });
+                }
+            });
+        });
+        return list;
+    }, [matches]);
+
+    const historicalSubstitutions = useMemo(() => {
+        const list = [];
+        (matches || []).forEach(match => {
+            (match.substitutionRequests || []).forEach(req => {
+                if (req.status === 'approved' || req.status === 'rejected') {
+                    list.push({ ...req, match });
+                }
+            });
+        });
+        return list;
+    }, [matches]);
+
+    const totalPendingOps = pendingWarmupAmendments.length + pendingSubstitutions.length;
+
+    // Commissioner Approval Handler for Pre-Match Warm-Up Injury Switch
+    const handleApproveWarmupAmendment = (match, amendmentId) => {
+        const amendment = (match.warmupAmendments || []).find(a => a.id === amendmentId);
+        if (!amendment) return;
+
+        const isHomeTeam = amendment.isHome ?? (
+            amendment.teamId === match.homeTeamId ||
+            String(match.homeTeamId || '').toLowerCase().includes(String(amendment.teamId || '').toLowerCase().replace('-team-pmc', ''))
+        );
+
+        const squadKey = isHomeTeam ? 'homeSquadSelection' : 'awaySquadSelection';
+        const currentSquad = match[squadKey] || { startingXI: [], benchPlayers: [] };
+
+        const startingXI = Array.isArray(currentSquad.startingXI) ? [...currentSquad.startingXI] : [];
+        let benchPlayers = Array.isArray(currentSquad.benchPlayers) ? [...currentSquad.benchPlayers] : [];
+
+        // Replace playerOffId with playerOnId in Starting XI
+        const offIdx = startingXI.findIndex(id => String(id) === String(amendment.playerOffId));
+        if (offIdx !== -1) {
+            startingXI[offIdx] = amendment.playerOnId;
+        } else if (startingXI.length < 11) {
+            startingXI.push(amendment.playerOnId);
+        }
+
+        // Remove playerOnId from bench, add playerOffId to bench/reserve
+        benchPlayers = benchPlayers.filter(id => String(id) !== String(amendment.playerOnId));
+        if (!benchPlayers.some(id => String(id) === String(amendment.playerOffId))) {
+            benchPlayers.push(amendment.playerOffId);
+        }
+
+        // Update amendment status
+        const updatedWarmupAmendments = (match.warmupAmendments || []).map(a => 
+            a.id === amendmentId 
+                ? { 
+                    ...a, 
+                    status: 'approved', 
+                    approvedAt: new Date().toISOString(), 
+                    approvedBy: 'Match Commissioner' 
+                  } 
+                : a
+        );
+
+        const updatedMatch = {
+            ...match,
+            [squadKey]: {
+                ...currentSquad,
+                startingXI,
+                benchPlayers
+            },
+            warmupAmendments: updatedWarmupAmendments
+        };
+
+        if (onUpdateMatch) onUpdateMatch(updatedMatch);
+
+        setOpSuccessToast(`✓ Approved Warm-Up Injury Switch: #${amendment.playerOnJersey} ${amendment.playerOnName} promoted to Starting XI for injured #${amendment.playerOffJersey} ${amendment.playerOffName}. 0 match substitutions registered.`);
+        setTimeout(() => setOpSuccessToast(null), 5000);
+    };
+
+    const handleRejectWarmupAmendment = (match, amendmentId) => {
+        const amendment = (match.warmupAmendments || []).find(a => a.id === amendmentId);
+        const updatedWarmupAmendments = (match.warmupAmendments || []).map(a => 
+            a.id === amendmentId 
+                ? { 
+                    ...a, 
+                    status: 'rejected', 
+                    rejectedAt: new Date().toISOString(), 
+                    rejectedBy: 'Match Commissioner' 
+                  } 
+                : a
+        );
+
+        if (onUpdateMatch) {
+            onUpdateMatch({
+                ...match,
+                warmupAmendments: updatedWarmupAmendments
+            });
+        }
+
+        setOpSuccessToast(`✕ Declined warm-up amendment for ${amendment?.teamName || 'Team'}`);
+        setTimeout(() => setOpSuccessToast(null), 4000);
+    };
+
+    // Commissioner Approval Handler for In-Match Substitutions
+    const handleApproveSubstitution = (match, reqId) => {
+        const req = (match.substitutionRequests || []).find(r => r.id === reqId);
+        if (!req) return;
+
+        const overrideMin = subMinuteOverrides[reqId];
+        const minuteVal = (overrideMin !== undefined && overrideMin !== '') 
+            ? parseInt(overrideMin, 10) 
+            : (req.minute || match.matchClock || 45);
+
+        const updatedRequests = (match.substitutionRequests || []).map(r => 
+            r.id === reqId 
+                ? { 
+                    ...r, 
+                    status: 'approved',
+                    approvedAt: new Date().toISOString(),
+                    approvedBy: 'Match Commissioner',
+                    minute: minuteVal
+                  } 
+                : r
+        );
+
+        const isMatchHome = req.teamSide === 'home' || req.teamId === match.homeTeamId || String(match.homeTeamId || '').toLowerCase().includes(String(req.teamId || '').toLowerCase().replace('-team-pmc', ''));
+
+        const squadKey = isMatchHome ? 'homeSquadSelection' : 'awaySquadSelection';
+        const currentSquad = match[squadKey] || {
+            startingXI: (isMatchHome ? match.homePlayers : match.awayPlayers || []).slice(0, 11),
+            benchPlayers: (isMatchHome ? match.homePlayers : match.awayPlayers || []).slice(11)
+        };
+
+        const newXI = (currentSquad.startingXI || []).map(pid => pid === req.playerOff ? req.playerOn : pid);
+        const newBench = [...(currentSquad.benchPlayers || []).filter(pid => pid !== req.playerOn && pid !== req.playerOff), req.playerOff];
+
+        const offPlayer = (allStudents || []).find(p => p.id === req.playerOff);
+        const onPlayer = (allStudents || []).find(p => p.id === req.playerOn);
+
+        const subTimelineEvent = {
+            id: `sub-evt-${Date.now()}`,
+            type: 'substitution',
+            minute: minuteVal,
+            period: minuteVal <= 45 ? '1H' : '2H',
+            team: isMatchHome ? 'home' : 'away',
+            teamId: req.teamId,
+            playerOffId: req.playerOff,
+            playerOffName: offPlayer?.name || 'Player Off',
+            playerOnId: req.playerOn,
+            playerOnName: onPlayer?.name || 'Player On',
+            timestamp: Date.now()
+        };
+
+        const newEvent = {
+            id: `event-${Date.now()}`,
+            type: 'substitution',
+            teamId: req.teamId,
+            playerOff: req.playerOff,
+            playerOn: req.playerOn,
+            timestamp: Date.now(),
+            minute: minuteVal
+        };
+
+        const updatedMatch = {
+            ...match,
+            substitutionRequests: updatedRequests,
+            events: [...(match.events || []), newEvent],
+            timeline: [...(match.timeline || []), subTimelineEvent],
+            [squadKey]: {
+                ...currentSquad,
+                startingXI: newXI,
+                benchPlayers: newBench
+            }
+        };
+
+        if (onUpdateMatch) onUpdateMatch(updatedMatch);
+
+        setOpSuccessToast(`✓ Confirmed In-Match Substitution at ${minuteVal}': ${onPlayer?.name || 'Player'} ON for ${offPlayer?.name || 'Player'} OFF`);
+        setTimeout(() => setOpSuccessToast(null), 5000);
+    };
+
+    const handleRejectSubstitution = (match, reqId) => {
+        const updatedRequests = (match.substitutionRequests || []).map(r => 
+            r.id === reqId 
+                ? { 
+                    ...r, 
+                    status: 'rejected',
+                    rejectedAt: new Date().toISOString(),
+                    rejectedBy: 'Match Commissioner'
+                  } 
+                : r
+        );
+
+        if (onUpdateMatch) {
+            onUpdateMatch({
+                ...match,
+                substitutionRequests: updatedRequests
+            });
+        }
+
+        setOpSuccessToast(`✕ Declined substitution request.`);
+        setTimeout(() => setOpSuccessToast(null), 4000);
+    };
 
     // Compute Discrepancies
     const discrepancies = useMemo(() => {
@@ -257,7 +497,28 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    Match Approvals & Verification
+                    Match Approvals &amp; Verification
+                </button>
+                <button
+                    onClick={() => setMainTab('operations')}
+                    style={{
+                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                        background: mainTab === 'operations' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+                        color: mainTab === 'operations' ? '#f87171' : 'var(--text-secondary)',
+                        border: mainTab === 'operations' ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid transparent',
+                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none',
+                        display: 'flex', alignItems: 'center', gap: '8px'
+                    }}
+                >
+                    <span>⚡ Matchday Operations &amp; Subs</span>
+                    {totalPendingOps > 0 && (
+                        <span style={{
+                            background: '#ef4444', color: '#ffffff',
+                            borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: '800'
+                        }}>
+                            {totalPendingOps}
+                        </span>
+                    )}
                 </button>
                 <button
                     onClick={() => setMainTab('scheduling')}
@@ -547,6 +808,364 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                 <span>Select a match from the refereed list to verify and approve.</span>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* TAB CONTENT: Matchday Operations & Substitutions */}
+            {mainTab === 'operations' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: '30px' }}>
+                    
+                    {/* Header Banner & Status */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span>⚡ Matchday Operations &amp; Touchline Desk</span>
+                                {totalPendingOps > 0 && (
+                                    <span style={{ fontSize: '12px', background: 'rgba(239,68,68,0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '12px', padding: '2px 10px', fontWeight: '800' }}>
+                                        {totalPendingOps} Action{totalPendingOps > 1 ? 's' : ''} Pending
+                                    </span>
+                                )}
+                            </h2>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                                Official Match Commissioner desk for pre-match warm-up injury amendments and live touchline substitution approvals.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Operational Success Toast */}
+                    {opSuccessToast && (
+                        <div style={{
+                            padding: '12px 18px', borderRadius: '12px',
+                            background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)',
+                            color: '#34d399', fontSize: '13px', fontWeight: '700',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
+                        }}>
+                            <span>{opSuccessToast}</span>
+                            <button onClick={() => setOpSuccessToast(null)} style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                        </div>
+                    )}
+
+                    {/* 2-Column Grid for Warm-Up Amendments & In-Match Substitutions */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '20px' }}>
+                        
+                        {/* ── PANEL 1: Pre-Match Warm-Up Injury Amendments ── */}
+                        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '22px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: 'var(--border)', paddingBottom: '14px' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>🚨</span> Pre-Match Warm-Up Injury Switch
+                                    </h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                        Emergency starter replacement prior to kickoff (0 match substitutions charged)
+                                    </span>
+                                </div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', background: pendingWarmupAmendments.length > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.05)', color: pendingWarmupAmendments.length > 0 ? '#f87171' : 'var(--text-muted)', padding: '2px 8px', borderRadius: '10px' }}>
+                                    {pendingWarmupAmendments.length} Pending
+                                </span>
+                            </div>
+
+                            {/* Competition Regulation Guidance Callout */}
+                            <div style={{
+                                padding: '10px 14px', borderRadius: '10px',
+                                background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)',
+                                fontSize: '11.5px', color: '#93c5fd', lineHeight: 1.5
+                            }}>
+                                <strong>Competition Rule (Warm-Up Injury):</strong> If a player in the submitted Starting XI suffers an injury during warm-ups prior to kickoff, the coach may replace them with an eligible bench player. <em>This action does not count towards the team's 5 match substitutions</em>. Once approved, the replacement officially starts.
+                            </div>
+
+                            {/* Pending Warm-Up Cards List */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {pendingWarmupAmendments.length === 0 ? (
+                                    <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                        ✓ No pending warm-up injury amendments. All starting lineups are proceeding as submitted.
+                                    </div>
+                                ) : (
+                                    pendingWarmupAmendments.map(item => (
+                                        <div
+                                            key={item.id}
+                                            style={{
+                                                padding: '16px', borderRadius: '14px',
+                                                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(30, 41, 59, 0.5) 100%)',
+                                                border: '1.5px solid rgba(239, 68, 68, 0.35)',
+                                                display: 'flex', flexDirection: 'column', gap: '12px',
+                                                boxShadow: '0 8px 24px rgba(0,0,0,0.25)'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                <span style={{ fontWeight: '800', color: 'var(--primary-light)' }}>
+                                                    🏟️ {item.match?.venue || 'Venue'} • {item.match?.matchday || 'Matchday'}
+                                                </span>
+                                                <span>Requested: {new Date(item.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            </div>
+
+                                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>
+                                                {item.teamName || getSchoolName(item.teamId, item.match)} ({item.isHome ? 'Home' : 'Away'})
+                                            </div>
+
+                                            {/* Side by side: Injured Starter -> Promoted Replacement */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '10px', alignItems: 'center' }}>
+                                                {/* Injured Starter (Red) */}
+                                                <div style={{
+                                                    padding: '10px', borderRadius: '10px',
+                                                    background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
+                                                }}>
+                                                    <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase' }}>
+                                                        ↓ Injured Starter
+                                                    </span>
+                                                    <JerseyIcon number={item.playerOffJersey || '—'} color="#ef4444" size={34} />
+                                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
+                                                        {item.playerOffName}
+                                                    </div>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Starter</span>
+                                                </div>
+
+                                                <div style={{ fontSize: '18px', color: '#38bdf8', fontWeight: '900' }}>
+                                                    ⇄
+                                                </div>
+
+                                                {/* Promoted Replacement (Green) */}
+                                                <div style={{
+                                                    padding: '10px', borderRadius: '10px',
+                                                    background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                    display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
+                                                }}>
+                                                    <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase' }}>
+                                                        ↑ Promoted to XI
+                                                    </span>
+                                                    <JerseyIcon number={item.playerOnJersey || '—'} color="#22c55e" size={34} />
+                                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
+                                                        {item.playerOnName}
+                                                    </div>
+                                                    <span style={{ fontSize: '10px', color: '#86efac', fontWeight: '700' }}>0 Subs Charged</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Injury Reason */}
+                                            <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '8px', borderLeft: '3px solid #f87171' }}>
+                                                <strong>Reported Reason:</strong> {item.injuryReason}
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '6px' }}>
+                                                <button
+                                                    type="button"
+                                                    disabled={readOnly}
+                                                    onClick={() => handleRejectWarmupAmendment(item.match, item.id)}
+                                                    style={{
+                                                        padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                                        background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-muted)',
+                                                        border: '1px solid var(--border)', cursor: readOnly ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                >
+                                                    ✕ Decline
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={readOnly}
+                                                    onClick={() => handleApproveWarmupAmendment(item.match, item.id)}
+                                                    style={{
+                                                        padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                                        background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', color: '#ffffff',
+                                                        border: 'none', cursor: readOnly ? 'not-allowed' : 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(34, 197, 94, 0.35)'
+                                                    }}
+                                                >
+                                                    ✓ Approve Warm-Up Change
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Historical / Approved Warm-up switches */}
+                            {historicalWarmupAmendments.length > 0 && (
+                                <div style={{ borderTop: 'var(--border)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Recent Warm-Up Amendments Log ({historicalWarmupAmendments.length})
+                                    </span>
+                                    {historicalWarmupAmendments.slice(-3).map(h => (
+                                        <div key={h.id} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                                            <span>{h.teamName}: #{h.playerOnJersey} {h.playerOnName} for #{h.playerOffJersey} {h.playerOffName}</span>
+                                            <span style={{ color: h.status === 'approved' ? '#4ade80' : '#f87171', fontWeight: '700' }}>
+                                                {h.status === 'approved' ? '✓ Approved' : '✕ Rejected'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── PANEL 2: In-Match Substitution Control Desk ── */}
+                        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '22px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: 'var(--border)', paddingBottom: '14px' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>📋</span> In-Match Substitution Control Desk
+                                    </h3>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                        Live touchline substitution requests submitted from Coach / 4th Official devices
+                                    </span>
+                                </div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', background: pendingSubstitutions.length > 0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.05)', color: pendingSubstitutions.length > 0 ? '#60a5fa' : 'var(--text-muted)', padding: '2px 8px', borderRadius: '10px' }}>
+                                    {pendingSubstitutions.length} Pending
+                                </span>
+                            </div>
+
+                            {/* Touchline Protocol Guidance Callout */}
+                            <div style={{
+                                padding: '10px 14px', borderRadius: '10px',
+                                background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)',
+                                fontSize: '11.5px', color: '#6ee7b7', lineHeight: 1.5
+                            }}>
+                                <strong>Substitution Protocol:</strong> Confirm the match minute and authorize the substitution. Approval automatically deducts from the team's 5-sub quota, appends the event to the official match timeline, and updates the live tactical pitch.
+                            </div>
+
+                            {/* Pending Substitutions List */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {pendingSubstitutions.length === 0 ? (
+                                    <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
+                                        ✓ No live substitution requests awaiting official confirmation.
+                                    </div>
+                                ) : (
+                                    pendingSubstitutions.map(item => {
+                                        const offPlayer = (allStudents || []).find(p => p.id === item.playerOff);
+                                        const onPlayer = (allStudents || []).find(p => p.id === item.playerOn);
+                                        const curMinute = subMinuteOverrides[item.id] !== undefined ? subMinuteOverrides[item.id] : (item.minute || item.match?.matchClock || 45);
+
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                style={{
+                                                    padding: '16px', borderRadius: '14px',
+                                                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(30, 41, 59, 0.5) 100%)',
+                                                    border: '1.5px solid rgba(59, 130, 246, 0.35)',
+                                                    display: 'flex', flexDirection: 'column', gap: '12px',
+                                                    boxShadow: '0 8px 24px rgba(0,0,0,0.25)'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                    <span style={{ fontWeight: '800', color: '#60a5fa' }}>
+                                                        ⏱️ Match Status: {item.match?.status === 'live' ? 'LIVE' : 'Scheduled / In-Progress'}
+                                                    </span>
+                                                    <span>{new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+
+                                                <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>
+                                                    {getSchoolName(item.teamId, item.match)}
+                                                </div>
+
+                                                {/* Side by side: Off -> On */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '10px', alignItems: 'center' }}>
+                                                    <div style={{
+                                                        padding: '10px', borderRadius: '10px',
+                                                        background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
+                                                    }}>
+                                                        <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase' }}>
+                                                            ↓ COMING OFF
+                                                        </span>
+                                                        <JerseyIcon number={offPlayer?.jerseyNumber != null ? offPlayer.jerseyNumber : '—'} color="#ef4444" size={34} />
+                                                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
+                                                            {offPlayer?.name || `Player #${item.playerOff}`}
+                                                        </div>
+                                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Starter</span>
+                                                    </div>
+
+                                                    <div style={{ fontSize: '18px', color: '#38bdf8', fontWeight: '900' }}>
+                                                        ⇄
+                                                    </div>
+
+                                                    <div style={{
+                                                        padding: '10px', borderRadius: '10px',
+                                                        background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
+                                                    }}>
+                                                        <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase' }}>
+                                                            ↑ COMING ON
+                                                        </span>
+                                                        <JerseyIcon number={onPlayer?.jerseyNumber != null ? onPlayer.jerseyNumber : '—'} color="#22c55e" size={34} />
+                                                        <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
+                                                            {onPlayer?.name || `Player #${item.playerOn}`}
+                                                        </div>
+                                                        <span style={{ fontSize: '10px', color: '#86efac', fontWeight: '700' }}>Substitute</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Tactical Note & Minute Setter */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '10px', alignItems: 'center' }}>
+                                                    <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '8px' }}>
+                                                        <strong>Note:</strong> {item.tacticalNote || 'Tactical change'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '6px 10px', borderRadius: '8px' }}>
+                                                        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700' }}>Minute:</label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="120"
+                                                            value={curMinute}
+                                                            onChange={e => setSubMinuteOverrides({ ...subMinuteOverrides, [item.id]: e.target.value })}
+                                                            style={{ width: '46px', padding: '4px 6px', borderRadius: '6px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.4)', color: '#fbbf24', fontSize: '12px', fontWeight: 'bold', outline: 'none' }}
+                                                        />
+                                                        <span style={{ fontSize: '11px', color: '#fbbf24' }}>'</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '6px' }}>
+                                                    <button
+                                                        type="button"
+                                                        disabled={readOnly}
+                                                        onClick={() => handleRejectSubstitution(item.match, item.id)}
+                                                        style={{
+                                                            padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                                                            background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-muted)',
+                                                            border: '1px solid var(--border)', cursor: readOnly ? 'not-allowed' : 'pointer'
+                                                        }}
+                                                    >
+                                                        ✕ Decline
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={readOnly}
+                                                        onClick={() => handleApproveSubstitution(item.match, item.id)}
+                                                        style={{
+                                                            padding: '8px 20px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#ffffff',
+                                                            border: 'none', cursor: readOnly ? 'not-allowed' : 'pointer',
+                                                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)'
+                                                        }}
+                                                    >
+                                                        ✓ Confirm &amp; Apply Substitution
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* Historical / Completed substitutions */}
+                            {historicalSubstitutions.length > 0 && (
+                                <div style={{ borderTop: 'var(--border)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Recent Substitutions Log ({historicalSubstitutions.length})
+                                    </span>
+                                    {historicalSubstitutions.slice(-3).map(h => (
+                                        <div key={h.id} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                                            <span>{h.minute}' • {getSchoolName(h.teamId, h.match)} (Player #{h.playerOn} for #{h.playerOff})</span>
+                                            <span style={{ color: h.status === 'approved' ? '#4ade80' : '#f87171', fontWeight: '700' }}>
+                                                {h.status === 'approved' ? '✓ Authorized' : '✕ Rejected'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                     </div>
                 </div>
             )}

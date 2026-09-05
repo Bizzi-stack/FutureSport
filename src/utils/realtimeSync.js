@@ -35,12 +35,16 @@ function computeMatchesHash(matches) {
             awayScore: m.awayScore,
             homeSquad: !!m.homeSquadSelection,
             awaySquad: !!m.awaySquadSelection,
+            homeSquadXI: m.homeSquadSelection?.startingXI?.join(','),
+            awaySquadXI: m.awaySquadSelection?.startingXI?.join(','),
             possession: m.possession || m.liveState?.possession,
             liveState: m.liveState,
             refereeLiveState: m.refereeLiveState,
             timelineLen: m.timeline?.length || 0,
             subReqCount: m.substitutionRequests?.length || 0,
-            lastSubStatus: m.substitutionRequests?.[m.substitutionRequests.length - 1]?.status
+            lastSubStatus: m.substitutionRequests?.[m.substitutionRequests.length - 1]?.status,
+            warmupCount: m.warmupAmendments?.length || 0,
+            lastWarmupStatus: m.warmupAmendments?.[m.warmupAmendments.length - 1]?.status
         })));
     } catch {
         return '';

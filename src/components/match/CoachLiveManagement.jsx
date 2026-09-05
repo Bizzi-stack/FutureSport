@@ -120,7 +120,7 @@ export default function CoachLiveManagement({
 
     // Explicit Confirmation Dialog State
     const [pendingSubModal, setPendingSubModal] = useState(null); // { playerOffId, playerOnId, slotIndex, minute }
-    const [subExecutionType, setSubExecutionType] = useState('direct'); // 'direct' (instant coach apply) | 'official_request'
+    const [subExecutionType, setSubExecutionType] = useState('official_request'); // 'official_request' (send to commissioner/4th official) | 'direct'
     const [subTacticalNote, setSubTacticalNote] = useState('');
     const [toastMessage, setToastMessage] = useState(null);
 
@@ -280,6 +280,22 @@ export default function CoachLiveManagement({
             };
         });
     }, [currentMatch?.substitutionRequests, allPlayers]);
+
+    // Pending substitution requests for this team awaiting official approval
+    const pendingRequests = useMemo(() => {
+        return (currentMatch?.substitutionRequests || []).filter(r => 
+            r.status === 'pending' && 
+            (r.teamSide === (isHome ? 'home' : 'away') || r.teamId === schoolId || r.teamId === teamId)
+        );
+    }, [currentMatch?.substitutionRequests, isHome, schoolId, teamId]);
+
+    // Approved warm-up amendments for this match/team
+    const approvedWarmupAmendment = useMemo(() => {
+        return (currentMatch?.warmupAmendments || []).find(a => 
+            a.status === 'approved' && 
+            (a.isHome === isHome || a.teamId === schoolId || a.teamId === teamId)
+        );
+    }, [currentMatch?.warmupAmendments, isHome, schoolId, teamId]);
 
     // Real-time Shot events logged by Data Capturers
     const allMatchShots = useMemo(() => {
@@ -492,14 +508,16 @@ export default function CoachLiveManagement({
             const playerOff = getPlayer(playerOffId);
             const playerOn = getPlayer(playerOnId);
             const subMinute = minute || 45;
+            const isDirect = subExecutionType === 'direct';
 
             const newRequest = {
                 id: `subreq-${Date.now()}`,
                 teamId: teamId || schoolId,
+                teamSide: isHome ? 'home' : 'away',
                 playerOff: playerOffId,
                 playerOn: playerOnId,
                 minute: subMinute,
-                status: subExecutionType === 'direct' ? 'approved' : 'pending',
+                status: isDirect ? 'approved' : 'pending',
                 tacticalNote: subTacticalNote.trim() || 'Tactical Substitution',
                 timestamp: Date.now()
             };
@@ -507,25 +525,26 @@ export default function CoachLiveManagement({
             const existingRequests = activeMatch.substitutionRequests || [];
             const updatedRequests = [...existingRequests, newRequest];
 
-            // Add substitution event to match timeline
-            const subTimelineEvent = {
-                id: `sub-evt-${Date.now()}`,
-                type: 'substitution',
-                minute: subMinute,
-                period: subMinute <= 45 ? '1H' : '2H',
-                team: isHome ? 'home' : 'away',
-                playerOffId,
-                playerOffName: playerOff?.name || 'Player Off',
-                playerOnId,
-                playerOnName: playerOn?.name || 'Player On',
-                timestamp: Date.now()
-            };
-            const updatedTimeline = [...(activeMatch.timeline || []), subTimelineEvent];
-
+            let updatedTimeline = activeMatch.timeline || [];
             let updatedSquadSelection = { ...(squadSelection || {}) };
 
-            // If Direct Coach Execution: Immediately update startingXI and bench on pitch!
-            if (subExecutionType === 'direct') {
+            // Only update pitch startingXI and match events timeline immediately if direct coach execution
+            if (isDirect) {
+                const subTimelineEvent = {
+                    id: `sub-evt-${Date.now()}`,
+                    type: 'substitution',
+                    minute: subMinute,
+                    period: subMinute <= 45 ? '1H' : '2H',
+                    team: isHome ? 'home' : 'away',
+                    teamId: teamId || schoolId,
+                    playerOffId,
+                    playerOffName: playerOff?.name || 'Player Off',
+                    playerOnId,
+                    playerOnName: playerOn?.name || 'Player On',
+                    timestamp: Date.now()
+                };
+                updatedTimeline = [...updatedTimeline, subTimelineEvent];
+
                 const updatedXI = [...currentOnField];
                 if (slotIndex != null && slotIndex >= 0) {
                     updatedXI[slotIndex] = playerOnId;
@@ -562,9 +581,9 @@ export default function CoachLiveManagement({
             const offJersey = playerOff?.jerseyNumber != null ? `#${playerOff.jerseyNumber} ` : '';
 
             triggerToast(
-                subExecutionType === 'direct'
+                isDirect
                     ? `✓ Substitution Executed: ${onJersey}${onName} is ON for ${offJersey}${offName} (${subMinute}')`
-                    : `📋 Substitution Request Submitted to 4th Official for ${onJersey}${onName}`
+                    : `📋 Substitution Request Submitted to Match Commissioner & 4th Official for ${onJersey}${onName}`
             );
         } catch (err) {
             console.error('Substitution execution error:', err);
@@ -809,6 +828,61 @@ export default function CoachLiveManagement({
                     </div>
                 </div>
             </div>
+
+            {/* Approved Warm-Up Injury Switch Banner */}
+            {approvedWarmupAmendment && (
+                <div style={{
+                    padding: '10px 16px', borderRadius: '10px',
+                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.08) 100%)',
+                    border: '1.5px solid rgba(34, 197, 94, 0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '10px', fontSize: '12px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '15px' }}>🚨</span>
+                        <div>
+                            <span style={{ fontWeight: '800', color: '#4ade80' }}>
+                                Pre-Match Warm-Up Amendment Approved:
+                            </span>{' '}
+                            <span style={{ color: '#ffffff' }}>
+                                #{approvedWarmupAmendment.playerOnJersey} {approvedWarmupAmendment.playerOnName} promoted into Starting XI for injured #{approvedWarmupAmendment.playerOffJersey} {approvedWarmupAmendment.playerOffName}.
+                            </span>{' '}
+                            <span style={{ color: '#86efac', fontWeight: '700' }}>
+                                (0/5 match substitutions charged per competition rules)
+                            </span>
+                        </div>
+                    </div>
+                    <span style={{ background: 'rgba(34, 197, 94, 0.25)', color: '#4ade80', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        ✓ Confirmed by Commissioner
+                    </span>
+                </div>
+            )}
+
+            {/* Pending Substitution Alert Banner */}
+            {pendingRequests.length > 0 && (
+                <div style={{
+                    padding: '10px 16px', borderRadius: '10px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '10px', fontSize: '12px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '15px' }}>⏳</span>
+                        <div>
+                            <span style={{ fontWeight: '800', color: '#fbbf24' }}>
+                                Touchline Substitution Awaiting Official Approval:
+                            </span>{' '}
+                            <span style={{ color: '#ffffff' }}>
+                                {getPlayer(pendingRequests[0].playerOn)?.name || 'Player'} ON for {getPlayer(pendingRequests[0].playerOff)?.name || 'Player'} OFF ({pendingRequests[0].minute}')
+                            </span>
+                        </div>
+                    </div>
+                    <span style={{ background: 'rgba(245, 158, 11, 0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        🟡 Pending 4th Official / Commissioner
+                    </span>
+                </div>
+            )}
 
             {/* Notification Toast */}
             {toastMessage && (
@@ -1571,25 +1645,6 @@ export default function CoachLiveManagement({
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setSubExecutionType('direct');
-                                        }}
-                                        style={{
-                                            padding: '8px 10px',
-                                            borderRadius: '8px',
-                                            fontSize: '11px',
-                                            fontWeight: '800',
-                                            background: subExecutionType === 'direct' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.03)',
-                                            color: subExecutionType === 'direct' ? '#4ade80' : 'var(--text-muted)',
-                                            border: subExecutionType === 'direct' ? '1.5px solid #22c55e' : '1px solid var(--border)',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        ✓ Direct Coach Apply
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
                                             setSubExecutionType('official_request');
                                         }}
                                         style={{
@@ -1603,7 +1658,26 @@ export default function CoachLiveManagement({
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        📋 Send to 4th Official
+                                        📋 Send to Match Commissioner &amp; 4th Official
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSubExecutionType('direct');
+                                        }}
+                                        style={{
+                                            padding: '8px 10px',
+                                            borderRadius: '8px',
+                                            fontSize: '11px',
+                                            fontWeight: '800',
+                                            background: subExecutionType === 'direct' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                                            color: subExecutionType === 'direct' ? '#4ade80' : 'var(--text-muted)',
+                                            border: subExecutionType === 'direct' ? '1.5px solid #22c55e' : '1px solid var(--border)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ⚡ Direct Coach Apply (Testing)
                                     </button>
                                 </div>
                             </div>
@@ -1660,14 +1734,14 @@ export default function CoachLiveManagement({
                                     borderRadius: '8px',
                                     fontSize: '12px',
                                     fontWeight: '900',
-                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                    background: subExecutionType === 'official_request' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                     color: '#ffffff',
                                     border: 'none',
                                     cursor: 'pointer',
-                                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+                                    boxShadow: subExecutionType === 'official_request' ? '0 4px 14px rgba(37, 99, 235, 0.4)' : '0 4px 14px rgba(16, 185, 129, 0.4)'
                                 }}
                             >
-                                Confirm &amp; Apply Substitution
+                                {subExecutionType === 'official_request' ? 'Submit to Match Commissioner & 4th Official' : 'Confirm & Apply Substitution'}
                             </button>
                         </div>
                     </div>

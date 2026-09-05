@@ -1557,6 +1557,7 @@ function App() {
                   matches={displayMatches}
                   schools={displaySchools}
                   allTeams={displayTeams}
+                  allStudents={displayStudents}
                   onUpdateMatch={handleUpdateMatch}
                   onAddMatches={handleAddMatches}
               />

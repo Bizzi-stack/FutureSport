@@ -178,6 +178,13 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
     const [reminderSentToast, setReminderSentToast] = useState(null);
 
+    // Pre-Match Warm-Up Emergency Injury Amendment State
+    const [showWarmupModal, setShowWarmupModal] = useState(false);
+    const [warmupInjuredPlayerId, setWarmupInjuredPlayerId] = useState('');
+    const [warmupReplacementPlayerId, setWarmupReplacementPlayerId] = useState('');
+    const [warmupInjuryReason, setWarmupInjuryReason] = useState('');
+    const [warmupSuccessToast, setWarmupSuccessToast] = useState(null);
+
     const schoolName = useMemo(() => {
         const sc = schools?.find(s => s.id === schoolId);
         return sc ? sc.name : 'My School';
@@ -504,6 +511,48 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         }
     };
 
+    // Submit Pre-Match Warm-Up Emergency Lineup Amendment to Match Commissioner
+    const handleSubmitWarmupAmendment = () => {
+        if (!selectedMatch || !warmupInjuredPlayerId || !warmupReplacementPlayerId) return;
+
+        const injuredP = getPlayerById(warmupInjuredPlayerId);
+        const replacementP = getPlayerById(warmupReplacementPlayerId);
+
+        const amendment = {
+            id: `warmup-${Date.now()}`,
+            matchId: selectedMatch.id,
+            teamId: schoolId,
+            teamName: schoolName,
+            isHome,
+            playerOffId: warmupInjuredPlayerId,
+            playerOffName: injuredP?.name || 'Injured Player',
+            playerOffJersey: injuredP?.jerseyNumber != null ? injuredP.jerseyNumber : '—',
+            playerOnId: warmupReplacementPlayerId,
+            playerOnName: replacementP?.name || 'Replacement Player',
+            playerOnJersey: replacementP?.jerseyNumber != null ? replacementP.jerseyNumber : '—',
+            injuryReason: warmupInjuryReason.trim() || 'Injury sustained during pre-match warm-up drills',
+            requestedAt: new Date().toISOString(),
+            status: 'pending_commissioner', // 'pending_commissioner' | 'approved' | 'rejected'
+            isSubstitution: false // Explicitly NOT an in-game match substitution
+        };
+
+        const existingAmendments = selectedMatch.warmupAmendments || [];
+        const updatedMatch = {
+            ...selectedMatch,
+            warmupAmendments: [...existingAmendments, amendment]
+        };
+
+        if (onUpdateMatch) onUpdateMatch(updatedMatch);
+
+        setShowWarmupModal(false);
+        setWarmupInjuredPlayerId('');
+        setWarmupReplacementPlayerId('');
+        setWarmupInjuryReason('');
+
+        setWarmupSuccessToast(`🚨 Warm-up injury amendment submitted for #${replacementP?.jerseyNumber} ${replacementP?.name} to replace injured starter #${injuredP?.jerseyNumber} ${injuredP?.name}. Awaiting Match Commissioner approval (0 match substitutions charged).`);
+        setTimeout(() => setWarmupSuccessToast(null), 6000);
+    };
+
     const alreadySubmitted = useMemo(() => {
         if (!selectedMatch) return false;
         const key = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
@@ -646,6 +695,20 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                             <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.25)' }}>Squad Submitted</span>
                                             <button
                                                 type="button"
+                                                onClick={() => setShowWarmupModal(true)}
+                                                style={{
+                                                    padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '800',
+                                                    background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+                                                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)'
+                                                }}
+                                                title="Emergency pre-kickoff switch if a player is injured during warm-ups"
+                                            >
+                                                <span>🚨</span>
+                                                <span>Warm-Up Injury Switch</span>
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={handleReopenSquad}
                                                 style={{
                                                     padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: '800',
@@ -687,6 +750,73 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     )}
                                 </div>
                             </div>
+
+                            {/* Warm-Up Toast Notification */}
+                            {warmupSuccessToast && (
+                                <div style={{
+                                    padding: '12px 18px', borderRadius: '12px',
+                                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    color: '#fca5a5', fontSize: '12.5px', fontWeight: '700',
+                                    display: 'flex', alignItems: 'center', gap: '10px'
+                                }}>
+                                    <span>🚨</span>
+                                    <span>{warmupSuccessToast}</span>
+                                </div>
+                            )}
+
+                            {/* Warm-Up Injury Amendments Status Banner */}
+                            {(() => {
+                                const amendments = (selectedMatch.warmupAmendments || []).filter(a => a.teamId === schoolId || (isHome ? a.isHome : !a.isHome));
+                                const pendingAmendment = amendments.find(a => a.status === 'pending_commissioner');
+                                const approvedAmendments = amendments.filter(a => a.status === 'approved');
+
+                                return (
+                                    <>
+                                        {pendingAmendment && (
+                                            <div style={{
+                                                padding: '12px 18px', borderRadius: '12px',
+                                                background: 'rgba(245, 158, 11, 0.14)', border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+                                                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ fontSize: '20px' }}>🟡</span>
+                                                    <div>
+                                                        <div style={{ fontSize: '12.5px', fontWeight: '800', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span>Warm-Up Injury Amendment Pending Match Commissioner Approval</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '2px' }}>
+                                                            <strong>#{pendingAmendment.playerOnJersey} {pendingAmendment.playerOnName}</strong> to replace injured starter <strong>#{pendingAmendment.playerOffJersey} {pendingAmendment.playerOffName}</strong> ({pendingAmendment.injuryReason}).
+                                                            <span style={{ color: '#93c5fd', marginLeft: '8px', fontWeight: '700' }}>ℹ️ Pre-kickoff switch: 0 match substitutions charged.</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span style={{ fontSize: '10px', fontWeight: '900', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.25)', padding: '4px 10px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
+                                                    AWAITING COMMISSIONER
+                                                </span>
+                                            </div>
+                                        )}
+                                        {approvedAmendments.map(am => (
+                                            <div key={am.id} style={{
+                                                padding: '10px 16px', borderRadius: '12px',
+                                                background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ fontSize: '16px', color: '#4ade80' }}>✓</span>
+                                                    <div style={{ fontSize: '12px', color: '#ffffff' }}>
+                                                        <strong style={{ color: '#4ade80' }}>Match Commissioner Approved Warm-Up Replacement:</strong> #{am.playerOnJersey} {am.playerOnName} entered the Starting XI for #{am.playerOffJersey} {am.playerOffName}.
+                                                        <span style={{ color: '#a5b4fc', marginLeft: '6px', fontSize: '11px' }}>(0 match substitutions charged)</span>
+                                                    </div>
+                                                </div>
+                                                <span style={{ fontSize: '10px', fontWeight: '900', color: '#4ade80', background: 'rgba(34, 197, 94, 0.2)', padding: '3px 8px', borderRadius: '6px' }}>
+                                                    APPROVED BY COMMISSIONER
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </>
+                                );
+                            })()}
 
                             {/* Coach Reminder Toast Notification */}
                             {reminderSentToast && (
@@ -1217,6 +1347,21 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     <>
                                         <button
                                             type="button"
+                                            onClick={() => setShowWarmupModal(true)}
+                                            style={{
+                                                padding: '10px 22px', borderRadius: '24px', fontSize: '13px', fontWeight: '800',
+                                                background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                                                border: '1.5px solid rgba(239, 68, 68, 0.45)', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s',
+                                                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.25)'
+                                            }}
+                                            title="Emergency pre-kickoff switch if a player is injured during warm-ups"
+                                        >
+                                            <span>🚨</span>
+                                            <span>Warm-Up Injury Switch</span>
+                                        </button>
+                                        <button
+                                            type="button"
                                             onClick={handleReopenSquad}
                                             style={{
                                                 padding: '10px 24px', borderRadius: '24px', fontSize: '13px', fontWeight: '800',
@@ -1299,6 +1444,171 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                     teamName={schoolName || 'My School Squad'}
                     isPmc={true}
                 />
+            )}
+
+            {/* Pre-Match Warm-Up Emergency Injury Amendment Modal */}
+            {showWarmupModal && (
+                <div
+                    onClick={() => setShowWarmupModal(false)}
+                    style={{
+                        position: 'fixed', inset: 0,
+                        background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(8px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 99999, padding: '20px', pointerEvents: 'auto'
+                    }}
+                >
+                    <div
+                        className="glass-panel"
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            maxWidth: '560px', width: '100%', padding: '28px', borderRadius: '20px',
+                            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                            border: '1.5px solid rgba(239, 68, 68, 0.45)',
+                            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9)',
+                            display: 'flex', flexDirection: 'column', gap: '18px',
+                            position: 'relative', zIndex: 100000, pointerEvents: 'auto'
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '20px' }}>🚨</span>
+                                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#ffffff' }}>
+                                        Pre-Match Warm-Up Injury Amendment
+                                    </h3>
+                                </div>
+                                <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    Replace a starting player injured during warm-ups prior to match kickoff.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowWarmupModal(false)}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '18px', cursor: 'pointer', padding: '4px' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Competition Regulation Alert */}
+                        <div style={{
+                            padding: '12px 14px', borderRadius: '10px',
+                            background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)',
+                            fontSize: '11.5px', color: '#bfdbfe', lineHeight: 1.5
+                        }}>
+                            ⚖️ <strong>Competition Regulation:</strong> An emergency replacement made during pre-match warm-ups prior to kickoff does <strong>not</strong> count as one of your allocated in-game substitutions (0/5 used). This amendment is routed directly to the <strong>Match Commissioner</strong> desk for approval before match commencement.
+                        </div>
+
+                        {/* Selection Inputs */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#f87171', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    ↓ 1. Injured Starting Player (Coming Off)
+                                </label>
+                                <select
+                                    value={warmupInjuredPlayerId}
+                                    onChange={e => setWarmupInjuredPlayerId(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '10px 14px', borderRadius: '10px',
+                                        background: 'rgba(0, 0, 0, 0.5)', color: '#ffffff', border: '1.5px solid rgba(239, 68, 68, 0.4)',
+                                        fontSize: '13px', fontWeight: '700', outline: 'none', cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="">-- Select starter injured during warm-ups --</option>
+                                    {selectedStartingXIIds.map(pid => {
+                                        const p = getPlayerById(pid);
+                                        return (
+                                            <option key={pid} value={pid} style={{ background: '#0f172a' }}>
+                                                #{p?.jerseyNumber != null ? p.jerseyNumber : '—'} {p?.name} ({p?.position || 'Starter'})
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#4ade80', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    ↑ 2. Replacement Player (Promoted to Starting XI)
+                                </label>
+                                <select
+                                    value={warmupReplacementPlayerId}
+                                    onChange={e => setWarmupReplacementPlayerId(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '10px 14px', borderRadius: '10px',
+                                        background: 'rgba(0, 0, 0, 0.5)', color: '#ffffff', border: '1.5px solid rgba(34, 197, 94, 0.4)',
+                                        fontSize: '13px', fontWeight: '700', outline: 'none', cursor: 'pointer'
+                                    }}
+                                >
+                                    <option value="">-- Select replacement player from bench / roster --</option>
+                                    <optgroup label="Named Substitutes (Bench)" style={{ background: '#0f172a' }}>
+                                        {benchPlayers.map(pid => {
+                                            const p = getPlayerById(pid);
+                                            return (
+                                                <option key={pid} value={pid} style={{ background: '#0f172a' }}>
+                                                    #{p?.jerseyNumber != null ? p.jerseyNumber : '—'} {p?.name} ({p?.position || 'Substitute'})
+                                                </option>
+                                            );
+                                        })}
+                                    </optgroup>
+                                    <optgroup label="Eligible Squad Players" style={{ background: '#0f172a' }}>
+                                        {availablePlayers.filter(p => !benchPlayers.includes(p.id)).map(p => (
+                                            <option key={p.id} value={p.id} style={{ background: '#0f172a' }}>
+                                                #{p.jerseyNumber != null ? p.jerseyNumber : '—'} {p.name} ({p.position || 'Roster'})
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                    Warm-Up Injury Medical / Tactical Note:
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="e.g. Shaquon Richards sustained a hamstring pull during warm-up sprint drills. Noah Bishop promoted to Starting XI."
+                                    value={warmupInjuryReason}
+                                    onChange={e => setWarmupInjuryReason(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '10px 12px', borderRadius: '10px',
+                                        background: 'rgba(0, 0, 0, 0.4)', color: '#ffffff', border: '1px solid var(--border)',
+                                        fontSize: '12px', outline: 'none', resize: 'none'
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '16px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowWarmupModal(false)}
+                                style={{
+                                    padding: '10px 18px', borderRadius: '10px', fontSize: '12px', fontWeight: '700',
+                                    background: 'rgba(255, 255, 255, 0.06)', color: 'var(--text-secondary)', border: '1px solid var(--border)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!warmupInjuredPlayerId || !warmupReplacementPlayerId}
+                                onClick={handleSubmitWarmupAmendment}
+                                style={{
+                                    padding: '10px 24px', borderRadius: '10px', fontSize: '12px', fontWeight: '900',
+                                    background: (warmupInjuredPlayerId && warmupReplacementPlayerId) ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'rgba(255, 255, 255, 0.08)',
+                                    color: (warmupInjuredPlayerId && warmupReplacementPlayerId) ? '#ffffff' : 'var(--text-muted)',
+                                    border: 'none', cursor: (warmupInjuredPlayerId && warmupReplacementPlayerId) ? 'pointer' : 'not-allowed',
+                                    boxShadow: (warmupInjuredPlayerId && warmupReplacementPlayerId) ? '0 4px 14px rgba(239, 68, 68, 0.4)' : 'none'
+                                }}
+                            >
+                                Submit Warm-Up Amendment to Commissioner
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
