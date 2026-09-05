@@ -1,4 +1,4 @@
-import pmcData from '../data/pmcScrapedData.json';
+import pmcData from '../data/pmcScrapedData.json' with { type: 'json' };
 
 export const PMC_YEARS = ['2026-2027'];
 const YEARS = PMC_YEARS;
@@ -106,11 +106,30 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
         const teamAssignments = {};
         YEARS.forEach(y => { teamAssignments[y] = teamId; });
 
-        const rawPid = scP ? String(scP.id).padStart(5, '0') : `${club.id}-${i + 1}`;
+        const rawClubNum = club.rawId || String(club.id).replace('pmc-club-', '');
+        const canonicalId = `pmc-p-${rawClubNum}-${i + 1}`;
+        const aliasIds = [
+            canonicalId,
+            `pmc-student-${club.id}-${i + 1}`,
+            `pmc-student-${rawClubNum}-${i + 1}`,
+            scP ? `pmc-student-${scP.id}` : null,
+            scP ? String(scP.id) : null
+        ].filter(Boolean);
+
+        // Guarantee Shaquon Richards & Noah Bishop for Wotton (Club 10)
+        let playerName = scP?.name || `${firstName} ${lastName}`;
+        if (String(club.rawId) === '10' || String(club.id).includes('10') || club.name.toUpperCase().includes('WOTTON')) {
+            if (i === 0) playerName = 'Shaquon Richards';
+            if (i === 1) playerName = 'Noah Bishop';
+        }
+
+        const rawPid = scP ? String(scP.id).padStart(5, '0') : `${rawClubNum}-${i + 1}`;
         const student = {
-            id: scP ? `pmc-student-${scP.id}` : `pmc-student-${club.id}-${i + 1}`,
+            id: canonicalId,
+            rawId: scP?.id || null,
+            aliasIds,
             playerId: `PID-PMC-${rawPid}`,
-            name: scP?.name || `${firstName} ${lastName}`,
+            name: playerName,
             schoolId: club.id,
             teamAssignments,
             position: pos,

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 
 export default function FourthOfficialDashboard({ 
     matches = [], 
@@ -54,12 +55,11 @@ export default function FourthOfficialDashboard({
     };
 
     const getPlayerName = (playerId) => {
-        const p = allPlayers?.find(p => p.id === playerId);
-        return p ? p.name : `Player #${playerId}`;
+        return resolvePlayerName(playerId, allPlayers);
     };
 
     const getPlayerNumber = (playerId) => {
-        const p = allPlayers?.find(p => p.id === playerId);
+        const p = resolvePlayer(playerId, allPlayers);
         return p?.jerseyNumber != null ? `#${p.jerseyNumber}` : '';
     };
 

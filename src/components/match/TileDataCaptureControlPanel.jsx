@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 
 const JerseyBadge = ({ number, isHome }) => (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -174,8 +175,9 @@ export default function TileDataCaptureControlPanel({
 
     // Execute Log for Selected Player
     const executeLogForPlayer = (player, actionKey) => {
-        const student = studentsById[player.id];
-        const name = student?.name || player.name || `Player #${player.id}`;
+        const student = resolvePlayer(player.id, [], studentsById);
+        const name = resolvePlayerName(student || player, [], studentsById);
+        const teamSide = player.team || (homePlayers.includes(player.id) ? 'home' : 'away');
 
         const isShotAction = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
 
@@ -192,7 +194,7 @@ export default function TileDataCaptureControlPanel({
             if (actionKey === 'shotBlocked') defaultResult = 'blocked';
             if (actionKey === 'shotMissed') defaultResult = 'miss';
 
-            onShotModal(player, defaultGoalType, defaultResult);
+            onShotModal({ ...player, name, team: teamSide }, defaultGoalType, defaultResult);
             setPendingAction(null);
             return;
         }
@@ -203,7 +205,7 @@ export default function TileDataCaptureControlPanel({
                 type: actionKey,
                 playerId: player.id,
                 playerName: name,
-                team: player.team
+                team: teamSide
             });
         }
 
@@ -211,8 +213,33 @@ export default function TileDataCaptureControlPanel({
         setPendingAction(null);
     };
 
-    const homeRoster = useMemo(() => homePlayers.map(id => studentsById[id] || { id, name: `Player #${id}` }), [homePlayers, studentsById]);
-    const awayRoster = useMemo(() => awayPlayers.map(id => studentsById[id] || { id, name: `Player #${id}` }), [awayPlayers, studentsById]);
+    const homeRoster = useMemo(() => homePlayers.map(id => {
+        const student = resolvePlayer(id, [], studentsById);
+        const name = resolvePlayerName(student || id, [], studentsById);
+        const rawNumeric = parseInt(String(id || '').replace(/\D/g, ''), 10);
+        const jerseyNum = student?.jerseyNumber ?? (Number.isFinite(rawNumeric) && rawNumeric > 0 ? (rawNumeric % 22) + 1 : 10);
+        return {
+            id,
+            name,
+            jerseyNumber: jerseyNum,
+            position: student?.position || 'Player',
+            team: 'home'
+        };
+    }), [homePlayers, studentsById]);
+
+    const awayRoster = useMemo(() => awayPlayers.map(id => {
+        const student = resolvePlayer(id, [], studentsById);
+        const name = resolvePlayerName(student || id, [], studentsById);
+        const rawNumeric = parseInt(String(id || '').replace(/\D/g, ''), 10);
+        const jerseyNum = student?.jerseyNumber ?? (Number.isFinite(rawNumeric) && rawNumeric > 0 ? (rawNumeric % 22) + 1 : 10);
+        return {
+            id,
+            name,
+            jerseyNumber: jerseyNum,
+            position: student?.position || 'Player',
+            team: 'away'
+        };
+    }), [awayPlayers, studentsById]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>

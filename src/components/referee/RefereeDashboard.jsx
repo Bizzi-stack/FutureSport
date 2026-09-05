@@ -587,6 +587,7 @@ export default function RefereeDashboard({
                                 allStudents={allPlayers}
                                 year={year}
                                 isRefereeMode={true}
+                                onUpdateMatch={onUpdateMatch}
                                 onEndMatch={(res) => { 
                                     const completed = { ...res, status: 'completed' };
                                     onUpdateMatch(completed); 
