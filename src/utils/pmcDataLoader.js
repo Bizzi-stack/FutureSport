@@ -424,7 +424,7 @@ PMC_SCHOOLS.forEach(club => {
 
 // Round robin pairings for 4-team groups across 4 Matchdays
 const GROUP_MATCHDAYS = [
-    { num: 1, date: '2026-08-10', isCompleted: true, pairings: [[0, 1], [2, 3]] },
+    { num: 1, date: '2026-08-10', isCompleted: false, pairings: [[0, 1], [2, 3]] },
     { num: 2, date: '2026-08-12', isCompleted: true, pairings: [[0, 2], [1, 3]] },
     { num: 3, date: '2026-08-15', isCompleted: false, pairings: [[0, 3], [1, 2]] },
     { num: 4, date: '2026-08-18', isCompleted: false, pairings: [[1, 0], [3, 2]] }
@@ -448,9 +448,8 @@ GROUP_MATCHDAYS.forEach(md => {
             const matchId = matchIdCount++;
             const rng = mulberry32(matchId * 777 + md.num * 333);
 
-            // Make WOTTON vs PARISH LAND and KICKSTART RUSH vs L & R UNITED live in Matchday 3 for instant interactive demos
+            // Make KICKSTART RUSH vs L & R UNITED live in Matchday 3 for instant interactive demos
             const isLiveMatch = md.num === 3 && (
-                (homeClub.name === 'WOTTON' && awayClub.name === 'PARISH LAND') ||
                 (homeClub.name === 'KICKSTART RUSH' && awayClub.name === 'L & R UNITED')
             );
 
