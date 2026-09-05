@@ -334,8 +334,33 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
 
     const handleEndFirstHalf = () => {
         if (isRefereeMode) return;
+        offsetRef.current = 45 * 60; // strictly 45:00 at half time
+        setElapsed(45 * 60);
         setIsPaused(true);
         setPeriod('HT');
+
+        if (onUpdateMatch) {
+            const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
+            const updatedLiveState = {
+                ...(matchDataRef.current?.liveState || {}),
+                isRunning: false,
+                period: 'HT',
+                elapsedOffset: 45 * 60,
+                startTime: Date.now(),
+                playerStats,
+                timeline,
+                possession: currentPoss
+            };
+            onUpdateMatch({
+                ...matchDataRef.current,
+                homeScore,
+                awayScore,
+                timeline,
+                playerStats,
+                possession: currentPoss,
+                liveState: updatedLiveState
+            });
+        }
     };
 
     const handleStartSecondHalf = () => {
@@ -344,6 +369,30 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         startTimeRef.current = Date.now();
         setIsPaused(false);
         setPeriod('2H');
+        setElapsed(45 * 60);
+
+        if (onUpdateMatch) {
+            const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
+            const updatedLiveState = {
+                ...(matchDataRef.current?.liveState || {}),
+                isRunning: true,
+                period: '2H',
+                elapsedOffset: 45 * 60,
+                startTime: startTimeRef.current,
+                playerStats,
+                timeline,
+                possession: currentPoss
+            };
+            onUpdateMatch({
+                ...matchDataRef.current,
+                homeScore,
+                awayScore,
+                timeline,
+                playerStats,
+                possession: currentPoss,
+                liveState: updatedLiveState
+            });
+        }
     };
 
     /* timer */
@@ -432,7 +481,8 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     elapsedOffset: offsetRef.current,
                     period,
                     playerStats,
-                    timeline
+                    timeline,
+                    possession: livePossession
                 };
                 onUpdateMatch({
                     ...matchDataRef.current,
@@ -440,12 +490,13 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     awayScore,
                     timeline,
                     playerStats,
+                    possession: livePossession,
                     liveState: updatedLiveState
                 });
             }
         }
         // eslint-disable-next-line
-    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode]);
+    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession]);
 
     /* quick-action handler */
     const handleQuickAction = useCallback((playerId, actionKey) => {
@@ -1306,6 +1357,13 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                             return;
                         }
                         if (logData.type === 'possessionChange') {
+                            const nextPoss = logData.possession || {
+                                homePct: logData.homePct ?? 50,
+                                awayPct: logData.awayPct ?? 50,
+                                activeSide: logData.team,
+                                teamName: logData.teamName
+                            };
+                            setLivePossession(nextPoss);
                             setTimeline(prev => [
                                 ...prev,
                                 {
@@ -1320,6 +1378,16 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                                     playerName: `Ball Possession: ${logData.teamName} (${logData.team === 'home' ? logData.homePct : logData.awayPct}%)`
                                 }
                             ]);
+                            if (onUpdateMatch) {
+                                onUpdateMatch({
+                                    ...matchDataRef.current,
+                                    possession: nextPoss,
+                                    liveState: {
+                                        ...(matchDataRef.current.liveState || {}),
+                                        possession: nextPoss
+                                    }
+                                });
+                            }
                             return;
                         }
                         handleQuickAction(logData.playerId, logData.type);
