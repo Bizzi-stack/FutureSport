@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import JerseyIcon from '../JerseyIcon';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
+import { isMatchForTeam } from '../../utils/fixtureUtils';
 
 // Standard Tactical Formations
 const FORMATION_LAYOUTS = {
@@ -134,38 +135,13 @@ export default function CoachLiveManagement({
         const pool = (matches && matches.length > 0) ? matches : (PMC_MATCHES || []);
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
         const schoolNameStr = schoolObj?.name || '';
-        const cleanSchoolId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
-        const cleanTeamId = String(teamId || '').toLowerCase().replace('-team-pmc', '');
+        const myTeam = (allTeams || []).find(t => t.id === teamId || t.schoolId === schoolId || t.schoolId === schoolObj?.id);
 
-        const targets = [
-            schoolId, cleanSchoolId, teamId, cleanTeamId, schoolNameStr,
-            schoolObj?.id, schoolObj?.name, schoolObj?.rawId,
-            ...(allTeams || []).filter(t => t.schoolId === schoolId || t.schoolId === schoolObj?.id).flatMap(t => [t.id, t.name, t.schoolId])
-        ].filter(Boolean).map(x => String(x).toLowerCase().trim());
+        let found = (pool || []).filter(m => isMatchForTeam(m, schoolId, myTeam?.id || teamId, schoolNameStr));
 
-        const filterFromList = (list) => (list || []).filter(m => {
-            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase().trim());
-            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase().trim());
-
-            const isHome = homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
-            const isAway = awayVals.some(a => targets.some(t => a.includes(t) || t.includes(a)));
-            return isHome || isAway;
-        });
-
-        let found = filterFromList(pool);
-        // Fallback 1: If matches lacked fixtures for this school, check master PMC_MATCHES
+        // Fallback: If matches lacked fixtures for this school, check master PMC_MATCHES
         if (found.length === 0 && pool !== PMC_MATCHES) {
-            found = filterFromList(PMC_MATCHES);
-        }
-        // Fallback 2: Normalized fuzzy substring match on team/club name
-        if (found.length === 0 && schoolNameStr) {
-            const normTarget = schoolNameStr.toLowerCase().replace(/[^a-z0-9]/g, '');
-            found = (PMC_MATCHES || []).filter(m => {
-                const hNorm = String(m.homeTeam || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                const aNorm = String(m.awayTeam || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                return (hNorm && (hNorm.includes(normTarget) || normTarget.includes(hNorm))) ||
-                       (aNorm && (aNorm.includes(normTarget) || normTarget.includes(aNorm)));
-            });
+            found = (PMC_MATCHES || []).filter(m => isMatchForTeam(m, schoolId, myTeam?.id || teamId, schoolNameStr));
         }
         return found;
     }, [matches, schoolId, teamId, schools, allTeams]);

@@ -8,6 +8,7 @@ import {
     triggerDeviceNotification
 } from '../../services/refereeNotificationService';
 import { getAnalystAccounts } from '../../data/analystAccounts';
+import { PMC_MATCHES } from '../../utils/pmcDataLoader';
 
 export default function StatisticianDashboard({
     matches = [],
@@ -17,13 +18,15 @@ export default function StatisticianDashboard({
     currentAnalyst = null,
     initialDirectMatchId = null,
     onClearDirectMatchId = () => {},
+    selectedTournament = 'PMC',
+    onSelectTournament,
     onUpdateMatch,
     onEndMatch,
     onLogout
 }) {
     const [selectedMatchId, setSelectedMatchId] = useState(() => initialDirectMatchId || null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterTab, setFilterTab] = useState('assigned'); // 'assigned' | 'all'
+    const [filterTab, setFilterTab] = useState('all'); // 'all' | 'assigned'
     const [loggerToast, setLoggerToast] = useState(null);
 
     const activeAnalyst = useMemo(() => {
@@ -68,11 +71,17 @@ export default function StatisticianDashboard({
         return 'Team';
     };
 
+    // Master Match Pool with PMC fallback
+    const activeMatchPool = useMemo(() => {
+        if (matches && matches.length > 0) return matches;
+        return PMC_MATCHES || [];
+    }, [matches]);
+
     // Keep live selected match synchronized with latest matches state
     const selectedMatch = useMemo(() => {
         if (!selectedMatchId) return null;
-        return matches.find(m => m.id === selectedMatchId) || null;
-    }, [matches, selectedMatchId]);
+        return activeMatchPool.find(m => m.id === selectedMatchId) || null;
+    }, [activeMatchPool, selectedMatchId]);
 
     const handleSendTestLoggerAlert = async () => {
         try {
@@ -97,7 +106,7 @@ export default function StatisticianDashboard({
 
     // Filter matches by search query (team name or venue)
     const filteredMatches = useMemo(() => {
-        let list = matches;
+        let list = activeMatchPool;
 
         if (filterTab === 'assigned' && activeAnalyst) {
             const assignedIds = activeAnalyst.assignedMatchIds || [];
@@ -109,7 +118,7 @@ export default function StatisticianDashboard({
             });
             // If no matches directly matched assigned venue, show all matches so analyst is never stuck
             if (list.length === 0) {
-                list = matches;
+                list = activeMatchPool;
             }
         }
 
@@ -121,7 +130,7 @@ export default function StatisticianDashboard({
             const venue = m.venue || '';
             return homeName.toLowerCase().includes(q) || awayName.toLowerCase().includes(q) || venue.toLowerCase().includes(q);
         });
-    }, [matches, schools, searchQuery, filterTab, activeAnalyst]);
+    }, [activeMatchPool, schools, searchQuery, filterTab, activeAnalyst]);
 
     // Categorize matches
     const liveMatches = useMemo(() => filteredMatches.filter(m => m.status === 'live'), [filteredMatches]);
@@ -613,7 +622,48 @@ export default function StatisticianDashboard({
 
                 {/* Filter Tabs & Search Bar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    {onSelectTournament && (
+                        <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button
+                                type="button"
+                                onClick={() => onSelectTournament('PMC')}
+                                style={{
+                                    padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                    background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
+                                    color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255,255,255,0.7)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                🏆 PMC Cup
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onSelectTournament('NSSL')}
+                                style={{
+                                    padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                    background: selectedTournament === 'NSSL' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                                    color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                🏫 Schools League
+                            </button>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setFilterTab('all')}
+                            style={{
+                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                background: filterTab === 'all' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                                color: filterTab === 'all' ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                                border: 'none', cursor: 'pointer'
+                            }}
+                        >
+                            All Tournament Fixtures ({activeMatchPool.length})
+                        </button>
                         <button
                             type="button"
                             onClick={() => setFilterTab('assigned')}
@@ -625,19 +675,7 @@ export default function StatisticianDashboard({
                                 cursor: 'pointer'
                             }}
                         >
-                            My Assigned Venue Fixtures
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setFilterTab('all')}
-                            style={{
-                                padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
-                                background: filterTab === 'all' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                                color: filterTab === 'all' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-                                border: 'none', cursor: 'pointer'
-                            }}
-                        >
-                            All Tournament Fixtures ({matches.length})
+                            My Assigned Venue
                         </button>
                     </div>
 

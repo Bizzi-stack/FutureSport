@@ -540,7 +540,7 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-matches-v5');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v6');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length >= 40) {
@@ -568,7 +568,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v5', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v6', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -585,7 +585,10 @@ function App() {
         );
 
         if (isPmcDataset) {
-          setPmcMatches(sanitizedCloud);
+          // Guard against truncated/corrupted cloud datasets (< 20 matches when PMC has 48)
+          if (sanitizedCloud.length >= 20) {
+            setPmcMatches(sanitizedCloud);
+          }
         } else {
           setMatches(sanitizedCloud);
         }
@@ -650,7 +653,7 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.setItem('eduvision-pmc-matches-v5', JSON.stringify(sanitized));
+      localStorage.setItem('eduvision-pmc-matches-v6', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
@@ -1094,13 +1097,30 @@ function App() {
             }}>
               {selectedTournament === 'PMC' ? "Prime Minister's Cup" : "National Schools League"}
             </span>
-            <span style={{
-              fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px',
-              background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
-              display: 'flex', alignItems: 'center', gap: '4px'
-            }} title="Tournament mode is locked during session. Log out to switch tournaments.">
-              Active Session
-            </span>
+            {['referee', 'fourth_official', 'statistician', 'super_admin'].includes(userRole) ? (
+              <button
+                type="button"
+                onClick={() => setSelectedTournament(prev => prev === 'PMC' ? 'NSSL' : 'PMC')}
+                style={{
+                  fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '8px',
+                  background: selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.25)' : 'rgba(255,255,255,0.15)',
+                  color: selectedTournament === 'PMC' ? '#FFC726' : '#ffffff',
+                  border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(255,255,255,0.25)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                }}
+                title="Switch between Prime Minister's Cup and National Schools League"
+              >
+                Switch Competition ⇄
+              </button>
+            ) : (
+              <span style={{
+                fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px',
+                background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', gap: '4px'
+              }} title="Tournament mode is locked during session. Log out to switch tournaments.">
+                Active Session
+              </span>
+            )}
             {isSupervisor && (
               <span style={{
                 fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '6px',
@@ -1528,6 +1548,8 @@ function App() {
                   allPlayers={displayStudents}
                   year={selectedYear}
                   currentReferee={currentReferee}
+                  selectedTournament={selectedTournament}
+                  onSelectTournament={setSelectedTournament}
                   onUpdateMatch={handleUpdateMatch}
                   onLogout={() => {
                       setUserRole(null);
@@ -1573,6 +1595,8 @@ function App() {
                   currentAnalyst={currentAnalyst}
                   initialDirectMatchId={directMatchId}
                   onClearDirectMatchId={() => setDirectMatchId(null)}
+                  selectedTournament={selectedTournament}
+                  onSelectTournament={setSelectedTournament}
                   onUpdateMatch={handleUpdateMatch}
                   onEndMatch={handleEndMatch}
                   onLogout={() => {

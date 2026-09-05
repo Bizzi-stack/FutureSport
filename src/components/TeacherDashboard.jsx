@@ -9,6 +9,7 @@ import CoachLiveManagement from './match/CoachLiveManagement';
 import CoachPostGameStatsHub from './coach/CoachPostGameStatsHub';
 import UploadPlayerRosterModal from './UploadPlayerRosterModal';
 import { downloadPlayerCsvTemplate } from '../utils/playerCsvImport';
+import { isMatchForTeam } from '../utils/fixtureUtils';
 
 export default function TeacherDashboard({ 
     students, year, term, subjects, settings,
@@ -39,23 +40,9 @@ export default function TeacherDashboard({
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId);
         const teamObj = (allTeams || []).find(t => t.id === selectedClassroom || t.name === selectedClassroom);
 
-        const cleanSchoolId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
-        const cleanClassroom = String(selectedClassroom || '').toLowerCase().replace('-team-pmc', '');
-
-        const targets = [
-            schoolId, selectedClassroom, cleanSchoolId, cleanClassroom,
-            schoolObj?.id, schoolObj?.name,
-            teamObj?.id, teamObj?.name, teamObj?.schoolId
-        ].filter(Boolean).map(x => String(x).toLowerCase());
-
         return (matches || []).find(m => {
             if (m.status !== 'live') return false;
-            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase());
-            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase());
-
-            const isHome = homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
-            const isAway = awayVals.some(a => targets.some(t => a.includes(t) || t.includes(a)));
-            return isHome || isAway;
+            return isMatchForTeam(m, schoolId, teamObj?.id || selectedClassroom, schoolObj?.name);
         });
     }, [matches, schoolId, selectedClassroom, userRole, schools, allTeams]);
 

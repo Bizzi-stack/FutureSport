@@ -8,6 +8,7 @@ import {
     requestRefereeNotificationPermission,
     playRefereeWhistleSound
 } from '../../services/refereeNotificationService';
+import { PMC_MATCHES } from '../../utils/pmcDataLoader';
 
 export default function RefereeDashboard({ 
     matches, 
@@ -15,6 +16,8 @@ export default function RefereeDashboard({
     allPlayers, 
     year, 
     currentReferee = null, 
+    selectedTournament = 'PMC',
+    onSelectTournament,
     onUpdateMatch, 
     onLogout 
 }) {
@@ -61,20 +64,41 @@ export default function RefereeDashboard({
         setTimeout(() => setTestAlertToast(null), 4000);
     };
 
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Master Match Pool with PMC fallback
+    const activeMatchPool = useMemo(() => {
+        if (matches && matches.length > 0) return matches;
+        return PMC_MATCHES || [];
+    }, [matches]);
+
     // Get scheduled matches (Referee can kick these off)
     const scheduledMatches = useMemo(() => {
-        return matches.filter(m => m.status === 'upcoming' || m.status === 'scheduled');
-    }, [matches]);
+        return activeMatchPool.filter(m => m.status === 'upcoming' || m.status === 'scheduled');
+    }, [activeMatchPool]);
+
+    // Filter scheduled matches by search query
+    const filteredScheduledMatches = useMemo(() => {
+        if (!searchQuery.trim()) return scheduledMatches;
+        const q = searchQuery.toLowerCase().trim();
+        return scheduledMatches.filter(m => {
+            const h = String(m.homeTeam || '').toLowerCase();
+            const a = String(m.awayTeam || '').toLowerCase();
+            const v = String(m.venue || '').toLowerCase();
+            const r = String(m.round || m.matchday || '').toLowerCase();
+            return h.includes(q) || a.includes(q) || v.includes(q) || r.includes(q);
+        });
+    }, [scheduledMatches, searchQuery]);
 
     // Get matches waiting for Referee Reports (completed matches)
     const pendingMatches = useMemo(() => {
-        return matches.filter(m => m.status === 'completed');
-    }, [matches]);
+        return activeMatchPool.filter(m => m.status === 'completed');
+    }, [activeMatchPool]);
 
     // Get live matches
     const liveMatches = useMemo(() => {
-        return matches.filter(m => m.status === 'live');
-    }, [matches]);
+        return activeMatchPool.filter(m => m.status === 'live');
+    }, [activeMatchPool]);
 
     const getSchoolObj = (schoolId) => {
         if (!schoolId) return null;
@@ -320,9 +344,70 @@ export default function RefereeDashboard({
             
             {/* Left side: Pending matches list */}
             <div className="glass-panel" style={{ width: '380px', display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
-                <div style={{ padding: '20px 24px', borderBottom: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}>
-                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Referee Schedule</h3>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kick off matches, officiate, or submit reports</span>
+                <div style={{ padding: '16px 20px', borderBottom: 'var(--border)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Referee Schedule</h3>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Kick off matches, officiate, or submit reports</span>
+                        </div>
+                    </div>
+
+                    {/* Tournament Switcher for Referee */}
+                    {onSelectTournament && (
+                        <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <button
+                                type="button"
+                                onClick={() => onSelectTournament('PMC')}
+                                style={{
+                                    flex: 1, padding: '5px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
+                                    background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
+                                    color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255,255,255,0.6)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                🏆 PMC Cup
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onSelectTournament('NSSL')}
+                                style={{
+                                    flex: 1, padding: '5px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
+                                    background: selectedTournament === 'NSSL' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                                    color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                🏫 Schools League
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Fixture Search Bar */}
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="🔍 Search teams (e.g. Wotton, Benfica)..."
+                            style={{
+                                width: '100%', padding: '6px 10px', borderRadius: '8px',
+                                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'var(--text-primary)', fontSize: '12px', outline: 'none'
+                            }}
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                    position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                                    background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px'
+                                }}
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
                 </div>
                 
                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -336,10 +421,14 @@ export default function RefereeDashboard({
                     )}
 
                     {/* Scheduled Matches — Kick Off Section */}
-                    {scheduledMatches.length > 0 && (
+                    {filteredScheduledMatches.length > 0 && (
                         <div style={{ marginBottom: '10px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', textTransform: 'uppercase', marginBottom: '8px', paddingLeft: '4px' }}>Scheduled — Awaiting Kick-Off</div>
-                            {scheduledMatches.map(m => {
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingLeft: '4px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: '700', color: '#60a5fa', textTransform: 'uppercase' }}>
+                                    Scheduled — Awaiting Kick-Off ({filteredScheduledMatches.length})
+                                </span>
+                            </div>
+                            {filteredScheduledMatches.map(m => {
                                 const homeSquadReady = !!m.homeSquadSelection;
                                 const awaySquadReady = !!m.awaySquadSelection;
                                 const bothReady = homeSquadReady && awaySquadReady;
