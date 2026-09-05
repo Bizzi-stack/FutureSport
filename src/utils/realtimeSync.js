@@ -23,7 +23,8 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 }
 
 let isPushing = false;
-let lastPushedHash = '';
+let queuedMatches = null;
+let lastPushedCloudHash = '';
 
 function computeMatchesHash(matches) {
     if (!Array.isArray(matches)) return '';
@@ -37,7 +38,9 @@ function computeMatchesHash(matches) {
             awaySquad: !!m.awaySquadSelection,
             homeSquadXI: m.homeSquadSelection?.startingXI?.join(','),
             awaySquadXI: m.awaySquadSelection?.startingXI?.join(','),
-            possession: m.possession || m.liveState?.possession,
+            possession: m.possession?.homePct != null 
+                ? `${m.possession.homePct}-${m.possession.activeSide}` 
+                : (m.liveState?.possession?.homePct != null ? `${m.liveState.possession.homePct}-${m.liveState.possession.activeSide}` : ''),
             livePeriod: m.liveState?.period,
             liveRunning: m.liveState?.isRunning,
             liveOffset: m.liveState?.elapsedOffset,
@@ -55,45 +58,63 @@ function computeMatchesHash(matches) {
     }
 }
 
+async function drainCloudPushQueue() {
+    if (isPushing) return;
+    isPushing = true;
+
+    while (queuedMatches !== null) {
+        const matchesToPush = queuedMatches;
+        queuedMatches = null; // Clear so any updates arriving during fetch are queued
+
+        const hash = computeMatchesHash(matchesToPush);
+        if (hash === lastPushedCloudHash && lastPushedCloudHash !== '') {
+            continue;
+        }
+
+        try {
+            const res = await fetch(TABLE_URL, {
+                method: 'POST',
+                headers: {
+                    ...HEADERS,
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                    id: 'global_matches',
+                    data: { matches: matchesToPush, updatedAt: Date.now() },
+                    updated_at: new Date().toISOString()
+                })
+            });
+            if (res.ok) {
+                lastPushedCloudHash = hash;
+            }
+        } catch (err) {
+            console.warn('[RealtimeSync] Cloud push warning:', err);
+        }
+    }
+
+    isPushing = false;
+}
+
 export async function pushMatchesToCloud(matchesList) {
     if (!matchesList || !Array.isArray(matchesList)) return;
-    
-    const hash = computeMatchesHash(matchesList);
-    if (hash === lastPushedHash && lastPushedHash !== '') return;
-    lastPushedHash = hash;
 
     // 1. Instant local tab broadcast
     if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'MATCHES_UPDATED', matches: matchesList, timestamp: Date.now() });
+        try {
+            broadcastChannel.postMessage({ type: 'MATCHES_UPDATED', matches: matchesList, timestamp: Date.now() });
+        } catch {}
     }
 
-    // 2. LocalStorage persistence
+    // 2. LocalStorage persistence across active v6 and legacy keys
     try {
+        localStorage.setItem('eduvision-pmc-matches-v6', JSON.stringify(matchesList));
         localStorage.setItem('eduvision-pmc-matches', JSON.stringify(matchesList));
         localStorage.setItem('eduvision-sync-timestamp', String(Date.now()));
     } catch {}
 
-    // 3. Supabase Cloud Sync Push
-    if (isPushing) return;
-    isPushing = true;
-    try {
-        await fetch(TABLE_URL, {
-            method: 'POST',
-            headers: {
-                ...HEADERS,
-                'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify({
-                id: 'global_matches',
-                data: { matches: matchesList, updatedAt: Date.now() },
-                updated_at: new Date().toISOString()
-            })
-        });
-    } catch (err) {
-        console.warn('[RealtimeSync] Cloud push warning:', err);
-    } finally {
-        isPushing = false;
-    }
+    // 3. Supabase Cloud Sync via queue
+    queuedMatches = matchesList;
+    drainCloudPushQueue();
 }
 
 export async function fetchMatchesFromCloud() {

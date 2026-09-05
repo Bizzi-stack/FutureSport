@@ -40,10 +40,15 @@ export default function TeacherDashboard({
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId);
         const teamObj = (allTeams || []).find(t => t.id === selectedClassroom || t.name === selectedClassroom);
 
-        return (matches || []).find(m => {
+        const myMatches = (matches || []).filter(m => {
             if (m.status !== 'live') return false;
             return isMatchForTeam(m, schoolId, teamObj?.id || selectedClassroom, schoolObj?.name);
         });
+
+        // Prioritize match with active events or at HT
+        const withEvents = myMatches.find(m => ((m.timeline?.length || 0) > 0 || (m.liveState?.timeline?.length || 0) > 0 || m.liveState?.period === 'HT'));
+        if (withEvents) return withEvents;
+        return myMatches[0] || null;
     }, [matches, schoolId, selectedClassroom, userRole, schools, allTeams]);
 
     // Auto-switch coach to 'live' tab when their match goes live

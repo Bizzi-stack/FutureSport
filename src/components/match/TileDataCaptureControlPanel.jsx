@@ -100,9 +100,12 @@ export default function TileDataCaptureControlPanel({
     const homePossessionPct = totalPossessionSecs > 0 ? Math.round((homePossessionSecs / totalPossessionSecs) * 100) : 50;
     const awayPossessionPct = totalPossessionSecs > 0 ? 100 - homePossessionPct : 50;
 
-    // Persist possession back to parent live state whenever possession state updates
+    // Persist possession back to parent live state whenever possession state updates (throttled to avoid network flooding)
     useEffect(() => {
-        if (onQuickLogEvent && (homePossessionSecs > 0 || awayPossessionSecs > 0 || possessionSide)) {
+        if (!onQuickLogEvent) return;
+        const totalSecs = homePossessionSecs + awayPossessionSecs;
+        // Sync on first start, every 3 seconds of active possession, or whenever paused / period changes
+        if (totalSecs === 1 || totalSecs % 3 === 0 || isPaused || period === 'HT') {
             onQuickLogEvent({
                 type: 'possessionSync',
                 possession: {
@@ -114,7 +117,7 @@ export default function TileDataCaptureControlPanel({
                 }
             });
         }
-    }, [homePossessionSecs, awayPossessionSecs, possessionSide, homePossessionPct, awayPossessionPct]);
+    }, [homePossessionSecs, awayPossessionSecs, possessionSide, homePossessionPct, awayPossessionPct, isPaused, period]);
 
     const formatPossessionTime = (secs) => {
         const m = Math.floor(secs / 60);
@@ -127,13 +130,27 @@ export default function TileDataCaptureControlPanel({
         setPossessionSide(side);
         const teamName = side === 'home' ? home.name : away.name;
         triggerToast(`Ball Possession switched to ${teamName}`);
+        
+        const nextHomeSecs = side === 'home' ? Math.max(1, homePossessionSecs) : homePossessionSecs;
+        const nextAwaySecs = side === 'away' ? Math.max(1, awayPossessionSecs) : awayPossessionSecs;
+        const nextTotal = nextHomeSecs + nextAwaySecs;
+        const nextHomePct = nextTotal > 0 ? Math.round((nextHomeSecs / nextTotal) * 100) : (side === 'home' ? 55 : 45);
+        const nextAwayPct = 100 - nextHomePct;
+
         if (onQuickLogEvent) {
             onQuickLogEvent({
                 type: 'possessionChange',
                 team: side,
                 teamName,
-                homePct: side === 'home' ? Math.min(99, homePossessionPct + 1) : homePossessionPct,
-                awayPct: side === 'away' ? Math.min(99, awayPossessionPct + 1) : awayPossessionPct
+                homePct: nextHomePct,
+                awayPct: nextAwayPct,
+                possession: {
+                    homePct: nextHomePct,
+                    awayPct: nextAwayPct,
+                    homeSecs: nextHomeSecs,
+                    awaySecs: nextAwaySecs,
+                    activeSide: side
+                }
             });
         }
     };

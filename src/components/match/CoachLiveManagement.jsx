@@ -115,6 +115,12 @@ export default function CoachLiveManagement({
     // Selected Match ID (defaults to initialMatch if provided)
     const [selectedMatchId, setSelectedMatchId] = useState(initialMatch?.id || null);
 
+    useEffect(() => {
+        if (initialMatch?.id && initialMatch.id !== selectedMatchId) {
+            setSelectedMatchId(initialMatch.id);
+        }
+    }, [initialMatch?.id]);
+
     // Substitution Drag & Drop and Tap Selection State
     const [draggedItem, setDraggedItem] = useState(null); // { type: 'bench' | 'pitch', playerId, slotIndex }
     const [dragOverSlotIndex, setDragOverSlotIndex] = useState(null);
@@ -155,7 +161,13 @@ export default function CoachLiveManagement({
                           (PMC_MATCHES || []).find(m => m.id === selectedMatchId);
             if (found) return found;
         }
-        if (initialMatch) return initialMatch;
+        if (initialMatch?.id) {
+            const found = (matches || []).find(m => m.id === initialMatch.id);
+            if (found) return found;
+            return initialMatch;
+        }
+        const liveWithEvents = myMatches.find(m => m.status === 'live' && ((m.timeline?.length || 0) > 0 || m.liveState?.period === 'HT'));
+        if (liveWithEvents) return liveWithEvents;
         const live = myMatches.find(m => m.status === 'live');
         if (live) return live;
         if (myMatches.length > 0) return myMatches[0];
@@ -393,26 +405,27 @@ export default function CoachLiveManagement({
         };
     }, [filteredShots]);
 
-    // Live Possession Calculation (from Data Capturer logs or mock state)
+    // Live Possession Calculation (from Data Capturer logs or match state)
     const possessionStats = useMemo(() => {
-        const livePoss = currentMatch?.liveState?.possession;
-        if (livePoss && (livePoss.homeSecs || livePoss.awaySecs)) {
-            const totalSecs = (livePoss.homeSecs || 0) + (livePoss.awaySecs || 0);
+        const poss = currentMatch?.liveState?.possession || currentMatch?.possession;
+        if (poss) {
+            if (typeof poss.homePct === 'number' && typeof poss.awayPct === 'number') {
+                return { homePct: poss.homePct, awayPct: poss.awayPct };
+            }
+            const totalSecs = (poss.homeSecs || 0) + (poss.awaySecs || 0);
             if (totalSecs > 0) {
-                const homePct = Math.round((livePoss.homeSecs / totalSecs) * 100);
+                const homePct = Math.round(((poss.homeSecs || 0) / totalSecs) * 100);
                 return { homePct, awayPct: 100 - homePct };
             }
         }
-        if (currentMatch?.possession) {
-            return currentMatch.possession;
-        }
-        return { homePct: 53, awayPct: 47 };
-    }, [currentMatch]);
+        return { homePct: 50, awayPct: 50 };
+    }, [currentMatch?.liveState?.possession, currentMatch?.possession]);
 
     // Live Synchronized Match Clock
     const [liveElapsed, setLiveElapsed] = useState(() => {
         const ls = currentMatch?.liveState;
         if (!ls) return 0;
+        if (ls.period === 'HT') return 45 * 60;
         if (ls.isRunning && ls.startTime) {
             return (ls.elapsedOffset || 0) + Math.max(0, Math.floor((Date.now() - ls.startTime) / 1000));
         }
@@ -426,7 +439,13 @@ export default function CoachLiveManagement({
             return;
         }
 
+        if (ls.period === 'HT') {
+            setLiveElapsed(45 * 60);
+            return;
+        }
+
         const calcElapsed = () => {
+            if (ls.period === 'HT') return 45 * 60;
             if (ls.isRunning && ls.startTime) {
                 return (ls.elapsedOffset || 0) + Math.max(0, Math.floor((Date.now() - ls.startTime) / 1000));
             }
@@ -435,7 +454,7 @@ export default function CoachLiveManagement({
 
         setLiveElapsed(calcElapsed());
 
-        if (ls.isRunning) {
+        if (ls.isRunning && ls.period !== 'HT') {
             const iv = setInterval(() => {
                 setLiveElapsed(calcElapsed());
             }, 1000);
