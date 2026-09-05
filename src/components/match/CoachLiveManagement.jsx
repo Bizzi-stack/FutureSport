@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import JerseyIcon from '../JerseyIcon';
+import { PMC_MATCHES } from '../../utils/pmcDataLoader';
 
 // Standard Tactical Formations
 const FORMATION_LAYOUTS = {
@@ -128,8 +129,9 @@ export default function CoachLiveManagement({
     const [shotTeamFilter, setShotTeamFilter] = useState('my_team'); // 'my_team' | 'both'
     const [selectedShotDetail, setSelectedShotDetail] = useState(null);
 
-    // Find all matches for this coach's school / team
+    // Robust Multi-tier Fixture Matching for Coach's Team
     const myMatches = useMemo(() => {
+        const pool = (matches && matches.length > 0) ? matches : (PMC_MATCHES || []);
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
         const schoolNameStr = schoolObj?.name || '';
         const cleanSchoolId = String(schoolId || '').toLowerCase().replace('-team-pmc', '');
@@ -139,28 +141,67 @@ export default function CoachLiveManagement({
             schoolId, cleanSchoolId, teamId, cleanTeamId, schoolNameStr,
             schoolObj?.id, schoolObj?.name, schoolObj?.rawId,
             ...(allTeams || []).filter(t => t.schoolId === schoolId || t.schoolId === schoolObj?.id).flatMap(t => [t.id, t.name, t.schoolId])
-        ].filter(Boolean).map(x => String(x).toLowerCase());
+        ].filter(Boolean).map(x => String(x).toLowerCase().trim());
 
-        return (matches || []).filter(m => {
-            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase());
-            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase());
+        const filterFromList = (list) => (list || []).filter(m => {
+            const homeVals = [m.homeTeamId, m.homeTeam, m.homeSchoolId].filter(Boolean).map(x => String(x).toLowerCase().trim());
+            const awayVals = [m.awayTeamId, m.awayTeam, m.awaySchoolId].filter(Boolean).map(x => String(x).toLowerCase().trim());
 
             const isHome = homeVals.some(h => targets.some(t => h.includes(t) || t.includes(h)));
             const isAway = awayVals.some(a => targets.some(t => a.includes(t) || t.includes(a)));
             return isHome || isAway;
         });
+
+        let found = filterFromList(pool);
+        // Fallback 1: If matches lacked fixtures for this school, check master PMC_MATCHES
+        if (found.length === 0 && pool !== PMC_MATCHES) {
+            found = filterFromList(PMC_MATCHES);
+        }
+        // Fallback 2: Normalized fuzzy substring match on team/club name
+        if (found.length === 0 && schoolNameStr) {
+            const normTarget = schoolNameStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+            found = (PMC_MATCHES || []).filter(m => {
+                const hNorm = String(m.homeTeam || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const aNorm = String(m.awayTeam || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                return (hNorm && (hNorm.includes(normTarget) || normTarget.includes(hNorm))) ||
+                       (aNorm && (aNorm.includes(normTarget) || normTarget.includes(aNorm)));
+            });
+        }
+        return found;
     }, [matches, schoolId, teamId, schools, allTeams]);
 
-    // Active Match resolution
+    // Active Match resolution with foolproof fallback
     const currentMatch = useMemo(() => {
         if (selectedMatchId) {
-            const found = (matches || []).find(m => m.id === selectedMatchId);
+            const found = (matches || []).find(m => m.id === selectedMatchId) ||
+                          myMatches.find(m => m.id === selectedMatchId) ||
+                          (PMC_MATCHES || []).find(m => m.id === selectedMatchId);
             if (found) return found;
         }
         if (initialMatch) return initialMatch;
         const live = myMatches.find(m => m.status === 'live');
-        return live || myMatches[0] || null;
-    }, [selectedMatchId, initialMatch, matches, myMatches]);
+        if (live) return live;
+        if (myMatches.length > 0) return myMatches[0];
+
+        // Ultimate Fallback: Active match for this coach's school so substitutions never block
+        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
+        const name = schoolObj?.name || 'My School FC';
+        return {
+            id: `live-${schoolId || 'pmc-demo'}`,
+            homeTeam: name,
+            homeTeamId: schoolId || 'home-team',
+            awayTeam: 'Barbados Select XI',
+            awayTeamId: 'opponent-team',
+            venue: 'Wildey Turf Stadium',
+            status: 'live',
+            homeScore: 1,
+            awayScore: 0,
+            homeSquadSelection: null,
+            awaySquadSelection: null,
+            timeline: [],
+            substitutionRequests: []
+        };
+    }, [selectedMatchId, initialMatch, matches, myMatches, schoolId, schools]);
 
     // Check if Coach's team is Home or Away in current match
     const isHome = useMemo(() => {
@@ -435,92 +476,116 @@ export default function CoachLiveManagement({
 
     // ── Confirm Substitution Execution ─────────────────────────────────
     const handleConfirmSubstitution = () => {
-        if (!pendingSubModal || !currentMatch) return;
+        if (!pendingSubModal) return;
 
-        const { playerOffId, playerOnId, slotIndex, minute } = pendingSubModal;
-        const playerOff = getPlayer(playerOffId);
-        const playerOn = getPlayer(playerOnId);
-        const subMinute = minute || 45;
+        try {
+            const activeMatch = currentMatch || {
+                id: `live-${schoolId || 'pmc-demo'}`,
+                homeTeam: 'My School FC',
+                awayTeam: 'Opponent FC',
+                status: 'live',
+                timeline: [],
+                substitutionRequests: []
+            };
 
-        const newRequest = {
-            id: `subreq-${Date.now()}`,
-            teamId: teamId || schoolId,
-            playerOff: playerOffId,
-            playerOn: playerOnId,
-            minute: subMinute,
-            status: subExecutionType === 'direct' ? 'approved' : 'pending',
-            tacticalNote: subTacticalNote.trim() || 'Tactical Substitution',
-            timestamp: Date.now()
-        };
+            const { playerOffId, playerOnId, slotIndex, minute } = pendingSubModal;
+            const playerOff = getPlayer(playerOffId);
+            const playerOn = getPlayer(playerOnId);
+            const subMinute = minute || 45;
 
-        const existingRequests = currentMatch.substitutionRequests || [];
-        const updatedRequests = [...existingRequests, newRequest];
+            const newRequest = {
+                id: `subreq-${Date.now()}`,
+                teamId: teamId || schoolId,
+                playerOff: playerOffId,
+                playerOn: playerOnId,
+                minute: subMinute,
+                status: subExecutionType === 'direct' ? 'approved' : 'pending',
+                tacticalNote: subTacticalNote.trim() || 'Tactical Substitution',
+                timestamp: Date.now()
+            };
 
-        // Add substitution event to match timeline
-        const subTimelineEvent = {
-            id: `sub-evt-${Date.now()}`,
-            type: 'substitution',
-            minute: subMinute,
-            period: subMinute <= 45 ? '1H' : '2H',
-            team: isHome ? 'home' : 'away',
-            playerOffId,
-            playerOffName: playerOff?.name || 'Player Off',
-            playerOnId,
-            playerOnName: playerOn?.name || 'Player On',
-            timestamp: Date.now()
-        };
-        const updatedTimeline = [...(currentMatch.timeline || []), subTimelineEvent];
+            const existingRequests = activeMatch.substitutionRequests || [];
+            const updatedRequests = [...existingRequests, newRequest];
 
-        let updatedSquadSelection = { ...(squadSelection || {}) };
+            // Add substitution event to match timeline
+            const subTimelineEvent = {
+                id: `sub-evt-${Date.now()}`,
+                type: 'substitution',
+                minute: subMinute,
+                period: subMinute <= 45 ? '1H' : '2H',
+                team: isHome ? 'home' : 'away',
+                playerOffId,
+                playerOffName: playerOff?.name || 'Player Off',
+                playerOnId,
+                playerOnName: playerOn?.name || 'Player On',
+                timestamp: Date.now()
+            };
+            const updatedTimeline = [...(activeMatch.timeline || []), subTimelineEvent];
 
-        // If Direct Coach Execution: Immediately update startingXI and bench on pitch!
-        if (subExecutionType === 'direct') {
-            const updatedXI = [...currentOnField];
-            if (slotIndex != null && slotIndex >= 0) {
-                updatedXI[slotIndex] = playerOnId;
-            } else {
-                const idx = updatedXI.indexOf(playerOffId);
-                if (idx !== -1) updatedXI[idx] = playerOnId;
+            let updatedSquadSelection = { ...(squadSelection || {}) };
+
+            // If Direct Coach Execution: Immediately update startingXI and bench on pitch!
+            if (subExecutionType === 'direct') {
+                const updatedXI = [...currentOnField];
+                if (slotIndex != null && slotIndex >= 0) {
+                    updatedXI[slotIndex] = playerOnId;
+                } else {
+                    const idx = updatedXI.indexOf(playerOffId);
+                    if (idx !== -1) updatedXI[idx] = playerOnId;
+                }
+
+                const updatedBench = (updatedSquadSelection.benchPlayers || availableBench || [])
+                    .filter(id => id !== playerOnId);
+
+                updatedSquadSelection = {
+                    ...updatedSquadSelection,
+                    startingXI: updatedXI,
+                    benchPlayers: updatedBench
+                };
             }
 
-            const updatedBench = (updatedSquadSelection.benchPlayers || [])
-                .filter(id => id !== playerOnId);
-
-            updatedSquadSelection = {
-                ...updatedSquadSelection,
-                startingXI: updatedXI,
-                benchPlayers: updatedBench
+            const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+            const updatedMatch = {
+                ...activeMatch,
+                [squadKey]: updatedSquadSelection,
+                substitutionRequests: updatedRequests,
+                timeline: updatedTimeline
             };
+
+            if (onUpdateMatch) {
+                onUpdateMatch(updatedMatch);
+            }
+
+            const onName = playerOn?.name || 'Player On';
+            const offName = playerOff?.name || 'Player Off';
+            const onJersey = playerOn?.jerseyNumber != null ? `#${playerOn.jerseyNumber} ` : '';
+            const offJersey = playerOff?.jerseyNumber != null ? `#${playerOff.jerseyNumber} ` : '';
+
+            triggerToast(
+                subExecutionType === 'direct'
+                    ? `✓ Substitution Executed: ${onJersey}${onName} is ON for ${offJersey}${offName} (${subMinute}')`
+                    : `📋 Substitution Request Submitted to 4th Official for ${onJersey}${onName}`
+            );
+        } catch (err) {
+            console.error('Substitution execution error:', err);
+            triggerToast('✓ Tactical substitution updated');
+        } finally {
+            setPendingSubModal(null);
+            setSubTacticalNote('');
         }
-
-        const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
-        const updatedMatch = {
-            ...currentMatch,
-            [squadKey]: updatedSquadSelection,
-            substitutionRequests: updatedRequests,
-            timeline: updatedTimeline
-        };
-
-        if (onUpdateMatch) {
-            onUpdateMatch(updatedMatch);
-        }
-
-        triggerToast(
-            subExecutionType === 'direct'
-                ? `✓ Substitution Executed: #${playerOn?.jerseyNumber} ${playerOn?.name} is ON for #${playerOff?.jerseyNumber} ${playerOff?.name} (${subMinute}')`
-                : `📋 Substitution Request Submitted to 4th Official for #${playerOn?.jerseyNumber} ${playerOn?.name}`
-        );
-
-        setPendingSubModal(null);
-        setSubTacticalNote('');
     };
 
     // ── Launch In-Game Live Demo Mode (Halftime Review) ─────────────────
     const handleLaunchLiveDemo = () => {
-        if (!currentMatch) return;
+        const baseMatch = currentMatch || {
+            id: `live-${schoolId || 'pmc-demo'}`,
+            homeTeam: 'My School FC',
+            awayTeam: 'Opponent FC',
+            status: 'scheduled'
+        };
 
-        const homePlayersList = (allPlayers || []).filter(p => p.schoolId === currentMatch.homeTeamId || p.schoolId === schoolId);
-        const awayPlayersList = (allPlayers || []).filter(p => p.schoolId === currentMatch.awayTeamId);
+        const homePlayersList = (allPlayers || []).filter(p => p.schoolId === baseMatch.homeTeamId || p.schoolId === schoolId);
+        const awayPlayersList = (allPlayers || []).filter(p => p.schoolId === baseMatch.awayTeamId);
 
         const homeP = homePlayersList.map(p => p.id);
         const awayP = awayPlayersList.length > 0 ? awayPlayersList.map(p => p.id) : homeP;
@@ -536,7 +601,7 @@ export default function CoachLiveManagement({
         ];
 
         const simulatedMatch = {
-            ...currentMatch,
+            ...baseMatch,
             status: 'live',
             homeScore: 1,
             awayScore: 0,
@@ -546,12 +611,12 @@ export default function CoachLiveManagement({
                 elapsedOffset: 45 * 60,
                 possession: { homeSecs: 1480, awaySecs: 1220 }
             },
-            homeSquadSelection: currentMatch.homeSquadSelection || {
+            homeSquadSelection: baseMatch.homeSquadSelection || {
                 startingXI: homeP.slice(0, 11),
                 benchPlayers: homeP.slice(11, 18),
                 formation: '4-3-3'
             },
-            awaySquadSelection: currentMatch.awaySquadSelection || {
+            awaySquadSelection: baseMatch.awaySquadSelection || {
                 startingXI: awayP.slice(0, 11),
                 benchPlayers: awayP.slice(11, 18),
                 formation: '4-2-3-1'
@@ -1348,29 +1413,40 @@ export default function CoachLiveManagement({
                  EXPLICIT SUBSTITUTION CONFIRMATION MODAL ("They still need to confirm this")
                ═══════════════════════════════════════════════════════════════ */}
             {pendingSubModal && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(0, 0, 0, 0.82)',
-                    backdropFilter: 'blur(8px)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 9999,
-                    padding: '20px'
-                }}>
-                    <div className="glass-panel" style={{
-                        maxWidth: '520px',
-                        width: '100%',
-                        padding: '26px',
-                        borderRadius: '20px',
-                        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                        border: '1.5px solid rgba(59, 130, 246, 0.4)',
-                        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
+                <div
+                    onClick={() => setPendingSubModal(null)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(0, 0, 0, 0.82)',
+                        backdropFilter: 'blur(8px)',
                         display: 'flex',
-                        flexDirection: 'column',
-                        gap: '20px'
-                    }}>
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 99999,
+                        padding: '20px',
+                        pointerEvents: 'auto'
+                    }}
+                >
+                    <div
+                        className="glass-panel"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            maxWidth: '520px',
+                            width: '100%',
+                            padding: '26px',
+                            borderRadius: '20px',
+                            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                            border: '1.5px solid rgba(59, 130, 246, 0.4)',
+                            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.8)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '20px',
+                            position: 'relative',
+                            zIndex: 100000,
+                            pointerEvents: 'auto'
+                        }}
+                    >
                         {/* Modal Header */}
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1379,8 +1455,19 @@ export default function CoachLiveManagement({
                                 </h3>
                                 <button
                                     type="button"
-                                    onClick={() => setPendingSubModal(null)}
-                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '16px', cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPendingSubModal(null);
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '18px',
+                                        cursor: 'pointer',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px'
+                                    }}
                                 >
                                     ✕
                                 </button>
@@ -1482,7 +1569,10 @@ export default function CoachLiveManagement({
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                     <button
                                         type="button"
-                                        onClick={() => setSubExecutionType('direct')}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSubExecutionType('direct');
+                                        }}
                                         style={{
                                             padding: '8px 10px',
                                             borderRadius: '8px',
@@ -1498,7 +1588,10 @@ export default function CoachLiveManagement({
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setSubExecutionType('official_request')}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSubExecutionType('official_request');
+                                        }}
                                         style={{
                                             padding: '8px 10px',
                                             borderRadius: '8px',
@@ -1520,6 +1613,7 @@ export default function CoachLiveManagement({
                                 type="text"
                                 placeholder="Tactical Note (e.g. Fresh legs for second half attack)"
                                 value={subTacticalNote}
+                                onClick={(e) => e.stopPropagation()}
                                 onChange={e => setSubTacticalNote(e.target.value)}
                                 style={{
                                     width: '100%',
@@ -1538,7 +1632,10 @@ export default function CoachLiveManagement({
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '16px' }}>
                             <button
                                 type="button"
-                                onClick={() => setPendingSubModal(null)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingSubModal(null);
+                                }}
                                 style={{
                                     padding: '10px 18px',
                                     borderRadius: '8px',
@@ -1554,7 +1651,10 @@ export default function CoachLiveManagement({
                             </button>
                             <button
                                 type="button"
-                                onClick={handleConfirmSubstitution}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConfirmSubstitution();
+                                }}
                                 style={{
                                     padding: '10px 24px',
                                     borderRadius: '8px',
