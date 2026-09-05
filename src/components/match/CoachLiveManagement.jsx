@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import JerseyIcon from '../JerseyIcon';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
 import { isMatchForTeam } from '../../utils/fixtureUtils';
+import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 
 // Standard Tactical Formations
 const FORMATION_LAYOUTS = {
@@ -126,7 +127,7 @@ export default function CoachLiveManagement({
     const [toastMessage, setToastMessage] = useState(null);
 
     // Halftime / In-Game Shot Analysis Filters
-    const [shotPeriodFilter, setShotPeriodFilter] = useState('HT'); // 'ALL' | 'HT' (1st Half) | '2H'
+    const [shotPeriodFilter, setShotPeriodFilter] = useState('ALL'); // 'ALL' | 'HT' (1st Half) | '2H'
     const [shotTeamFilter, setShotTeamFilter] = useState('my_team'); // 'my_team' | 'both'
     const [selectedShotDetail, setSelectedShotDetail] = useState(null);
 
@@ -202,7 +203,7 @@ export default function CoachLiveManagement({
 
     const getPlayer = (playerId) => {
         if (!playerId) return null;
-        return (allPlayers || []).find(p => String(p.id) === String(playerId) || String(p.playerId) === String(playerId)) || null;
+        return resolvePlayer(playerId, allPlayers || []);
     };
 
     // Approved substitutions
@@ -275,16 +276,35 @@ export default function CoachLiveManagement({
 
     // Real-time Shot events logged by Data Capturers
     const allMatchShots = useMemo(() => {
-        if (!currentMatch?.timeline) return [];
-        return currentMatch.timeline.filter(e => 
+        const rawTimeline = currentMatch?.timeline || currentMatch?.liveState?.timeline || [];
+        if (!Array.isArray(rawTimeline)) return [];
+
+        const myPlayerIds = new Set([
+            ...(squadSelection?.startingXI || []),
+            ...(squadSelection?.benchPlayers || []),
+            ...((isHome ? currentMatch?.homePlayers : currentMatch?.awayPlayers) || [])
+        ].filter(Boolean).map(String));
+
+        const mySchoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
+        const myClubName = (mySchoolObj?.name || '').toLowerCase();
+
+        return rawTimeline.filter(e => 
             e.type === 'goal' || 
             e.type === 'shotOnTarget' || 
             e.type === 'shotMissed' || 
             e.type === 'shotBlocked' || 
             e.type === 'shot'
         ).map(s => {
-            const isHomeTeam = s.team === 'home';
-            const isMyTeam = (isHome && isHomeTeam) || (!isHome && !isHomeTeam);
+            const isHomeTeam = s.team === 'home' || s.teamId === currentMatch?.homeTeamId;
+            const isAwayTeam = s.team === 'away' || s.teamId === currentMatch?.awayTeamId;
+            
+            // Check player ID first
+            const isMyPlayer = s.playerId && myPlayerIds.has(String(s.playerId));
+            
+            // Check club name match
+            const isMyClubName = myClubName && s.teamName && s.teamName.toLowerCase().includes(myClubName);
+
+            const isMyTeam = isMyPlayer || isMyClubName || (isHome ? isHomeTeam : isAwayTeam);
             const result = s.type === 'goal' ? 'goal' : s.type === 'shotOnTarget' ? 'saved' : s.type === 'shotBlocked' ? 'blocked' : 'missed';
             return {
                 ...s,
@@ -294,7 +314,7 @@ export default function CoachLiveManagement({
                 period: s.period || ((s.minute && s.minute <= 45) ? '1H' : '2H')
             };
         });
-    }, [currentMatch?.timeline, isHome]);
+    }, [currentMatch?.timeline, currentMatch?.liveState?.timeline, currentMatch?.homeTeamId, currentMatch?.awayTeamId, currentMatch?.homePlayers, currentMatch?.awayPlayers, isHome, squadSelection, schoolId, schools]);
 
     // Filtered shots for analysis
     const filteredShots = useMemo(() => {
@@ -362,16 +382,64 @@ export default function CoachLiveManagement({
         return { homePct: 53, awayPct: 47 };
     }, [currentMatch]);
 
+    // Live Synchronized Match Clock
+    const [liveElapsed, setLiveElapsed] = useState(() => {
+        const ls = currentMatch?.liveState;
+        if (!ls) return 0;
+        if (ls.isRunning && ls.startTime) {
+            return (ls.elapsedOffset || 0) + Math.max(0, Math.floor((Date.now() - ls.startTime) / 1000));
+        }
+        return ls.elapsedOffset || 0;
+    });
+
+    useEffect(() => {
+        const ls = currentMatch?.liveState;
+        if (!ls) {
+            setLiveElapsed(0);
+            return;
+        }
+
+        const calcElapsed = () => {
+            if (ls.isRunning && ls.startTime) {
+                return (ls.elapsedOffset || 0) + Math.max(0, Math.floor((Date.now() - ls.startTime) / 1000));
+            }
+            return ls.elapsedOffset || 0;
+        };
+
+        setLiveElapsed(calcElapsed());
+
+        if (ls.isRunning) {
+            const iv = setInterval(() => {
+                setLiveElapsed(calcElapsed());
+            }, 1000);
+            return () => clearInterval(iv);
+        }
+    }, [currentMatch?.liveState?.isRunning, currentMatch?.liveState?.startTime, currentMatch?.liveState?.elapsedOffset, currentMatch?.liveState?.period]);
+
+    // Current live match minute
+    const currentMatchMinute = useMemo(() => {
+        if (!currentMatch || currentMatch.status !== 'live') return 45;
+        const period = currentMatch?.liveState?.period || '1H';
+        if (period === 'HT') return 45;
+        return Math.floor(liveElapsed / 60) + 1;
+    }, [currentMatch, liveElapsed]);
+
     // Display match clock / period
     const currentClockDisplay = useMemo(() => {
         if (!currentMatch) return 'Pre-Match';
         if (currentMatch.status !== 'live') return currentMatch.status === 'completed' ? 'Full Time (FT)' : 'Scheduled';
-        const period = currentMatch.liveState?.period || 'HT';
+        
+        const period = currentMatch.liveState?.period || '1H';
         if (period === 'HT') return '45:00 • Halftime (HT)';
-        if (period === '1H') return '38:14 • 1st Half';
-        if (period === '2H') return '68:45 • 2nd Half';
-        return 'LIVE';
-    }, [currentMatch]);
+
+        const mins = Math.floor(liveElapsed / 60);
+        const secs = liveElapsed % 60;
+        const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        const halfName = period === '2H' ? '2nd Half' : '1st Half';
+        const runningIndicator = currentMatch.liveState?.isRunning ? 'LIVE' : 'PAUSED';
+
+        return `${timeStr} • ${halfName} (${runningIndicator})`;
+    }, [currentMatch, liveElapsed]);
 
     // Show toast helper
     const triggerToast = (msg) => {
@@ -424,7 +492,7 @@ export default function CoachLiveManagement({
                     playerOffId: targetPlayerId,
                     playerOnId: benchPlayerId,
                     slotIndex: targetSlotIndex,
-                    minute: 45
+                    minute: currentMatchMinute
                 });
             }
         }
@@ -440,12 +508,13 @@ export default function CoachLiveManagement({
                 const updatedMatch = {
                     ...currentMatch,
                     [squadKey]: {
-                        ...(currentMatch[squadKey] || {}),
+                        ...squadSelection,
                         startingXI: updatedXI
                     }
                 };
-                if (onUpdateMatch) onUpdateMatch(updatedMatch);
-                triggerToast(`Tactical swap: #${getPlayer(data.playerId)?.jerseyNumber} & #${getPlayer(targetPlayerId)?.jerseyNumber} positions swapped`);
+
+                onUpdateMatch(updatedMatch);
+                triggerToast('Tactical position swap applied!');
             }
         }
 
@@ -460,7 +529,7 @@ export default function CoachLiveManagement({
                 playerOffId: targetPlayerId,
                 playerOnId: selectedBenchForSub,
                 slotIndex: slotIndex,
-                minute: 45
+                minute: currentMatchMinute
             });
             setSelectedBenchForSub(null);
         }

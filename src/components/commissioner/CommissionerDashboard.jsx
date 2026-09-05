@@ -4,6 +4,7 @@ import KnockoutBrackets from '../KnockoutBrackets';
 import CountdownSheetModal from '../match/CountdownSheetModal';
 import JerseyIcon from '../JerseyIcon';
 import { exportPMCMatchPacket, pushMatchToPMC } from '../../utils/pmcSyncEngine';
+import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 
 const DEFAULT_VENUES = [
     { id: 'Wildey Turf', name: 'Wildey Turf Ground' },
@@ -1032,8 +1033,10 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     </div>
                                 ) : (
                                     pendingSubstitutions.map(item => {
-                                        const offPlayer = (allStudents || []).find(p => p.id === item.playerOff);
-                                        const onPlayer = (allStudents || []).find(p => p.id === item.playerOn);
+                                        const offPlayer = resolvePlayer(item.playerOff, allStudents);
+                                        const onPlayer = resolvePlayer(item.playerOn, allStudents);
+                                        const offName = resolvePlayerName(offPlayer || item.playerOff, allStudents);
+                                        const onName = resolvePlayerName(onPlayer || item.playerOn, allStudents);
                                         const curMinute = subMinuteOverrides[item.id] !== undefined ? subMinuteOverrides[item.id] : (item.minute || item.match?.matchClock || 45);
 
                                         return (
@@ -1070,7 +1073,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                                         </span>
                                                         <JerseyIcon number={offPlayer?.jerseyNumber != null ? offPlayer.jerseyNumber : '—'} color="#ef4444" size={34} />
                                                         <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
-                                                            {offPlayer?.name || `Player #${item.playerOff}`}
+                                                            {offName}
                                                         </div>
                                                         <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Starter</span>
                                                     </div>
@@ -1089,7 +1092,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                                         </span>
                                                         <JerseyIcon number={onPlayer?.jerseyNumber != null ? onPlayer.jerseyNumber : '—'} color="#22c55e" size={34} />
                                                         <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
-                                                            {onPlayer?.name || `Player #${item.playerOn}`}
+                                                            {onName}
                                                         </div>
                                                         <span style={{ fontSize: '10px', color: '#86efac', fontWeight: '700' }}>Substitute</span>
                                                     </div>
@@ -1156,7 +1159,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                                     </span>
                                     {historicalSubstitutions.slice(-3).map(h => (
                                         <div key={h.id} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
-                                            <span>{h.minute}' • {getSchoolName(h.teamId, h.match)} (Player #{h.playerOn} for #{h.playerOff})</span>
+                                            <span>{h.minute}' • {getSchoolName(h.teamId, h.match)} ({resolvePlayerName(h.playerOn, allStudents)} for {resolvePlayerName(h.playerOff, allStudents)})</span>
                                             <span style={{ color: h.status === 'approved' ? '#4ade80' : '#f87171', fontWeight: '700' }}>
                                                 {h.status === 'approved' ? '✓ Authorized' : '✕ Rejected'}
                                             </span>

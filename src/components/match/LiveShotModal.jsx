@@ -65,12 +65,13 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
             return;
         }
         
+        const parsedAssist = (assistPlayerId && !isNaN(Number(assistPlayerId))) ? Number(assistPlayerId) : assistPlayerId;
         onSave({
             result,
             x: coords.x,
             y: coords.y,
             goalType: goalType,
-            assistPlayerId: result === 'goal' && goalType !== 'own-goal' && assistPlayerId ? Number(assistPlayerId) : null
+            assistPlayerId: result === 'goal' && goalType !== 'own-goal' && assistPlayerId ? parsedAssist : null
         });
     };
 

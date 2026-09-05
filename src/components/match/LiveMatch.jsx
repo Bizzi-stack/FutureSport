@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { SCHOOLS, TEAMS } from '../../data/mockData';
+import { createPlayerLookupMap, resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 import LiveShotModal from './LiveShotModal';
 import LiveGkSaveModal from './LiveGkSaveModal';
 import TileDataCaptureControlPanel from './TileDataCaptureControlPanel';
@@ -358,45 +359,9 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         };
     }, [isPaused, isRefereeMode, clockState.startTime]);
 
-    // Sync state to Match object whenever critical states change
-    useEffect(() => {
-        if (onUpdateMatch) {
-            // If referee, only update refereeLiveState with events
-            if (isRefereeMode) {
-                const updatedRefereeState = {
-                    ...eventState,
-                    playerStats,
-                    timeline
-                };
-                onUpdateMatch({
-                    ...matchDataRef.current,
-                    refereeLiveState: updatedRefereeState
-                });
-            } else {
-                // If statistician, update the global liveState
-                const updatedLiveState = {
-                    ...clockState,
-                    isRunning: !isPaused,
-                    startTime: startTimeRef.current,
-                    elapsedOffset: offsetRef.current,
-                    period,
-                    playerStats,
-                    timeline
-                };
-                onUpdateMatch({
-                    ...matchDataRef.current,
-                    liveState: updatedLiveState
-                });
-            }
-        }
-        // eslint-disable-next-line
-    }, [isPaused, period, playerStats, timeline]);
-
     /* lookup helper */
     const studentsById = useMemo(() => {
-        const map = {};
-        allStudents.forEach(s => { map[s.id] = s; });
-        return map;
+        return createPlayerLookupMap(allStudents);
     }, [allStudents]);
 
     const resolveTeamMeta = useCallback((teamId, fallbackName) => {
@@ -440,14 +405,56 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         return goals + ownGoals;
     }, [homePlayers, awayPlayers, playerStats]);
 
+    // Sync state to Match object whenever critical states change
+    useEffect(() => {
+        if (onUpdateMatch) {
+            // If referee, update refereeLiveState and root match fields
+            if (isRefereeMode) {
+                const updatedRefereeState = {
+                    ...eventState,
+                    playerStats,
+                    timeline
+                };
+                onUpdateMatch({
+                    ...matchDataRef.current,
+                    homeScore,
+                    awayScore,
+                    timeline,
+                    playerStats,
+                    refereeLiveState: updatedRefereeState
+                });
+            } else {
+                // If statistician, update global liveState AND root match fields
+                const updatedLiveState = {
+                    ...clockState,
+                    isRunning: !isPaused,
+                    startTime: startTimeRef.current,
+                    elapsedOffset: offsetRef.current,
+                    period,
+                    playerStats,
+                    timeline
+                };
+                onUpdateMatch({
+                    ...matchDataRef.current,
+                    homeScore,
+                    awayScore,
+                    timeline,
+                    playerStats,
+                    liveState: updatedLiveState
+                });
+            }
+        }
+        // eslint-disable-next-line
+    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode]);
+
     /* quick-action handler */
     const handleQuickAction = useCallback((playerId, actionKey) => {
-        const student = studentsById[playerId];
-        const name = student?.name ?? `Player #${playerId}`;
+        const student = resolvePlayer(playerId, allStudents, studentsById);
+        const name = resolvePlayerName(playerId, allStudents, studentsById);
         const isHome = homePlayers.includes(playerId);
         const teammates = isHome 
-            ? homePlayers.map(id => studentsById[id]).filter(Boolean)
-            : awayPlayers.map(id => studentsById[id]).filter(Boolean);
+            ? homePlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean)
+            : awayPlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean);
 
         const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
 
@@ -471,20 +478,22 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 teammates
             });
         } else {
-            // Direct immediate logging for card/assist
+            // Direct immediate logging for card/assist/foul
             const elapsedMins = Math.floor(elapsed / 60) + 1;
-            setTimeline(prev => [
-                ...prev,
-                {
-                    id: `event-${Date.now()}`,
-                    elapsed: elapsed,
-                    period: period,
-                    type: actionKey,
-                    playerId,
-                    playerName: name,
-                    team: isHome ? 'home' : 'away',
-                }
-            ]);
+            const newEvent = {
+                id: `event-${Date.now()}`,
+                elapsed: elapsed,
+                minute: elapsedMins,
+                period: period,
+                type: actionKey,
+                playerId,
+                playerName: name,
+                team: isHome ? 'home' : 'away',
+                teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
+                teamName: isHome ? home.name : away.name
+            };
+
+            setTimeline(prev => [...prev, newEvent]);
 
             setPlayerStats(prev => {
                 const ps = { ...prev };
@@ -521,7 +530,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 return ps;
             });
         }
-    }, [elapsed, homePlayers, awayPlayers, studentsById]);
+    }, [elapsed, homePlayers, awayPlayers, studentsById, period, matchData.homeTeamId, matchData.awayTeamId, home.name, away.name, allStudents]);
 
     /* Shot/Goal Modal Save */
     const handleSaveShot = (shotDetails) => {
@@ -536,20 +545,25 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         
         // Add shot event to timeline
         const eventType = result === 'goal' ? 'goal' : result === 'saved' ? 'shotOnTarget' : result === 'blocked' ? 'shotBlocked' : 'shotMissed';
-        const assistPlayer = assistPlayerId ? studentsById[assistPlayerId] : null;
+        const assistPlayer = assistPlayerId ? resolvePlayer(assistPlayerId, allStudents, studentsById) : null;
+        const assistPlayerName = assistPlayer ? resolvePlayerName(assistPlayer, allStudents, studentsById) : null;
+        const resolvedShooterName = resolvePlayerName(player || playerId, allStudents, studentsById);
 
         const newEvent = {
             id: eventId,
             elapsed: elapsed,
+            minute: elapsedMins,
             period: period,
             type: eventType,
             playerId,
-            playerName: player.name,
+            playerName: resolvedShooterName,
             team: isHome ? 'home' : 'away',
+            teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
+            teamName: isHome ? home.name : away.name,
             x, y,
             goalType,
-            assistingPlayerId: assistPlayerId,
-            assistingPlayerName: assistPlayer?.name || null
+            assistingPlayerId: assistPlayerId || null,
+            assistingPlayerName: assistPlayerName || null
         };
 
         setTimeline(prev => [...prev, newEvent]);
@@ -638,14 +652,18 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
 
         const eventId = `event-${Date.now()}`;
         
+        const resolvedGkName = resolvePlayerName(player || playerId, allStudents, studentsById);
         const newEvent = {
             id: eventId,
             elapsed: elapsed,
+            minute: Math.floor(elapsed / 60) + 1,
             period: period,
             type: 'gkSave',
             playerId,
-            playerName: player.name,
+            playerName: resolvedGkName,
             team: isHome ? 'home' : 'away',
+            teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
+            teamName: isHome ? home.name : away.name,
             saveType,
             corner
         };
@@ -950,7 +968,8 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
 
                 {/* Floating Context Menu Card */}
                 {activePitchPlayerMenu && activePitchPlayerMenu.side === side && (() => {
-                    const activeStudent = studentsById[activePitchPlayerMenu.playerId];
+                    const activeStudent = resolvePlayer(activePitchPlayerMenu.playerId, allStudents, studentsById);
+                    const activeStudentName = resolvePlayerName(activePitchPlayerMenu.playerId, allStudents, studentsById);
                     return (
                         <div style={{
                             position: 'absolute',
@@ -970,16 +989,14 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                             minWidth: '130px'
                         }} onClick={e => e.stopPropagation()}>
                             <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '3px', marginBottom: '3px', textAlign: 'center', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                {activeStudent?.name}
+                                #{activeStudent?.jerseyNumber || (parseInt(String(activePitchPlayerMenu.playerId).replace(/\D/g, ''), 10) % 22 || 10)} {activeStudentName}
                             </div>
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'goal'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">⚽ Log Goal/Shot</button>
-                            {!isRefereeMode && (
-                                <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'assist'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">👟🎯 Log Assist</button>
-                            )}
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'yellowCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">🟨 Yellow Card</button>
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'redCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">🟥 Red Card</button>
-                            {!isRefereeMode && activeStudent?.position === 'Goalkeeper' && (
-                                <button onClick={() => { setGkSaveModalData({ player: { id: activePitchPlayerMenu.playerId, name: activeStudent?.name } }); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#34d399', fontWeight: '700' }}>🧤 Log GK Save</button>
+                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'goal'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#4ade80', fontWeight: '700' }}>⚽ Log Goal / Shot</button>
+                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'assist'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">👟 Log Assist</button>
+                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'yellowCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#facc15' }}>🟨 Yellow Card</button>
+                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'redCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#f87171' }}>🟥 Red Card</button>
+                            {activeStudent?.position === 'Goalkeeper' && (
+                                <button onClick={() => { setGkSaveModalData({ player: { id: activePitchPlayerMenu.playerId, name: activeStudentName } }); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#34d399', fontWeight: '700' }}>🧤 Log GK Save</button>
                             )}
                             <button onClick={() => setActivePitchPlayerMenu(null)} className="pitch-menu-item" style={{ color: 'var(--danger)', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '2px', paddingTop: '4px' }}>Close</button>
                         </div>
@@ -991,9 +1008,10 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
 
     /* ─── render helpers ───────────────────────────────────────────── */
     const renderPlayerRow = (playerId) => {
-        const student = studentsById[playerId];
-        const name = student?.name ?? `Player #${playerId}`;
-        const jersey = student?.jerseyNumber;
+        const student = resolvePlayer(playerId, allStudents, studentsById);
+        const name = resolvePlayerName(playerId, allStudents, studentsById);
+        const rawNum = parseInt(String(playerId).replace(/\D/g, ''), 10);
+        const jersey = student?.jerseyNumber != null ? student.jerseyNumber : (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : 10);
         const isExpanded = expandedPlayer === playerId;
 
         return (
@@ -1005,7 +1023,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 >
                     {/* Jersey + name */}
                     <div style={styles.playerIdentity}>
-                        <span style={styles.jerseyBadge}>{jersey != null ? jersey : (playerId % 22) + 2}</span>
+                        <span style={styles.jerseyBadge}>{jersey}</span>
                         <span style={styles.playerName}>{name}</span>
                         {homeStarters.includes(playerId) || awayStarters.includes(playerId) ? (
                             <span style={{ fontSize: '9px', fontWeight: '800', color: 'var(--success)', background: 'rgba(16,185,129,0.12)', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', flexShrink: 0 }}>XI</span>
@@ -1297,10 +1315,13 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     onShotModal={(player, defaultGoalType, defaultResult) => {
                         const isHome = homePlayers.includes(player.id);
                         const teammates = isHome 
-                            ? homePlayers.map(id => studentsById[id]).filter(Boolean)
-                            : awayPlayers.map(id => studentsById[id]).filter(Boolean);
+                            ? homePlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean)
+                            : awayPlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean);
                         setShotModalData({
-                            player,
+                            player: {
+                                ...player,
+                                name: resolvePlayerName(player, allStudents, studentsById)
+                            },
                             defaultOutcome: defaultResult || 'goal',
                             defaultGoalType: defaultGoalType || 'foot',
                             teammates

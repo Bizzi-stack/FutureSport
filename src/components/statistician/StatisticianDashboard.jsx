@@ -9,6 +9,7 @@ import {
 } from '../../services/refereeNotificationService';
 import { getAnalystAccounts } from '../../data/analystAccounts';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
+import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 
 export default function StatisticianDashboard({
     matches = [],
@@ -396,11 +397,14 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
                                     ) : (
                                         homeXI.map((pId, idx) => {
-                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            const p = resolvePlayer(pId, allPlayers);
+                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
+                                            const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
                                                 <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
-                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
-                                                    <span style={{ fontWeight: '700', color: '#4ade80' }}>#{p.jerseyNumber || '-'}</span>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#4ade80' }}>#{jersey}</span>
                                                 </div>
                                             );
                                         })
@@ -429,11 +433,14 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
                                     ) : (
                                         awayXI.map((pId, idx) => {
-                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            const p = resolvePlayer(pId, allPlayers);
+                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
+                                            const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
                                                 <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
-                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
-                                                    <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{p.jerseyNumber || '-'}</span>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{jersey}</span>
                                                 </div>
                                             );
                                         })
@@ -529,11 +536,14 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup yet.</div>
                                     ) : (
                                         homeXI.map((pId, idx) => {
-                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            const p = resolvePlayer(pId, allPlayers);
+                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
+                                            const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
                                                 <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
-                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
-                                                    <span style={{ fontWeight: '700', color: '#4ade80' }}>#{p.jerseyNumber || '-'}</span>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#4ade80' }}>#{jersey}</span>
                                                 </div>
                                             );
                                         })
@@ -562,11 +572,14 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup yet.</div>
                                     ) : (
                                         awayXI.map((pId, idx) => {
-                                            const p = allPlayers.find(s => String(s.id) === String(pId)) || { name: `Player #${pId}`, jerseyNumber: '-' };
+                                            const p = resolvePlayer(pId, allPlayers);
+                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
+                                            const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
                                                 <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
-                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {p.name}</span>
-                                                    <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{p.jerseyNumber || '-'}</span>
+                                                    <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {name}</span>
+                                                    <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{jersey}</span>
                                                 </div>
                                             );
                                         })

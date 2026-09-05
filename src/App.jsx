@@ -412,7 +412,7 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-students-v1');
+      const saved = localStorage.getItem('eduvision-pmc-students-v2');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -425,7 +425,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v1', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v2', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -662,6 +662,7 @@ function App() {
   const displaySchools = useMemo(() => selectedTournament === 'PMC' ? PMC_SCHOOLS : allSchools, [selectedTournament, allSchools]);
   const displayTeams = useMemo(() => selectedTournament === 'PMC' ? PMC_TEAMS : allTeams, [selectedTournament, allTeams]);
   const displayStudents = useMemo(() => selectedTournament === 'PMC' ? pmcStudents : allStudents, [selectedTournament, pmcStudents, allStudents]);
+  const combinedAllPlayers = useMemo(() => [...pmcStudents, ...allStudents], [pmcStudents, allStudents]);
   const displayMatches = useMemo(() => selectedTournament === 'PMC' ? pmcMatches : matches, [selectedTournament, pmcMatches, matches]);
   const displayYears = useMemo(() => selectedTournament === 'PMC' ? PMC_YEARS : YEARS, [selectedTournament]);
 
@@ -1511,7 +1512,7 @@ function App() {
                   onImportPlayers={handleImportPlayers}
                   userRole={userRole}
                   matches={displayMatches}
-                  allPlayers={displayStudents}
+                  allPlayers={combinedAllPlayers}
                   onUpdateMatch={handleUpdateMatch}
               />
           )}
@@ -1532,7 +1533,7 @@ function App() {
               <SchoolAdminDashboard
                   schoolId={selectedSchool}
                   schools={displaySchools}
-                  allPlayers={displayStudents}
+                  allPlayers={combinedAllPlayers}
                   allTeams={displayTeams}
                   matches={displayMatches}
                   onUpdateSchool={handleUpdateSchool}
@@ -1545,7 +1546,7 @@ function App() {
               <RefereeDashboard
                   matches={displayMatches}
                   schools={displaySchools}
-                  allPlayers={displayStudents}
+                  allPlayers={combinedAllPlayers}
                   year={selectedYear}
                   currentReferee={currentReferee}
                   selectedTournament={selectedTournament}
@@ -1563,7 +1564,7 @@ function App() {
               <FourthOfficialDashboard
                   matches={displayMatches}
                   schools={displaySchools}
-                  allPlayers={displayStudents}
+                  allPlayers={combinedAllPlayers}
                   currentOfficial={currentFourthOfficial}
                   onUpdateMatch={handleUpdateMatch}
                   onLogout={() => {
@@ -1579,7 +1580,7 @@ function App() {
                   matches={displayMatches}
                   schools={displaySchools}
                   allTeams={displayTeams}
-                  allStudents={displayStudents}
+                  allStudents={combinedAllPlayers}
                   onUpdateMatch={handleUpdateMatch}
                   onAddMatches={handleAddMatches}
               />
@@ -1590,7 +1591,7 @@ function App() {
               <StatisticianDashboard
                   matches={displayMatches}
                   schools={displaySchools}
-                  allPlayers={displayStudents}
+                  allPlayers={combinedAllPlayers}
                   year={selectedYear}
                   currentAnalyst={currentAnalyst}
                   initialDirectMatchId={directMatchId}
