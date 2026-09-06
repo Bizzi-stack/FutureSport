@@ -254,7 +254,7 @@ export default function TeacherDashboard({
                                 </>
                             ) : (
                                 <>
-                                    <span>⚡ In-Game Tactics &amp; Subs</span>
+                                    <span>In-Game Tactics &amp; Subs</span>
                                 </>
                             )}
                         </button>
