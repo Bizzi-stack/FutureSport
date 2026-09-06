@@ -136,10 +136,34 @@ export const DEFAULT_OFFICIALS = {
             assignedVenue: 'Combermere Grounds',
             avatar: 'FO'
         }
+    ],
+    commissioner: [
+        {
+            id: 'comm_sarah',
+            username: 'sarah.rollins',
+            name: 'Sarah Rollins (Senior Match Coordinator)',
+            email: 'coordinator@pmcup.bb',
+            password: 'password',
+            role: 'commissioner',
+            assignedVenue: 'Friendship, St. Michael',
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2'],
+            avatar: 'MC'
+        },
+        {
+            id: 'comm_charles',
+            username: 'charles.white',
+            name: 'Charles White (Match Operator)',
+            email: 'operator@pmcup.bb',
+            password: 'password',
+            role: 'commissioner',
+            assignedVenue: 'Friendship, St. Michael',
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2'],
+            avatar: 'MO'
+        }
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v2';
 
 export function getOfficialsByRole(role) {
     try {

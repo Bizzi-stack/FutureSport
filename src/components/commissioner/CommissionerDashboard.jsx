@@ -23,16 +23,46 @@ const DEFAULT_OFFICIALS = [
     { id: 'comm-2', name: 'Harcourt Wason', role: 'Commissioner' }
 ];
 
-export default function CommissionerDashboard({ matches, schools, allTeams, allStudents = [], onUpdateMatch, onAddMatches, readOnly = false }) {
-    const [mainTab, setMainTab] = useState('approvals'); // 'approvals' | 'operations' | 'scheduling' | 'standings' | 'knockouts'
+export default function CommissionerDashboard({ 
+    matches = [], 
+    schools = [], 
+    allTeams = [], 
+    allStudents = [], 
+    onUpdateMatch, 
+    onAddMatches, 
+    readOnly = false,
+    selectedTournament = 'PMC',
+    onSelectTournament,
+    currentOfficial = null,
+    selectedYear = '2026-2027',
+    onSelectSchool,
+    onLogout
+}) {
+    const isPMC = selectedTournament === 'PMC';
+    const [mainTab, setMainTab] = useState(() => isPMC ? 'live_feed' : 'approvals'); // 'live_feed' | 'approvals' | 'operations' | 'scheduling' | 'standings' | 'knockouts'
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
+
+    // Live Feed & Timeline States
+    const [activeMatchId, setActiveMatchId] = useState(() => {
+        const live = (matches || []).find(m => m.status === 'live');
+        if (live) return live.id;
+        return matches?.[0]?.id || null;
+    });
+
+    const activeMatch = useMemo(() => {
+        return (matches || []).find(m => m.id === activeMatchId) || matches?.[0] || null;
+    }, [matches, activeMatchId]);
+
+    const [timelineFilter, setTimelineFilter] = useState('all'); // 'all' | 'goal_shot' | 'card_foul' | 'sub' | 'setpiece'
+    const [timelineTeamFilter, setTimelineTeamFilter] = useState('all'); // 'all' | 'home' | 'away'
+    const [timelineSortOrder, setTimelineSortOrder] = useState('newest'); // 'newest' | 'chronological'
     
     // Commissioner Approval Form States
     const [incidentRating, setIncidentRating] = useState('1'); // 1 = peaceful, 5 = severe incidents
     const [generalRemarks, setGeneralRemarks] = useState('');
-    const [commissionerSignature, setCommissionerSignature] = useState('');
+    const [commissionerSignature, setCommissionerSignature] = useState(() => currentOfficial?.name || '');
     const [approvalSuccess, setApprovalSuccess] = useState(false);
 
     // Matchday Operations & Substitutions States
@@ -55,9 +85,9 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
     const [manualGender, setManualGender] = useState('Boy');
     const [manualSuccess, setManualSuccess] = useState(false);
 
-    // Get matches waiting for Commissioner Approval (refereed matches)
+    // Get matches waiting for Commissioner Approval (refereed or unapproved completed matches)
     const pendingApprovalMatches = useMemo(() => {
-        return matches.filter(m => m.status === 'refereed');
+        return (matches || []).filter(m => m.status === 'refereed' || (m.status === 'completed' && !m.commissionerReport));
     }, [matches]);
 
     // Get currently scheduled matches (upcoming)
@@ -154,7 +184,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                     ...a, 
                     status: 'approved', 
                     approvedAt: new Date().toISOString(), 
-                    approvedBy: 'Match Commissioner' 
+                    approvedBy: isPMC ? 'Match Coordinator' : 'Match Commissioner' 
                   } 
                 : a
         );
@@ -183,7 +213,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                     ...a, 
                     status: 'rejected', 
                     rejectedAt: new Date().toISOString(), 
-                    rejectedBy: 'Match Commissioner' 
+                    rejectedBy: isPMC ? 'Match Coordinator' : 'Match Commissioner' 
                   } 
                 : a
         );
@@ -200,23 +230,23 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
     };
 
     // Commissioner Approval Handler for In-Match Substitutions
-    const handleApproveSubstitution = (match, reqId) => {
+    const handleApproveSubstitution = (match, reqId, directMin) => {
         const req = (match.substitutionRequests || []).find(r => r.id === reqId);
         if (!req) return;
 
-        const overrideMin = subMinuteOverrides[reqId];
+        const overrideMin = directMin !== undefined ? directMin : subMinuteOverrides[reqId];
         const minuteVal = (overrideMin !== undefined && overrideMin !== '') 
             ? parseInt(overrideMin, 10) 
-            : (req.minute || match.matchClock || 45);
+            : (req.minute || match.matchClock || (match.currentHalf === '2H' ? 60 : 25));
 
         const updatedRequests = (match.substitutionRequests || []).map(r => 
             r.id === reqId 
                 ? { 
                     ...r, 
-                    status: 'approved',
-                    approvedAt: new Date().toISOString(),
-                    approvedBy: 'Match Commissioner',
-                    minute: minuteVal
+                    status: 'approved', 
+                    approvedAt: new Date().toISOString(), 
+                    approvedBy: isPMC ? 'Match Coordinator' : 'Match Commissioner', 
+                    minute: minuteVal 
                   } 
                 : r
         );
@@ -234,6 +264,8 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
 
         const offPlayer = (allStudents || []).find(p => p.id === req.playerOff);
         const onPlayer = (allStudents || []).find(p => p.id === req.playerOn);
+        const offName = offPlayer?.name || resolvePlayerName(req.playerOff, allStudents);
+        const onName = onPlayer?.name || resolvePlayerName(req.playerOn, allStudents);
 
         const subTimelineEvent = {
             id: `sub-evt-${Date.now()}`,
@@ -243,9 +275,9 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
             team: isMatchHome ? 'home' : 'away',
             teamId: req.teamId,
             playerOffId: req.playerOff,
-            playerOffName: offPlayer?.name || 'Player Off',
+            playerOffName: offName,
             playerOnId: req.playerOn,
-            playerOnName: onPlayer?.name || 'Player On',
+            playerOnName: onName,
             timestamp: Date.now()
         };
 
@@ -255,6 +287,8 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
             teamId: req.teamId,
             playerOff: req.playerOff,
             playerOn: req.playerOn,
+            playerOffName: offName,
+            playerOnName: onName,
             timestamp: Date.now(),
             minute: minuteVal
         };
@@ -273,7 +307,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
 
         if (onUpdateMatch) onUpdateMatch(updatedMatch);
 
-        setOpSuccessToast(`✓ Confirmed In-Match Substitution at ${minuteVal}': ${onPlayer?.name || 'Player'} ON for ${offPlayer?.name || 'Player'} OFF`);
+        setOpSuccessToast(`✓ Confirmed In-Match Substitution at ${minuteVal}': ${onName} ON for ${offName} OFF`);
         setTimeout(() => setOpSuccessToast(null), 5000);
     };
 
@@ -284,7 +318,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                     ...r, 
                     status: 'rejected',
                     rejectedAt: new Date().toISOString(),
-                    rejectedBy: 'Match Commissioner'
+                    rejectedBy: isPMC ? 'Match Coordinator' : 'Match Commissioner'
                   } 
                 : r
         );
@@ -486,20 +520,104 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', height: '100%', minHeight: 0 }}>
             
+            {/* Top Identity Header */}
+            <div className="glass-panel" style={{
+                padding: '16px 22px', borderRadius: '12px',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                flexWrap: 'wrap', gap: '14px',
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85))',
+                border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div style={{
+                        width: '42px', height: '42px', borderRadius: '10px',
+                        background: isPMC ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                    }}>
+                        {isPMC ? '📋' : '⚖️'}
+                    </div>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{
+                                fontSize: '10px', fontWeight: '800', letterSpacing: '0.08em',
+                                textTransform: 'uppercase', padding: '2px 8px', borderRadius: '4px',
+                                background: isPMC ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                                color: isPMC ? '#fca5a5' : '#93c5fd',
+                                border: isPMC ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)'
+                            }}>
+                                {isPMC ? "Prime Minister's Cup · Official Match Control" : "National Schools League · Commissioner"}
+                            </span>
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                fontSize: '11px', fontWeight: '700', color: '#4ade80'
+                            }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
+                                Real-Time Cloud Sync Active
+                            </span>
+                        </div>
+                        <h2 style={{ margin: '3px 0 0 0', fontSize: '18px', fontWeight: '800', color: '#ffffff' }}>
+                            {isPMC ? 'Match Coordinator & Operator Desk' : 'Match Commissioner Operations'}
+                        </h2>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                    {currentOfficial && (
+                        <div style={{
+                            padding: '6px 14px', borderRadius: '8px',
+                            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-end'
+                        }}>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
+                                {currentOfficial.name}
+                            </span>
+                            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                                {currentOfficial.title || currentOfficial.role || 'Senior Match Coordinator'} · {currentOfficial.assignedVenue || 'Friendship, St. Michael'}
+                            </span>
+                        </div>
+                    )}
+                    {onLogout && (
+                        <button
+                            onClick={onLogout}
+                            style={{
+                                padding: '8px 16px', borderRadius: '8px',
+                                background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                                color: '#f87171', fontSize: '12px', fontWeight: '700',
+                                cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                            <span>Exit Control Desk</span>
+                            <span>➔</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {/* Tab switch bar */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: 'var(--border)', paddingBottom: '10px' }}>
-                <button
-                    onClick={() => setMainTab('approvals')}
-                    style={{
-                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
-                        background: mainTab === 'approvals' ? 'rgba(37,99,235,0.18)' : 'transparent',
-                        color: mainTab === 'approvals' ? 'var(--primary-light)' : 'var(--text-secondary)',
-                        border: mainTab === 'approvals' ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
-                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
-                    }}
-                >
-                    Match Approvals &amp; Verification
-                </button>
+            <div style={{ display: 'flex', gap: '8px', borderBottom: 'var(--border)', paddingBottom: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {isPMC && (
+                    <button
+                        onClick={() => setMainTab('live_feed')}
+                        style={{
+                            padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
+                            background: mainTab === 'live_feed' ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+                            color: mainTab === 'live_feed' ? '#f87171' : 'var(--text-secondary)',
+                            border: mainTab === 'live_feed' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
+                            cursor: 'pointer', transition: 'all 0.2s', outline: 'none',
+                            display: 'flex', alignItems: 'center', gap: '8px'
+                        }}
+                    >
+                        <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+                        <span>Live Match Feed &amp; Timeline</span>
+                        {totalPendingOps > 0 && (
+                            <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 7px', fontSize: '10px', fontWeight: '800' }}>
+                                {totalPendingOps}
+                            </span>
+                        )}
+                    </button>
+                )}
+
                 <button
                     onClick={() => setMainTab('operations')}
                     style={{
@@ -511,7 +629,7 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         display: 'flex', alignItems: 'center', gap: '8px'
                     }}
                 >
-                    <span>⚡ Matchday Operations &amp; Subs</span>
+                    <span>⚡ Touchline Subs &amp; Operations</span>
                     {totalPendingOps > 0 && (
                         <span style={{
                             background: '#ef4444', color: '#ffffff',
@@ -521,18 +639,44 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         </span>
                     )}
                 </button>
+
                 <button
-                    onClick={() => setMainTab('scheduling')}
+                    onClick={() => setMainTab('approvals')}
                     style={{
                         padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
-                        background: mainTab === 'scheduling' ? 'rgba(37,99,235,0.18)' : 'transparent',
-                        color: mainTab === 'scheduling' ? 'var(--primary-light)' : 'var(--text-secondary)',
-                        border: mainTab === 'scheduling' ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
-                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                        background: mainTab === 'approvals' ? 'rgba(37,99,235,0.18)' : 'transparent',
+                        color: mainTab === 'approvals' ? 'var(--primary-light)' : 'var(--text-secondary)',
+                        border: mainTab === 'approvals' ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
+                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none',
+                        display: 'flex', alignItems: 'center', gap: '8px'
                     }}
                 >
-                    Match Setup & Scheduling
+                    <span>📋 {isPMC ? 'Match Verification & Sign-Off' : 'Match Approvals & Verification'}</span>
+                    {pendingApprovalMatches.length > 0 && (
+                        <span style={{
+                            background: 'var(--primary)', color: '#ffffff',
+                            borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: '800'
+                        }}>
+                            {pendingApprovalMatches.length}
+                        </span>
+                    )}
                 </button>
+
+                {!isPMC && (
+                    <button
+                        onClick={() => setMainTab('scheduling')}
+                        style={{
+                            padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                            background: mainTab === 'scheduling' ? 'rgba(37,99,235,0.18)' : 'transparent',
+                            color: mainTab === 'scheduling' ? 'var(--primary-light)' : 'var(--text-secondary)',
+                            border: mainTab === 'scheduling' ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
+                            cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                        }}
+                    >
+                        Match Setup &amp; Scheduling
+                    </button>
+                )}
+
                 <button
                     onClick={() => setMainTab('standings')}
                     style={{
@@ -543,27 +687,31 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    League Standings
+                    {isPMC ? '🏆 PMC Standings' : 'League Standings'}
                 </button>
-                <button
-                    onClick={() => setMainTab('knockouts')}
-                    style={{
-                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
-                        background: mainTab === 'knockouts' ? 'rgba(37,99,235,0.18)' : 'transparent',
-                        color: mainTab === 'knockouts' ? 'var(--primary-light)' : 'var(--text-secondary)',
-                        border: mainTab === 'knockouts' ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
-                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
-                    }}
-                >
-                    Knockout Setup
-                </button>
+
+                {!isPMC && (
+                    <button
+                        onClick={() => setMainTab('knockouts')}
+                        style={{
+                            padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                            background: mainTab === 'knockouts' ? 'rgba(37,99,235,0.18)' : 'transparent',
+                            color: mainTab === 'knockouts' ? 'var(--primary-light)' : 'var(--text-secondary)',
+                            border: mainTab === 'knockouts' ? '1px solid rgba(37,99,235,0.35)' : '1px solid transparent',
+                            cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                        }}
+                    >
+                        Knockout Setup
+                    </button>
+                )}
+
                 <button
                     onClick={() => {
-                        const firstUpcoming = matches.find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || matches[0];
+                        const firstUpcoming = (matches || []).find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || (matches || [])[0];
                         setActiveCountdownMatch(firstUpcoming);
                     }}
                     style={{
-                        padding: '8px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
+                        padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
                         background: 'rgba(255, 199, 38, 0.15)',
                         color: '#FFC726',
                         border: '1px solid rgba(255, 199, 38, 0.35)',
@@ -571,9 +719,690 @@ export default function CommissionerDashboard({ matches, schools, allTeams, allS
                         display: 'flex', alignItems: 'center', gap: '6px'
                     }}
                 >
-                    📋 View Match Countdown Sheet
+                    📋 Match Countdown Sheet
                 </button>
             </div>
+
+            {/* TAB CONTENT: Live Feed & Timeline */}
+            {mainTab === 'live_feed' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0 }}>
+                    {/* Fixture Selector Strip */}
+                    <div style={{
+                        display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px',
+                        scrollbarWidth: 'thin'
+                    }}>
+                        {(matches || []).map(m => {
+                            const isSelected = (activeMatch?.id === m.id);
+                            const isLive = m.status === 'live';
+                            const isRef = m.status === 'refereed';
+                            const hasPendingSub = (m.substitutionRequests || []).some(r => r.status === 'pending');
+                            const hasPendingWarmup = (m.warmupAmendments || []).some(a => a.status === 'pending' || a.status === 'pending_commissioner');
+                            const homeN = m.homeTeam || getSchoolName(m.homeTeamId, m);
+                            const awayN = m.awayTeam || getSchoolName(m.awayTeamId, m);
+
+                            return (
+                                <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => setActiveMatchId(m.id)}
+                                    style={{
+                                        padding: '10px 16px', borderRadius: '10px',
+                                        background: isSelected ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255,255,255,0.03)',
+                                        border: isSelected ? '1.5px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255,255,255,0.08)',
+                                        cursor: 'pointer', textAlign: 'left', minWidth: '220px', flexShrink: 0,
+                                        display: 'flex', flexDirection: 'column', gap: '4px', transition: 'all 0.15s'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '10.5px', fontWeight: '800', color: isSelected ? '#fca5a5' : 'var(--text-muted)' }}>
+                                            {m.matchday || 'PMC Matchday'}
+                                        </span>
+                                        {isLive ? (
+                                            <span style={{
+                                                fontSize: '10px', fontWeight: '800', color: '#ef4444',
+                                                background: 'rgba(239, 68, 68, 0.2)', padding: '2px 6px', borderRadius: '4px',
+                                                display: 'flex', alignItems: 'center', gap: '4px'
+                                            }}>
+                                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} />
+                                                LIVE {m.currentHalf || '1H'} {m.matchTime || (m.matchClock ? m.matchClock + "'" : '')}
+                                            </span>
+                                        ) : isRef ? (
+                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#a855f7', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                🏁 FT
+                                            </span>
+                                        ) : (
+                                            <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                                {m.time || '19:00'}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#ffffff', display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>{homeN} vs {awayN}</span>
+                                        <span style={{ color: isLive ? '#4ade80' : '#ffffff', fontWeight: '800' }}>
+                                            {m.homeScore ?? 0} - {m.awayScore ?? 0}
+                                        </span>
+                                    </div>
+                                    {(hasPendingSub || hasPendingWarmup) && (
+                                        <div style={{
+                                            fontSize: '10px', fontWeight: '800', color: '#f59e0b',
+                                            display: 'flex', alignItems: 'center', gap: '4px'
+                                        }}>
+                                            <span>⚡</span>
+                                            <span>Action Required ({ (hasPendingSub ? 1 : 0) + (hasPendingWarmup ? 1 : 0) })</span>
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Active Match Scoreboard Card */}
+                    {activeMatch && (
+                        <div className="glass-panel" style={{
+                            padding: '22px 28px', borderRadius: '16px',
+                            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.7))',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            display: 'flex', flexDirection: 'column', gap: '16px'
+                        }}>
+                            {/* Meta Top Row */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                        fontSize: '11px', fontWeight: '800', color: '#38bdf8',
+                                        background: 'rgba(56, 189, 248, 0.15)', padding: '3px 10px', borderRadius: '6px'
+                                    }}>
+                                        {activeMatch.ageGroup === 'PMC' ? "Prime Minister's Cup 2026" : `${activeMatch.ageGroup || 'NSSL'} Division`}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        📍 {activeMatch.venue || 'Friendship, St. Michael'} · {activeMatch.date || 'Mon 07 Sep 2026'}
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        Referee: <strong style={{ color: '#ffffff' }}>{activeMatch.referee || 'Michael Beckles'}</strong>
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        Coordinator: <strong style={{ color: '#ffffff' }}>{activeMatch.commissioner || currentOfficial?.name || 'Sarah Rollins'}</strong>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Scoreboard Main Row */}
+                            <div style={{
+                                display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+                                alignItems: 'center', gap: '20px', padding: '10px 0'
+                            }}>
+                                {/* Home Club */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px' }}>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffffff' }}>
+                                            {activeMatch.homeTeam || getSchoolName(activeMatch.homeTeamId, activeMatch)}
+                                        </h2>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#4ade80' }}>HOME CLUB</span>
+                                    </div>
+                                </div>
+
+                                {/* Score & Clock Badge */}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                    <div style={{
+                                        fontSize: '36px', fontWeight: '900', letterSpacing: '2px',
+                                        color: '#ffffff', background: 'rgba(0,0,0,0.4)',
+                                        padding: '4px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)'
+                                    }}>
+                                        {activeMatch.homeScore ?? 0} : {activeMatch.awayScore ?? 0}
+                                    </div>
+                                    <div style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                        fontSize: '11.5px', fontWeight: '800',
+                                        color: activeMatch.status === 'live' ? '#ef4444' : (activeMatch.status === 'refereed' ? '#a855f7' : '#94a3b8'),
+                                        background: activeMatch.status === 'live' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255,255,255,0.05)',
+                                        padding: '3px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)'
+                                    }}>
+                                        {activeMatch.status === 'live' && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />}
+                                        {activeMatch.status === 'live' 
+                                            ? `LIVE ${activeMatch.currentHalf || '1H'} ${activeMatch.matchTime || (activeMatch.matchClock ? activeMatch.matchClock + "'" : '')}`
+                                            : (activeMatch.status === 'refereed' ? '🏁 FULL TIME (Awaiting Coordinator Sign-off)' : (activeMatch.status === 'approved' ? '✅ RESULT APPROVED' : `📅 SCHEDULED ${activeMatch.time || '19:00'}`))
+                                        }
+                                    </div>
+                                </div>
+
+                                {/* Away Club */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '14px' }}>
+                                    <div style={{ textAlign: 'left' }}>
+                                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#ffffff' }}>
+                                            {activeMatch.awayTeam || getSchoolName(activeMatch.awayTeamId, activeMatch)}
+                                        </h2>
+                                        <span style={{ fontSize: '11px', fontWeight: '700', color: '#818cf8' }}>AWAY CLUB</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Possession Bar */}
+                            {(() => {
+                                const poss = activeMatch.possession || activeMatch.liveState?.possession || { homePct: 50, awayPct: 50 };
+                                const homePct = poss.homePct ?? 50;
+                                const awayPct = poss.awayPct ?? 50;
+                                return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                            <span style={{ color: '#4ade80' }}>Possession: {homePct}%</span>
+                                            <span style={{ color: '#818cf8' }}>Possession: {awayPct}%</span>
+                                        </div>
+                                        <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
+                                            <div style={{ width: `${homePct}%`, background: '#22c55e', transition: 'width 0.3s ease' }} />
+                                            <div style={{ width: `${awayPct}%`, background: '#6366f1', transition: 'width 0.3s ease' }} />
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+
+                    {/* In-Feed Pending Substitution Alerts */}
+                    {activeMatch && (activeMatch.substitutionRequests || []).filter(r => r.status === 'pending').map(req => {
+                        const isMatchHome = req.teamSide === 'home' || req.teamId === activeMatch.homeTeamId || String(activeMatch.homeTeamId || '').toLowerCase().includes(String(req.teamId || '').toLowerCase().replace('-team-pmc', ''));
+                        const teamName = isMatchHome 
+                            ? (activeMatch.homeTeam || getSchoolName(activeMatch.homeTeamId, activeMatch))
+                            : (activeMatch.awayTeam || getSchoolName(activeMatch.awayTeamId, activeMatch));
+                        const offP = resolvePlayer(req.playerOff, allStudents);
+                        const onP = resolvePlayer(req.playerOn, allStudents);
+                        const offName = offP?.name || resolvePlayerName(req.playerOff, allStudents);
+                        const onName = onP?.name || resolvePlayerName(req.playerOn, allStudents);
+                        const offJersey = offP?.jerseyNumber != null ? `#${offP.jerseyNumber} ` : '';
+                        const onJersey = onP?.jerseyNumber != null ? `#${onP.jerseyNumber} ` : '';
+                        const defaultMin = req.minute || activeMatch.matchClock || (activeMatch.currentHalf === '2H' ? 60 : 25);
+                        const currentMin = subMinuteOverrides[req.id] !== undefined ? subMinuteOverrides[req.id] : defaultMin;
+
+                        return (
+                            <div key={req.id} style={{
+                                padding: '16px 20px', borderRadius: '12px',
+                                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(185, 28, 28, 0.12))',
+                                border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px',
+                                boxShadow: '0 4px 20px rgba(239, 68, 68, 0.2)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{
+                                        width: '38px', height: '38px', borderRadius: '8px',
+                                        background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '18px', color: '#ffffff'
+                                    }}>
+                                        ⚡
+                                    </div>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: '800', color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Pending Touchline Substitution Request
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>· {teamName}</span>
+                                        </div>
+                                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff', marginTop: '2px' }}>
+                                            <span style={{ color: '#4ade80' }}>🟢 IN: {onJersey}{onName}</span>
+                                            <span style={{ margin: '0 8px', color: 'rgba(255,255,255,0.4)' }}>⇄</span>
+                                            <span style={{ color: '#f87171' }}>🔴 OUT: {offJersey}{offName}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)' }}>Minute:</label>
+                                        <input
+                                            type="number"
+                                            value={currentMin}
+                                            onChange={e => setSubMinuteOverrides(prev => ({ ...prev, [req.id]: e.target.value }))}
+                                            style={{
+                                                width: '56px', padding: '6px 8px', borderRadius: '6px',
+                                                background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+                                                color: '#ffffff', fontSize: '12px', fontWeight: '700', textAlign: 'center'
+                                            }}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleApproveSubstitution(activeMatch, req.id, currentMin)}
+                                        style={{
+                                            padding: '8px 18px', borderRadius: '8px',
+                                            background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#ffffff',
+                                            border: 'none', fontSize: '12.5px', fontWeight: '800', cursor: 'pointer',
+                                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.35)', transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        ✓ Approve &amp; Swap Lineup
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRejectSubstitution(activeMatch, req.id)}
+                                        style={{
+                                            padding: '8px 14px', borderRadius: '8px',
+                                            background: 'rgba(255,255,255,0.08)', color: '#fca5a5',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '12px', fontWeight: '700',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ✕ Decline
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {/* In-Feed Pending Warm-Up Injury Alerts */}
+                    {activeMatch && (activeMatch.warmupAmendments || []).filter(a => a.status === 'pending' || a.status === 'pending_commissioner').map(amendment => (
+                        <div key={amendment.id} style={{
+                            padding: '16px 20px', borderRadius: '12px',
+                            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.1))',
+                            border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px'
+                        }}>
+                            <div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#fbbf24', textTransform: 'uppercase' }}>
+                                    🚨 Pre-Match Warm-Up Injury Amendment
+                                </span>
+                                <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#ffffff', marginTop: '2px' }}>
+                                    {amendment.teamName || getSchoolName(amendment.teamId, activeMatch)}: #{amendment.playerOnJersey} {amendment.playerOnName} promoted to Starting XI for injured #{amendment.playerOffJersey} {amendment.playerOffName}
+                                </div>
+                                {amendment.injuryReason && (
+                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>
+                                        Reason: {amendment.injuryReason} (0 match subs charged)
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleApproveWarmupAmendment(activeMatch, amendment.id)}
+                                    style={{
+                                        padding: '8px 16px', borderRadius: '8px',
+                                        background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#ffffff',
+                                        border: 'none', fontSize: '12px', fontWeight: '800', cursor: 'pointer'
+                                    }}
+                                >
+                                    ✓ Authorize Starter Switch
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleRejectWarmupAmendment(activeMatch, amendment.id)}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: '8px',
+                                        background: 'rgba(255,255,255,0.08)', color: '#fca5a5',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)', fontSize: '12px', fontWeight: '700',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ✕ Decline
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Concluded Match Ready for Sign-Off Notice */}
+                    {activeMatch && (activeMatch.status === 'refereed' || (activeMatch.status === 'completed' && !activeMatch.commissionerReport)) && (
+                        <div style={{
+                            padding: '16px 20px', borderRadius: '12px',
+                            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(79, 70, 229, 0.1))',
+                            border: '1px solid rgba(99, 102, 241, 0.4)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px'
+                        }}>
+                            <div>
+                                <span style={{ fontSize: '11px', fontWeight: '800', color: '#a5b4fc', textTransform: 'uppercase' }}>
+                                    🏁 Official Match Sign-Off Required
+                                </span>
+                                <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#ffffff', marginTop: '2px' }}>
+                                    The Referee has concluded this fixture ({activeMatch.homeScore} - {activeMatch.awayScore}). Review match statistics, incidents, and sign off on the official match report.
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleSelectMatch(activeMatch);
+                                    setMainTab('approvals');
+                                }}
+                                style={{
+                                    padding: '9px 18px', borderRadius: '8px',
+                                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#ffffff',
+                                    border: 'none', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
+                                    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)', display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <span>Proceed to Official Sign-Off</span>
+                                <span>➔</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Live Timeline Stream Section */}
+                    {activeMatch && (
+                        <div className="glass-panel" style={{
+                            padding: '20px 24px', borderRadius: '16px',
+                            display: 'flex', flexDirection: 'column', gap: '16px'
+                        }}>
+                            {/* Filter Bar */}
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                flexWrap: 'wrap', gap: '12px', borderBottom: 'var(--border)', paddingBottom: '14px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                                        Live Match Timeline &amp; Event Ledger
+                                    </h3>
+                                    <span style={{
+                                        fontSize: '11px', fontWeight: '800', color: '#4ade80',
+                                        background: 'rgba(34, 197, 94, 0.15)', padding: '2px 8px', borderRadius: '12px',
+                                        display: 'inline-flex', alignItems: 'center', gap: '4px'
+                                    }}>
+                                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#22c55e' }} />
+                                        {(activeMatch.timeline || []).length} Events Logged
+                                    </span>
+                                </div>
+
+                                {/* Category Filters */}
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {[
+                                        { id: 'all', label: 'All Events' },
+                                        { id: 'goal_shot', label: '⚽ Goals & Shots' },
+                                        { id: 'card_foul', label: '🟨 Cards & Fouls' },
+                                        { id: 'sub', label: '🔄 Substitutions' },
+                                        { id: 'setpiece', label: '🚩 Set Pieces' }
+                                    ].map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            type="button"
+                                            onClick={() => setTimelineFilter(cat.id)}
+                                            style={{
+                                                padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '700',
+                                                background: timelineFilter === cat.id ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.04)',
+                                                color: timelineFilter === cat.id ? '#fca5a5' : 'var(--text-secondary)',
+                                                border: timelineFilter === cat.id ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(255,255,255,0.08)',
+                                                cursor: 'pointer', transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            {cat.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Team Filters & Sort */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTimelineTeamFilter('all')}
+                                            style={{
+                                                padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700',
+                                                background: timelineTeamFilter === 'all' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                                                color: timelineTeamFilter === 'all' ? '#ffffff' : 'var(--text-muted)',
+                                                border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer'
+                                            }}
+                                        >
+                                            Both Clubs
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTimelineTeamFilter('home')}
+                                            style={{
+                                                padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700',
+                                                background: timelineTeamFilter === 'home' ? 'rgba(34, 197, 94, 0.2)' : 'transparent',
+                                                color: timelineTeamFilter === 'home' ? '#4ade80' : 'var(--text-muted)',
+                                                border: '1px solid rgba(34, 197, 94, 0.3)', cursor: 'pointer'
+                                            }}
+                                        >
+                                            🟢 Home
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTimelineTeamFilter('away')}
+                                            style={{
+                                                padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700',
+                                                background: timelineTeamFilter === 'away' ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                                color: timelineTeamFilter === 'away' ? '#a5b4fc' : 'var(--text-muted)',
+                                                border: '1px solid rgba(99, 102, 241, 0.3)', cursor: 'pointer'
+                                            }}
+                                        >
+                                            🔵 Away
+                                        </button>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setTimelineSortOrder(prev => prev === 'newest' ? 'chronological' : 'newest')}
+                                        style={{
+                                            padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '700',
+                                            background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)',
+                                            border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer'
+                                        }}
+                                    >
+                                        {timelineSortOrder === 'newest' ? '⬇️ Newest First' : '⬆️ 1\' ➔ 90\''}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Render Filtered Timeline Events */}
+                            {(() => {
+                                const allEvents = activeMatch.timeline || [];
+                                const homePlayersList = activeMatch.homePlayers || [];
+                                const awayPlayersList = activeMatch.awayPlayers || [];
+
+                                let filtered = allEvents.filter(ev => {
+                                    // Category filter
+                                    if (timelineFilter === 'goal_shot') {
+                                        const t = String(ev.type || '').toLowerCase();
+                                        if (!t.includes('goal') && !t.includes('shot') && t !== 'gksave') return false;
+                                    } else if (timelineFilter === 'card_foul') {
+                                        const t = String(ev.type || '').toLowerCase();
+                                        if (!t.includes('card') && !t.includes('foul')) return false;
+                                    } else if (timelineFilter === 'sub') {
+                                        const t = String(ev.type || '').toLowerCase();
+                                        if (!t.includes('sub')) return false;
+                                    } else if (timelineFilter === 'setpiece') {
+                                        const t = String(ev.type || '').toLowerCase();
+                                        if (t !== 'corner' && t !== 'penalty' && t !== 'offside') return false;
+                                    }
+
+                                    // Team filter
+                                    const isHomeEvt = ev.team === 'home' || ev.teamSide === 'home' || (ev.playerId && homePlayersList.includes(ev.playerId));
+                                    const isAwayEvt = ev.team === 'away' || ev.teamSide === 'away' || (ev.playerId && awayPlayersList.includes(ev.playerId));
+                                    if (timelineTeamFilter === 'home' && !isHomeEvt) return false;
+                                    if (timelineTeamFilter === 'away' && !isAwayEvt) return false;
+
+                                    return true;
+                                });
+
+                                if (timelineSortOrder === 'newest') {
+                                    filtered = filtered.slice().reverse();
+                                }
+
+                                if (filtered.length === 0) {
+                                    return (
+                                        <div style={{
+                                            padding: '40px 20px', textAlign: 'center',
+                                            background: 'rgba(255,255,255,0.02)', borderRadius: '12px',
+                                            border: '1px dashed rgba(255,255,255,0.08)',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
+                                        }}>
+                                            <span style={{ fontSize: '24px' }}>📡</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                                                {allEvents.length === 0 
+                                                    ? 'Waiting for pitch-side data capturer to log match events...'
+                                                    : 'No events match the selected category or team filter.'
+                                                }
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                All goals, shots, cards, fouls, and substitutions logged in the field console will appear here in real time.
+                                            </span>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div style={{
+                                        display: 'flex', flexDirection: 'column', gap: '10px',
+                                        maxHeight: '520px', overflowY: 'auto', paddingRight: '4px'
+                                    }}>
+                                        {filtered.map((ev, idx) => {
+                                            const isHome = ev.team === 'home' || ev.teamSide === 'home' || (ev.playerId && homePlayersList.includes(ev.playerId));
+                                            const clubName = isHome 
+                                                ? (activeMatch.homeTeam || getSchoolName(activeMatch.homeTeamId, activeMatch))
+                                                : (activeMatch.awayTeam || getSchoolName(activeMatch.awayTeamId, activeMatch));
+                                            
+                                            // Event styling & configuration
+                                            let icon = '⚡';
+                                            let badgeTitle = 'Play Event';
+                                            let accentClr = '#6366f1';
+                                            let bgTint = 'rgba(99, 102, 241, 0.06)';
+                                            const type = String(ev.type || '').toLowerCase();
+
+                                            if (type === 'goal') {
+                                                icon = '⚽';
+                                                badgeTitle = ev.goalType === 'own-goal' ? 'Own Goal' : (ev.goalType === 'penalty' ? 'Penalty Goal' : 'Goal Scored');
+                                                accentClr = '#22c55e';
+                                                bgTint = 'rgba(34, 197, 94, 0.08)';
+                                            } else if (type === 'shotontarget') {
+                                                icon = '🎯';
+                                                badgeTitle = 'Shot on Target';
+                                                accentClr = '#14b8a6';
+                                                bgTint = 'rgba(20, 184, 166, 0.06)';
+                                            } else if (type === 'shotmissed') {
+                                                icon = '❌';
+                                                badgeTitle = 'Shot Off-Target';
+                                                accentClr = '#64748b';
+                                                bgTint = 'rgba(100, 116, 139, 0.06)';
+                                            } else if (type === 'gksave') {
+                                                icon = '🧤';
+                                                badgeTitle = 'Goalkeeper Save';
+                                                accentClr = '#06b6d4';
+                                                bgTint = 'rgba(6, 182, 212, 0.06)';
+                                            } else if (type === 'yellowcard') {
+                                                icon = '🟨';
+                                                badgeTitle = 'Yellow Card Caution';
+                                                accentClr = '#f59e0b';
+                                                bgTint = 'rgba(245, 158, 11, 0.08)';
+                                            } else if (type === 'redcard') {
+                                                icon = '🟥';
+                                                badgeTitle = 'Red Card Send-Off';
+                                                accentClr = '#ef4444';
+                                                bgTint = 'rgba(239, 68, 68, 0.1)';
+                                            } else if (type.includes('sub')) {
+                                                icon = '🔄';
+                                                badgeTitle = 'Substitution Approved & Executed';
+                                                accentClr = '#a855f7';
+                                                bgTint = 'rgba(168, 85, 247, 0.08)';
+                                            } else if (type === 'foul') {
+                                                icon = '🛑';
+                                                badgeTitle = 'Foul Committed';
+                                                accentClr = '#ea580c';
+                                                bgTint = 'rgba(234, 88, 12, 0.06)';
+                                            } else if (type === 'corner') {
+                                                icon = '🚩';
+                                                badgeTitle = 'Corner Kick';
+                                                accentClr = '#3b82f6';
+                                                bgTint = 'rgba(59, 130, 246, 0.06)';
+                                            } else if (type === 'penalty') {
+                                                icon = '🎯';
+                                                badgeTitle = 'Penalty Kick Awarded';
+                                                accentClr = '#8b5cf6';
+                                                bgTint = 'rgba(139, 92, 246, 0.08)';
+                                            } else if (type === 'offside') {
+                                                icon = '🚩';
+                                                badgeTitle = 'Offside Call';
+                                                accentClr = '#64748b';
+                                                bgTint = 'rgba(100, 116, 139, 0.06)';
+                                            } else if (type === 'possession') {
+                                                icon = '⏱️';
+                                                badgeTitle = 'Possession Shift';
+                                                accentClr = isHome ? '#22c55e' : '#6366f1';
+                                                bgTint = 'rgba(255, 255, 255, 0.02)';
+                                            }
+
+                                            // Player names
+                                            const pName = resolvePlayerName(ev.playerId || ev.playerName, allStudents);
+                                            const assistName = ev.assistingPlayerName || (ev.assistPlayerId ? resolvePlayerName(ev.assistPlayerId, allStudents) : null);
+                                            const onPlayerName = ev.playerOnName || (ev.playerOnId ? resolvePlayerName(ev.playerOnId, allStudents) : (ev.playerOn ? resolvePlayerName(ev.playerOn, allStudents) : null));
+                                            const offPlayerName = ev.playerOffName || (ev.playerOffId ? resolvePlayerName(ev.playerOffId, allStudents) : (ev.playerOff ? resolvePlayerName(ev.playerOff, allStudents) : null));
+
+                                            const minDisplay = ev.minute != null 
+                                                ? `${ev.minute}'` 
+                                                : (ev.elapsed ? `${Math.floor(ev.elapsed / 60) + 1}'` : "—'");
+
+                                            return (
+                                                <div
+                                                    key={ev.id || idx}
+                                                    style={{
+                                                        padding: '12px 16px', borderRadius: '10px',
+                                                        background: bgTint,
+                                                        borderLeft: `4px solid ${accentClr}`,
+                                                        borderTop: '1px solid rgba(255,255,255,0.06)',
+                                                        borderRight: '1px solid rgba(255,255,255,0.06)',
+                                                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                        gap: '14px', transition: 'all 0.15s'
+                                                    }}
+                                                >
+                                                    {/* Left: Minute & Icon & Type */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        <div style={{
+                                                            minWidth: '42px', textAlign: 'center',
+                                                            fontSize: '12px', fontWeight: '900', color: accentClr,
+                                                            background: 'rgba(0,0,0,0.35)', padding: '4px 6px', borderRadius: '6px'
+                                                        }}>
+                                                            {minDisplay}
+                                                        </div>
+                                                        <div style={{ fontSize: '18px' }}>
+                                                            {icon}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontSize: '12.5px', fontWeight: '800', color: '#ffffff' }}>
+                                                                    {badgeTitle}
+                                                                </span>
+                                                                {ev.period && (
+                                                                    <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)', padding: '1px 5px', borderRadius: '4px' }}>
+                                                                        {ev.period}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
+                                                                {type.includes('sub') ? (
+                                                                    <span>
+                                                                        <strong style={{ color: '#4ade80' }}>🟢 {onPlayerName || 'Player On'}</strong> for <strong style={{ color: '#f87171' }}>🔴 {offPlayerName || 'Player Off'}</strong>
+                                                                    </span>
+                                                                ) : type === 'goal' ? (
+                                                                    <span>
+                                                                        <strong>{pName}</strong>
+                                                                        {assistName && <span style={{ color: 'var(--text-muted)' }}> (Assist: {assistName})</span>}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span><strong>{pName || ev.teamName || 'Play event'}</strong></span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right: Team Tag */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                                        <span style={{
+                                                            fontSize: '11px', fontWeight: '800',
+                                                            color: isHome ? '#4ade80' : '#818cf8',
+                                                            background: isHome ? 'rgba(34, 197, 94, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                                                            padding: '2px 8px', borderRadius: '4px'
+                                                        }}>
+                                                            {clubName}
+                                                        </span>
+                                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                                            {isHome ? 'Home Club' : 'Away Club'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* TAB CONTENT: Approvals */}
             {mainTab === 'approvals' && (
