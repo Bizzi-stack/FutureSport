@@ -701,7 +701,7 @@ export default function CoachLiveManagement({
             triggerToast(
                 isDirect
                     ? `✓ Substitution Executed: ${onJersey}${onName} is ON for ${offJersey}${offName} (${subMinute}')`
-                    : `📋 Substitution Request Submitted to Match Commissioner & 4th Official for ${onJersey}${onName}`
+                    : `Substitution Request Submitted to Match Commissioner & 4th Official for ${onJersey}${onName}`
             );
         } catch (err) {
             console.error('Substitution execution error:', err);
@@ -766,7 +766,7 @@ export default function CoachLiveManagement({
         };
 
         if (onUpdateMatch) onUpdateMatch(simulatedMatch);
-        triggerToast('⚡ In-Game Live Demo Session activated! Match set to Halftime (HT) with 1st half stats.');
+        triggerToast('In-Game Live Demo Session activated! Match set to Halftime (HT) with 1st half stats.');
     };
 
     const homeTeamTitle = currentMatch?.homeTeam || 'Home Team';
@@ -811,7 +811,7 @@ export default function CoachLiveManagement({
                         {myMatches.length > 0 && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    🏟️ Fixture:
+                                    Fixture:
                                 </label>
                                 <select
                                     value={currentMatch?.id || ''}
@@ -832,10 +832,10 @@ export default function CoachLiveManagement({
                                     {myMatches.map(m => {
                                         const evCount = (m.timeline?.length || 0) + (m.liveState?.timeline?.length || 0);
                                         const statusLabel = m.status === 'live' 
-                                            ? `🔴 LIVE [${m.homeScore ?? 0}-${m.awayScore ?? 0}] (${evCount} ev)` 
+                                            ? `LIVE [${m.homeScore ?? 0}-${m.awayScore ?? 0}] (${evCount} ev)` 
                                             : m.status === 'completed'
-                                            ? `🏁 FT [${m.homeScore ?? 0}-${m.awayScore ?? 0}]`
-                                            : `📅 ${m.round || m.matchday || 'Sched'}`;
+                                            ? `FT [${m.homeScore ?? 0}-${m.awayScore ?? 0}]`
+                                            : `${m.round || m.matchday || 'Sched'}`;
                                         return (
                                             <option key={m.id} value={m.id} style={{ background: '#0f172a', color: '#ffffff' }}>
                                                 {statusLabel} • {m.homeTeam} vs {m.awayTeam}
@@ -867,7 +867,7 @@ export default function CoachLiveManagement({
                                 gap: '6px'
                             }}
                         >
-                            ⚽ Tactical Pitch &amp; Substitutions
+                            Tactical Pitch &amp; Substitutions
                         </button>
                         <button
                             type="button"
@@ -887,7 +887,7 @@ export default function CoachLiveManagement({
                                 gap: '6px'
                             }}
                         >
-                            📊 Halftime &amp; In-Game Shot Analysis
+                            Halftime &amp; In-Game Shot Analysis
                         </button>
                     </div>
 
@@ -911,7 +911,7 @@ export default function CoachLiveManagement({
                                 boxShadow: '0 2px 10px rgba(245, 158, 11, 0.4)'
                             }}
                         >
-                            ⚡ Launch In-Game Live Demo (Halftime)
+                            Launch In-Game Live Demo (Halftime)
                         </button>
                     )}
                 </div>
@@ -923,7 +923,7 @@ export default function CoachLiveManagement({
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>{homeTeamTitle}</div>
                             <span style={{ fontSize: '11px', color: isHome ? '#60a5fa' : 'var(--text-muted)', fontWeight: '700' }}>
-                                {isHome ? '★ YOUR TEAM' : 'OPPONENT'}
+                                {isHome ? 'YOUR TEAM' : 'OPPONENT'}
                             </span>
                         </div>
                         <div style={{ fontSize: '28px', fontWeight: '900', color: '#ffffff', minWidth: '32px', textAlign: 'center' }}>
@@ -954,7 +954,7 @@ export default function CoachLiveManagement({
                         <div>
                             <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>{awayTeamTitle}</div>
                             <span style={{ fontSize: '11px', color: !isHome ? '#60a5fa' : 'var(--text-muted)', fontWeight: '700' }}>
-                                {!isHome ? '★ YOUR TEAM' : 'OPPONENT'}
+                                {!isHome ? 'YOUR TEAM' : 'OPPONENT'}
                             </span>
                         </div>
                     </div>
@@ -971,7 +971,6 @@ export default function CoachLiveManagement({
                     gap: '10px', fontSize: '12px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '15px' }}>🚨</span>
                         <div>
                             <span style={{ fontWeight: '800', color: '#4ade80' }}>
                                 Pre-Match Warm-Up Amendment Approved:
@@ -1000,7 +999,6 @@ export default function CoachLiveManagement({
                     gap: '10px', fontSize: '12px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '15px' }}>⏳</span>
                         <div>
                             <span style={{ fontWeight: '800', color: '#fbbf24' }}>
                                 Touchline Substitution Awaiting Official Approval:
@@ -1011,7 +1009,7 @@ export default function CoachLiveManagement({
                         </div>
                     </div>
                     <span style={{ background: 'rgba(245, 158, 11, 0.25)', color: '#fbbf24', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        🟡 Pending 4th Official / Commissioner
+                        Pending 4th Official / Commissioner
                     </span>
                 </div>
             )}
@@ -1031,7 +1029,7 @@ export default function CoachLiveManagement({
                     boxShadow: '0 4px 16px rgba(16, 185, 129, 0.4)',
                     animation: 'fadeIn 0.2s ease'
                 }}>
-                    <span>⚽</span> {toastMessage}
+                    {toastMessage}
                 </div>
             )}
 
@@ -1381,7 +1379,7 @@ export default function CoachLiveManagement({
                                     gap: '4px'
                                 }}
                             >
-                                ★ My Team ({myShotsCount})
+                                My Team ({myShotsCount})
                             </button>
                             <button
                                 type="button"
@@ -1397,7 +1395,7 @@ export default function CoachLiveManagement({
                                     gap: '4px'
                                 }}
                             >
-                                🛡️ Opponent ({opponentShotsCount})
+                                Opponent ({opponentShotsCount})
                             </button>
                             <button
                                 type="button"
@@ -1413,7 +1411,7 @@ export default function CoachLiveManagement({
                                     gap: '4px'
                                 }}
                             >
-                                🌐 Both Teams ({allMatchShots.length})
+                                Both Teams ({allMatchShots.length})
                             </button>
                         </div>
                     </div>
@@ -1431,7 +1429,7 @@ export default function CoachLiveManagement({
                             fontSize: '12px',
                             color: '#93c5fd'
                         }}>
-                            <span>💡 <strong>Coach Tip:</strong> No shots logged yet for your team. The opponent has logged <strong>{opponentShotsCount}</strong> shot{opponentShotsCount > 1 ? 's' : ''}. Switch focus to <strong>Opponent</strong> or <strong>Both Teams</strong> to review goalmouth placement.</span>
+                            <span><strong>Coach Tip:</strong> No shots logged yet for your team. The opponent has logged <strong>{opponentShotsCount}</strong> shot{opponentShotsCount > 1 ? 's' : ''}. Switch focus to <strong>Opponent</strong> or <strong>Both Teams</strong> to review goalmouth placement.</span>
                             <button
                                 type="button"
                                 onClick={() => setShotTeamFilter('both')}
@@ -1798,8 +1796,8 @@ export default function CoachLiveManagement({
                                 border: '1px solid rgba(59, 130, 246, 0.3)',
                                 background: 'rgba(59, 130, 246, 0.05)'
                             }}>
-                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#93c5fd', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>💡</span> Tactical In-Game Adjustment Note
+                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#93c5fd', marginBottom: '6px' }}>
+                                    Tactical In-Game Adjustment Note
                                 </div>
                                 <p style={{ fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.8)', margin: 0, lineHeight: 1.5 }}>
                                     {shotMetrics.conversion > 25
@@ -1991,7 +1989,7 @@ export default function CoachLiveManagement({
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        📋 Send to Match Commissioner &amp; 4th Official
+                                        Send to Match Commissioner &amp; 4th Official
                                     </button>
                                     <button
                                         type="button"
@@ -2010,7 +2008,7 @@ export default function CoachLiveManagement({
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        ⚡ Direct Coach Apply (Testing)
+                                        Direct Coach Apply (Testing)
                                     </button>
                                 </div>
                             </div>
