@@ -412,7 +412,7 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-students-v2');
+      const saved = localStorage.getItem('eduvision-pmc-students-v3');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -425,7 +425,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v2', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v3', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {

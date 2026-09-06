@@ -95,7 +95,8 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
     const teamId = `${club.id}-team-PMC`;
     const rng = mulberry32(club.rawId || (cIdx + 1) * 100);
 
-    for (let i = 0; i < 25; i++) {
+    const squadLimit = scrapedForClub.length > 0 ? scrapedForClub.length : 25;
+    for (let i = 0; i < squadLimit; i++) {
         const scP = scrapedForClub[i];
         const firstName = FIRST_NAMES[(cIdx * 3 + i) % FIRST_NAMES.length];
         const lastName = LAST_NAMES[(cIdx * 5 + i) % LAST_NAMES.length];
@@ -123,7 +124,7 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
             if (i === 1) playerName = 'Noah Bishop';
         }
 
-        const rawPid = scP ? String(scP.id).padStart(5, '0') : `${rawClubNum}-${i + 1}`;
+        const rawPid = scP ? String(scP.id).padStart(5, '0') : `${String(rawClubNum).padStart(2, '0')}${String(i + 1).padStart(3, '0')}`;
         const student = {
             id: canonicalId,
             rawId: scP?.id || null,
