@@ -23,9 +23,9 @@ const AdminLandingPage = ({
 }) => {
   const [selectedRole, setSelectedRole] = useState('super_admin');
   
-  // Official Accounts for Referee, Fourth Official, and Statistician
+  // Official Accounts for Referee, Fourth Official, Statistician, and Match Coordinator
   const currentRoleOfficials = useMemo(() => {
-    if (['referee', 'fourth_official', 'statistician'].includes(selectedRole)) {
+    if (['referee', 'fourth_official', 'statistician', 'commissioner'].includes(selectedRole)) {
       return getOfficialsByRole(selectedRole);
     }
     return [];
@@ -94,7 +94,7 @@ const AdminLandingPage = ({
       setTeamSearchQuery('');
     }
     if (selectedTournament === 'PMC') {
-      if (['school_admin', 'league_admin', 'commissioner'].includes(selectedRole)) {
+      if (['school_admin', 'league_admin'].includes(selectedRole)) {
         setSelectedRole('coach');
       }
     }
@@ -147,7 +147,7 @@ const AdminLandingPage = ({
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    const isOfficialRole = ['referee', 'fourth_official', 'statistician'].includes(selectedRole);
+    const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner'].includes(selectedRole);
     let officialProfile = null;
 
     if (isOfficialRole) {
@@ -167,12 +167,13 @@ const AdminLandingPage = ({
     }
   };
 
-  const isOfficialRole = ['referee', 'fourth_official', 'statistician'].includes(selectedRole);
+  const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner'].includes(selectedRole);
 
   const getRoleBadgeTitle = () => {
     if (selectedRole === 'referee') return 'Referee Match Official Accounts';
     if (selectedRole === 'fourth_official') return 'Fourth Official Accounts';
     if (selectedRole === 'statistician') return 'Field Data Capturer Accounts';
+    if (selectedRole === 'commissioner') return selectedTournament === 'PMC' ? 'Match Coordinator / Operator Accounts' : 'Match Commissioner Accounts';
     return 'Official Accounts';
   };
 
@@ -286,7 +287,9 @@ const AdminLandingPage = ({
                     <option value="referee">Referee (Match Whistle & Official)</option>
                     <option value="fourth_official">Fourth Official (Substitutions & Board)</option>
                     <option value="statistician">Statistician / Live Data Entry</option>
-                    {selectedTournament !== 'PMC' && <option value="commissioner">Match Commissioner</option>}
+                    <option value="commissioner">
+                      {selectedTournament === 'PMC' ? "Match Coordinator / Match Operator" : "Match Commissioner"}
+                    </option>
                   </select>
                 </div>
 

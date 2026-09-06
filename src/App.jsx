@@ -377,6 +377,13 @@ function App() {
     } catch { /* ignored */ }
     return getOfficialsByRole('fourth_official')[0];
   });
+  const [currentCommissioner, setCurrentCommissioner] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('eduvision-current-commissioner');
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignored */ }
+    return getOfficialsByRole('commissioner')[0];
+  });
   const [directMatchId, setDirectMatchId] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -511,15 +518,19 @@ function App() {
         if (currentFourthOfficial) {
           sessionStorage.setItem('eduvision-current-fourth-official', JSON.stringify(currentFourthOfficial));
         }
+        if (currentCommissioner) {
+          sessionStorage.setItem('eduvision-current-commissioner', JSON.stringify(currentCommissioner));
+        }
       } else {
         sessionStorage.removeItem('eduvision-authenticated');
         sessionStorage.removeItem('eduvision-role');
         sessionStorage.removeItem('eduvision-current-analyst');
         sessionStorage.removeItem('eduvision-current-referee');
         sessionStorage.removeItem('eduvision-current-fourth-official');
+        sessionStorage.removeItem('eduvision-current-commissioner');
       }
     } catch {}
-  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom, currentAnalyst, currentReferee, currentFourthOfficial]);
+  }, [isAuthenticated, userRole, selectedTournament, selectedSchool, selectedClassroom, currentAnalyst, currentReferee, currentFourthOfficial, currentCommissioner]);
   const [subjects, setSubjects] = useState(DEFAULT_SUBJECTS);
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -595,7 +606,7 @@ function App() {
   const { settings, updateSettings, resetSettings } = useSettings();
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [logShotTarget, setLogShotTarget] = useState(null); // { student, year, term }
-  const [adminTab, setAdminTab] = useState(() => selectedTournament === 'PMC' ? 'pmc_approvals' : 'registrations');
+  const [adminTab, setAdminTab] = useState(() => selectedTournament === 'PMC' ? 'club_rosters' : 'registrations');
 
   const isSupervisor = userRole === 'supervisor';
   const isReadOnly = isSupervisor;
@@ -604,7 +615,6 @@ function App() {
     if (selectedTournament === 'PMC') {
       const tabs = [
         { id: 'club_rosters', label: 'Senior Club Roster Directory' },
-        { id: 'pmc_approvals', label: 'PMC Match Verification & Approvals' },
         { id: 'competitions', label: 'PMC Fixtures & Standings' }
       ];
       if (userRole === 'supervisor') {
@@ -623,8 +633,8 @@ function App() {
   }, [selectedTournament, userRole]);
 
   useEffect(() => {
-    if (selectedTournament === 'PMC' && !['pmc_approvals', 'competitions', 'club_rosters', 'club_hub', 'data_entry'].includes(adminTab)) {
-      setAdminTab(userRole === 'supervisor' ? 'club_rosters' : 'pmc_approvals');
+    if (selectedTournament === 'PMC' && !['competitions', 'club_rosters', 'club_hub', 'data_entry'].includes(adminTab)) {
+      setAdminTab('club_rosters');
     } else if (selectedTournament !== 'PMC' && !['registrations', 'competitions', 'club_hub', 'data_entry'].includes(adminTab)) {
       setAdminTab('registrations');
     }
@@ -1043,6 +1053,9 @@ function App() {
           if (deepLinkedMatchId) {
             setDirectMatchId(deepLinkedMatchId);
           }
+        } else if (role === 'commissioner') {
+          const comm = officialProfile || getOfficialsByRole('commissioner')[0];
+          setCurrentCommissioner(comm);
         }
 
         if (role === 'supervisor') {
@@ -1432,18 +1445,6 @@ function App() {
               </div>
               
               <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                {adminTab === 'pmc_approvals' && (
-                  <CommissionerDashboard
-                    matches={displayMatches}
-                    schools={displaySchools}
-                    allTeams={displayTeams}
-                    allStudents={displayStudents}
-                    onUpdateMatch={handleUpdateMatch}
-                    onAddMatches={handleAddMatches}
-                    readOnly={isReadOnly}
-                  />
-                )}
-
                 {(adminTab === 'registrations' || adminTab === 'club_rosters') && (
                   <SchoolPlayerRegistration
                     allPlayers={displayStudents}
@@ -1587,7 +1588,7 @@ function App() {
               />
           )}
 
-          {/* Match Commissioner View */}
+          {/* Match Commissioner / Coordinator View */}
           {userRole === 'commissioner' && (
               <CommissionerDashboard
                   matches={displayMatches}
@@ -1596,6 +1597,15 @@ function App() {
                   allStudents={combinedAllPlayers}
                   onUpdateMatch={handleUpdateMatch}
                   onAddMatches={handleAddMatches}
+                  selectedTournament={selectedTournament}
+                  onSelectTournament={setSelectedTournament}
+                  currentOfficial={currentCommissioner}
+                  selectedYear={selectedYear}
+                  onSelectSchool={setSelectedSchool}
+                  onLogout={() => {
+                      setUserRole(null);
+                      setCurrentCommissioner(null);
+                  }}
               />
           )}
 
