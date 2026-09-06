@@ -45,10 +45,20 @@ export default function TeacherDashboard({
             return isMatchForTeam(m, schoolId, teamObj?.id || selectedClassroom, schoolObj?.name);
         });
 
-        // Prioritize match with active events or at HT
-        const withEvents = myMatches.find(m => ((m.timeline?.length || 0) > 0 || (m.liveState?.timeline?.length || 0) > 0 || m.liveState?.period === 'HT'));
-        if (withEvents) return withEvents;
-        return myMatches[0] || null;
+        if (myMatches.length === 0) return null;
+
+        // Sort: Prioritize the match actively receiving updates (latest event timestamp, highest event count)
+        const sorted = [...myMatches].sort((a, b) => {
+            const aLastEv = (a.timeline || []).length > 0 ? (a.timeline[a.timeline.length - 1]?.timestamp || a.timeline[a.timeline.length - 1]?.elapsed || 1) : 0;
+            const bLastEv = (b.timeline || []).length > 0 ? (b.timeline[b.timeline.length - 1]?.timestamp || b.timeline[b.timeline.length - 1]?.elapsed || 1) : 0;
+            if (bLastEv !== aLastEv) return bLastEv - aLastEv;
+
+            const aEvents = (a.timeline?.length || 0) + (a.liveState?.timeline?.length || 0);
+            const bEvents = (b.timeline?.length || 0) + (b.liveState?.timeline?.length || 0);
+            return bEvents - aEvents;
+        });
+
+        return sorted[0] || null;
     }, [matches, schoolId, selectedClassroom, userRole, schools, allTeams]);
 
     // Auto-switch coach to 'live' tab when their match goes live

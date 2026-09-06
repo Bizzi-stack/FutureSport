@@ -114,7 +114,7 @@ export async function pushMatchesToCloud(matchesList) {
 
     // 3. Supabase Cloud Sync via queue
     queuedMatches = matchesList;
-    drainCloudPushQueue();
+    await drainCloudPushQueue();
 }
 
 export async function fetchMatchesFromCloud() {
