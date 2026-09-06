@@ -645,8 +645,9 @@ function App() {
     };
     if (selectedTournament === 'PMC') {
       setPmcMatches(addFn);
+    } else {
+      setMatches(addFn);
     }
-    setMatches(addFn);
   };
 
   const handleResetPmcMatches = () => {
@@ -893,8 +894,17 @@ function App() {
       pushMatchesToCloud(next);
       return next;
     };
-    setPmcMatches(endFn);
-    setMatches(endFn);
+    const isPmc = selectedTournament === 'PMC' ||
+      String(matchId).includes('pmc') ||
+      String(matchResult.homeTeamId || '').includes('pmc') ||
+      matchResult.ageGroup === 'PMC' ||
+      (pmcMatches || []).some(m => m.id === matchId);
+
+    if (isPmc) {
+      setPmcMatches(endFn);
+    } else {
+      setMatches(endFn);
+    }
   };
 
   // ── Dynamic Match Update & Standings Propagation ───────────────────
@@ -922,8 +932,18 @@ function App() {
       pushMatchesToCloud(next);
       return next;
     };
-    setPmcMatches(updateFn);
-    setMatches(updateFn);
+
+    const isPmc = selectedTournament === 'PMC' ||
+      String(updatedMatch.id || '').includes('pmc') ||
+      String(updatedMatch.homeTeamId || '').includes('pmc') ||
+      updatedMatch.ageGroup === 'PMC' ||
+      (pmcMatches || []).some(m => m.id === updatedMatch.id);
+
+    if (isPmc) {
+      setPmcMatches(updateFn);
+    } else {
+      setMatches(updateFn);
+    }
 
     // Propagate statistics only if the match transitions to 'approved'
     if (updatedMatch.status === 'approved') {

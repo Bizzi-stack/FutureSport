@@ -150,7 +150,21 @@ export default function CoachLiveManagement({
         if (found.length === 0 && pool !== PMC_MATCHES) {
             found = (PMC_MATCHES || []).filter(m => isMatchForTeam(m, schoolId, myTeam?.id || teamId, schoolNameStr));
         }
-        return found;
+
+        // Sort: Live matches first, prioritized by recent activity/event count
+        return [...found].sort((a, b) => {
+            const aLive = a.status === 'live' ? 1 : 0;
+            const bLive = b.status === 'live' ? 1 : 0;
+            if (bLive !== aLive) return bLive - aLive;
+
+            const aEvents = (a.timeline?.length || 0) + (a.liveState?.timeline?.length || 0);
+            const bEvents = (b.timeline?.length || 0) + (b.liveState?.timeline?.length || 0);
+            if (bEvents !== aEvents) return bEvents - aEvents;
+
+            const aLastEv = (a.timeline || []).length > 0 ? (a.timeline[a.timeline.length - 1]?.timestamp || a.timeline[a.timeline.length - 1]?.elapsed || 1) : 0;
+            const bLastEv = (b.timeline || []).length > 0 ? (b.timeline[b.timeline.length - 1]?.timestamp || b.timeline[b.timeline.length - 1]?.elapsed || 1) : 0;
+            return bLastEv - aLastEv;
+        });
     }, [matches, schoolId, teamId, schools, allTeams]);
 
     // Active Match resolution with foolproof fallback
@@ -351,9 +365,13 @@ export default function CoachLiveManagement({
             if (shotPeriodFilter === 'HT' && shot.period !== '1H' && shot.minute > 45) return false;
             if (shotPeriodFilter === '2H' && shot.period !== '2H' && shot.minute <= 45) return false;
             if (shotTeamFilter === 'my_team' && !shot.isMyTeam) return false;
+            if (shotTeamFilter === 'opponent' && shot.isMyTeam) return false;
             return true;
         });
     }, [allMatchShots, shotPeriodFilter, shotTeamFilter]);
+
+    const myShotsCount = useMemo(() => allMatchShots.filter(s => s.isMyTeam).length, [allMatchShots]);
+    const opponentShotsCount = useMemo(() => allMatchShots.filter(s => !s.isMyTeam).length, [allMatchShots]);
 
     // Halftime / In-Game Shot Analysis Metrics
     const shotMetrics = useMemo(() => {
@@ -480,7 +498,16 @@ export default function CoachLiveManagement({
 
         const mins = Math.floor(liveElapsed / 60);
         const secs = liveElapsed % 60;
-        const timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        let timeStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        if (period === '1H' && mins >= 45) {
+            const extraMins = mins - 45;
+            timeStr = `45+${extraMins}:${String(secs).padStart(2, '0')}`;
+        } else if (period === '2H' && mins >= 90) {
+            const extraMins = mins - 90;
+            timeStr = `90+${extraMins}:${String(secs).padStart(2, '0')}`;
+        }
+
         const halfName = period === '2H' ? '2nd Half' : '1st Half';
         const runningIndicator = currentMatch.liveState?.isRunning ? 'LIVE' : 'PAUSED';
 
@@ -780,29 +807,43 @@ export default function CoachLiveManagement({
                             {currentClockDisplay}
                         </div>
 
-                        {/* Match Fixture Dropdown */}
-                        {myMatches.length > 1 && (
-                            <select
-                                value={currentMatch?.id || ''}
-                                onChange={e => setSelectedMatchId(e.target.value)}
-                                style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '8px',
-                                    background: 'rgba(255, 255, 255, 0.05)',
-                                    color: 'var(--text-primary)',
-                                    border: '1px solid var(--border)',
-                                    fontSize: '12px',
-                                    fontWeight: '700',
-                                    outline: 'none',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                {myMatches.map(m => (
-                                    <option key={m.id} value={m.id} style={{ background: '#0f172a' }}>
-                                        {m.homeTeam} vs {m.awayTeam} {m.status === 'live' ? '● LIVE' : ''} ({m.round || m.matchday})
-                                    </option>
-                                ))}
-                            </select>
+                        {/* High-Visibility Match Fixture Dropdown */}
+                        {myMatches.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    🏟️ Fixture:
+                                </label>
+                                <select
+                                    value={currentMatch?.id || ''}
+                                    onChange={e => setSelectedMatchId(e.target.value)}
+                                    style={{
+                                        padding: '7px 14px',
+                                        borderRadius: '10px',
+                                        background: currentMatch?.status === 'live' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                        color: currentMatch?.status === 'live' ? '#fca5a5' : '#ffffff',
+                                        border: currentMatch?.status === 'live' ? '1.5px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                                        fontSize: '12px',
+                                        fontWeight: '800',
+                                        outline: 'none',
+                                        cursor: 'pointer',
+                                        boxShadow: currentMatch?.status === 'live' ? '0 0 12px rgba(239, 68, 68, 0.2)' : 'none'
+                                    }}
+                                >
+                                    {myMatches.map(m => {
+                                        const evCount = (m.timeline?.length || 0) + (m.liveState?.timeline?.length || 0);
+                                        const statusLabel = m.status === 'live' 
+                                            ? `🔴 LIVE [${m.homeScore ?? 0}-${m.awayScore ?? 0}] (${evCount} ev)` 
+                                            : m.status === 'completed'
+                                            ? `🏁 FT [${m.homeScore ?? 0}-${m.awayScore ?? 0}]`
+                                            : `📅 ${m.round || m.matchday || 'Sched'}`;
+                                        return (
+                                            <option key={m.id} value={m.id} style={{ background: '#0f172a', color: '#ffffff' }}>
+                                                {statusLabel} • {m.homeTeam} vs {m.awayTeam}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
                         )}
                     </div>
 
@@ -1331,29 +1372,85 @@ export default function CoachLiveManagement({
                                 onClick={() => setShotTeamFilter('my_team')}
                                 style={{
                                     padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
-                                    background: shotTeamFilter === 'my_team' ? 'rgba(37, 99, 235, 0.2)' : 'transparent',
+                                    background: shotTeamFilter === 'my_team' ? 'rgba(37, 99, 235, 0.25)' : 'transparent',
                                     color: shotTeamFilter === 'my_team' ? '#93c5fd' : 'var(--text-muted)',
-                                    border: shotTeamFilter === 'my_team' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid transparent',
-                                    cursor: 'pointer'
+                                    border: shotTeamFilter === 'my_team' ? '1px solid rgba(37, 99, 235, 0.5)' : '1px solid transparent',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
                                 }}
                             >
-                                My Team Only
+                                ★ My Team ({myShotsCount})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShotTeamFilter('opponent')}
+                                style={{
+                                    padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
+                                    background: shotTeamFilter === 'opponent' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                                    color: shotTeamFilter === 'opponent' ? '#fca5a5' : 'var(--text-muted)',
+                                    border: shotTeamFilter === 'opponent' ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid transparent',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                            >
+                                🛡️ Opponent ({opponentShotsCount})
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setShotTeamFilter('both')}
                                 style={{
                                     padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700',
-                                    background: shotTeamFilter === 'both' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                                    background: shotTeamFilter === 'both' ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
                                     color: shotTeamFilter === 'both' ? '#ffffff' : 'var(--text-muted)',
-                                    border: shotTeamFilter === 'both' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid transparent',
-                                    cursor: 'pointer'
+                                    border: shotTeamFilter === 'both' ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid transparent',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
                                 }}
                             >
-                                Both Teams
+                                🌐 Both Teams ({allMatchShots.length})
                             </button>
                         </div>
                     </div>
+
+                    {/* Helper note if My Team has 0 shots but opponent has logged shots */}
+                    {myShotsCount === 0 && opponentShotsCount > 0 && shotTeamFilter === 'my_team' && (
+                        <div style={{
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            background: 'rgba(59, 130, 246, 0.12)',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '12px',
+                            color: '#93c5fd'
+                        }}>
+                            <span>💡 <strong>Coach Tip:</strong> No shots logged yet for your team. The opponent has logged <strong>{opponentShotsCount}</strong> shot{opponentShotsCount > 1 ? 's' : ''}. Switch focus to <strong>Opponent</strong> or <strong>Both Teams</strong> to review goalmouth placement.</span>
+                            <button
+                                type="button"
+                                onClick={() => setShotTeamFilter('both')}
+                                style={{
+                                    background: '#2563eb',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '5px 12px',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    flexShrink: 0
+                                }}
+                            >
+                                Show Both Teams
+                            </button>
+                        </div>
+                    )}
 
                     {/* 4 Big Tactical KPI Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
