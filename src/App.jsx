@@ -412,7 +412,7 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-students-v3');
+      const saved = localStorage.getItem('eduvision-pmc-students-v4');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -425,7 +425,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v3', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v4', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -540,17 +540,11 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-matches-v6');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v7');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 40) {
-          const hasPmcClub = parsed.some(m => String(m.homeTeamId || '').includes('pmc-club'));
-          const hasWotton = parsed.some(m => m.homeTeam === 'WOTTON' || m.awayTeam === 'WOTTON');
-          // Verify upcoming matches are fresh (not locked with pre-confirmed squads)
-          const hasFreshUpcoming = parsed.some(m => (m.status === 'upcoming' || m.status === 'scheduled') && !m.homeSquadSelection?.confirmedAt);
-          if (hasPmcClub && hasWotton && hasFreshUpcoming) {
-            return sanitizeMatchState(parsed);
-          }
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return sanitizeMatchState(parsed);
         }
       }
     } catch (err) {
@@ -568,7 +562,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v6', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v7', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -585,8 +579,7 @@ function App() {
         );
 
         if (isPmcDataset) {
-          // Guard against truncated/corrupted cloud datasets (< 20 matches when PMC has 48)
-          if (sanitizedCloud.length >= 20) {
+          if (sanitizedCloud.length > 0) {
             setPmcMatches(sanitizedCloud);
           }
         } else {
@@ -654,7 +647,7 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.setItem('eduvision-pmc-matches-v6', JSON.stringify(sanitized));
+      localStorage.setItem('eduvision-pmc-matches-v7', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
