@@ -298,7 +298,7 @@ const AdminLandingPage = ({
                     </label>
                     
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      {selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen && (
+                      {selectedTournament !== 'PMC' && selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen && (
                         <img 
                           src={selectedTeamObj.school.logo} 
                           alt="" 
@@ -320,7 +320,7 @@ const AdminLandingPage = ({
                         style={{
                           width: '100%',
                           height: '42px',
-                          paddingLeft: (selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen) ? '42px' : '14px',
+                          paddingLeft: (selectedTournament !== 'PMC' && selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen) ? '42px' : '14px',
                           paddingRight: '32px',
                           borderRadius: '8px',
                           fontSize: '13px',
@@ -381,7 +381,7 @@ const AdminLandingPage = ({
                                   if (!isSelected) e.currentTarget.style.background = 'transparent';
                                 }}
                               >
-                                {school?.logo && (
+                                {selectedTournament !== 'PMC' && school?.logo && (
                                   <img src={school.logo} alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
                                 )}
                                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>

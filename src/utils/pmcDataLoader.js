@@ -19,7 +19,7 @@ function mulberry32(seed) {
 export const PMC_SCHOOLS = pmcData.teams.map((t, idx) => ({
     id: `pmc-club-${t.id}`,
     name: t.name || `Club ${t.id}`,
-    logo: t.logo || (idx % 3 === 0 ? '/Harrison College.png' : idx % 3 === 1 ? '/Queens College.png' : '/Combermere.png'),
+    logo: null,
     primaryColor: t.primaryColor || '#00267F',
     secondaryColor: t.secondaryColor || '#FFC726',
     division: t.division || 'Group A',

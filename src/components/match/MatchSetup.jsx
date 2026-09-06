@@ -376,12 +376,14 @@ export default function MatchSetup({ allStudents, year, matchday: initialMatchda
 
         {school && (
           <div style={styles.selectedTeamBanner}>
-            <img
-              src={school.logo}
-              alt={school.name}
-              style={styles.teamLogo}
-              onError={e => { e.target.style.display = 'none'; }}
-            />
+            {school.logo && (
+              <img
+                src={school.logo}
+                alt={school.name}
+                style={styles.teamLogo}
+                onError={e => { e.target.style.display = 'none'; }}
+              />
+            )}
             <div>
               <div style={styles.teamName}>{school.name}</div>
               <div style={styles.teamAgeGroup}>{selectedAgeGroup} Squad</div>
