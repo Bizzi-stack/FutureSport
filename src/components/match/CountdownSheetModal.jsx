@@ -129,7 +129,7 @@ export default function CountdownSheetModal({
         printWin.document.write(`
             <html>
                 <head>
-                    <title>Countdown_Sheet_Match_${match.id}.pdf</title>
+                    <title>Team_Sheet_Match_${match.id}.pdf</title>
                     <style>
                         body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 20px; color: #000; background: #fff; }
                         h1, h2, h3 { margin: 0 0 10px 0; }
@@ -229,10 +229,10 @@ export default function CountdownSheetModal({
                         <span style={{ fontSize: '20px' }}>📋</span>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#fff' }}>
-                                Official Matchday Countdown Sheet
+                                Official Match Team Sheet
                             </h3>
                             <span style={{ fontSize: '11px', color: '#cbd5e1' }}>
-                                Auto-generated from Commissioner Approved Match Data
+                                Auto-generated from Verified Match Lineups & Official Sign-Off
                             </span>
                         </div>
                     </div>
@@ -360,7 +360,7 @@ export default function CountdownSheetModal({
                                 BARBADOS FOOTBALL ASSOCIATION • {match.ageGroup || 'PMC'} COMPETITION
                             </div>
                             <h1 style={{ margin: '4px 0 0 0', fontSize: '20px', fontWeight: '800', color: '#ffffff' }}>
-                                OFFICIAL MATCHDAY COUNTDOWN & ROSTER SHEET
+                                OFFICIAL MATCH TEAM SHEET & VERIFIED ROSTERS
                             </h1>
                             <div style={{ fontSize: '12px', color: '#e2e8f0', marginTop: '2px' }}>
                                 Match ID: <strong>{match.id}</strong> • Round: <strong>{match.matchday || match.round || 'Group Stage'}</strong>
