@@ -300,10 +300,21 @@ export default function CoachLiveManagement({
         );
     }, [currentMatch?.warmupAmendments, isHome, schoolId, teamId]);
 
-    // Real-time Shot events logged by Data Capturers
+    // Real-time Shot events logged by Data Capturers (unified cross-device sync)
     const allMatchShots = useMemo(() => {
-        const rawTimeline = currentMatch?.timeline || currentMatch?.liveState?.timeline || [];
-        if (!Array.isArray(rawTimeline)) return [];
+        const listA = Array.isArray(currentMatch?.timeline) ? currentMatch.timeline : [];
+        const listB = Array.isArray(currentMatch?.liveState?.timeline) ? currentMatch.liveState.timeline : [];
+        const map = new Map();
+        [...listA, ...listB].forEach(ev => {
+            if (ev && (ev.id || (ev.minute != null && ev.type))) {
+                const key = ev.id || `${ev.minute}-${ev.type}-${ev.playerId || ev.team || ''}-${ev.timestamp || ''}`;
+                if (!map.has(key)) {
+                    map.set(key, ev);
+                }
+            }
+        });
+        const rawTimeline = Array.from(map.values());
+        if (rawTimeline.length === 0) return [];
 
         const myPlayerIds = new Set([
             ...(squadSelection?.startingXI || []),
@@ -320,6 +331,10 @@ export default function CoachLiveManagement({
             e.type === 'shotMissed' || 
             e.type === 'shotBlocked' || 
             e.type === 'shot' ||
+            e.type === 'headerShot' ||
+            e.type === 'penaltyShot' ||
+            e.type === 'freekickShot' ||
+            e.type === 'ownGoal' ||
             e.shotDetail
         ).map(s => {
             const isHomeTeam = s.team === 'home' || s.teamId === currentMatch?.homeTeamId;
@@ -336,7 +351,7 @@ export default function CoachLiveManagement({
 
             const isMyTeam = isMyPlayer || isMyClubName || isMyTeamId || (isHome ? isHomeTeam : isAwayTeam);
             
-            const result = (s.result === 'goal' || s.outcome === 'Goal' || s.type === 'goal') ? 'goal'
+            const result = (s.result === 'goal' || s.outcome === 'Goal' || s.type === 'goal' || s.type === 'ownGoal') ? 'goal'
                 : (s.result === 'saved' || s.outcome === 'Saved' || s.type === 'shotOnTarget') ? 'saved'
                 : (s.result === 'blocked' || s.outcome === 'Blocked' || s.type === 'shotBlocked') ? 'blocked'
                 : (s.result === 'miss' || s.result === 'missed' || s.outcome === 'Off Target' || s.type === 'shotMissed') ? 'missed'

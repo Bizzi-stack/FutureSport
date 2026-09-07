@@ -34,6 +34,14 @@ export default function StatisticianDashboard({
         return currentAnalyst || getAnalystAccounts()[0];
     }, [currentAnalyst]);
 
+    const isMasterLogger = useMemo(() => {
+        return activeAnalyst?.isMasterLogger === true ||
+               activeAnalyst?.username === 'johnathan' ||
+               activeAnalyst?.username === 'jonathan' ||
+               activeAnalyst?.id === 'analyst_johnathan' ||
+               activeAnalyst?.id === 'analyst_jonathan';
+    }, [activeAnalyst]);
+
     const dataLoggerEmail = activeAnalyst?.email || 'statistician.pmcup@gmail.com';
 
     // Auto-select match if arriving via deep link (initialDirectMatchId)
@@ -245,6 +253,7 @@ export default function StatisticianDashboard({
                             allStudents={allPlayers}
                             allPlayers={allPlayers}
                             year={year}
+                            currentAnalyst={activeAnalyst}
                             onUpdateMatch={(updated) => {
                                 if (onUpdateMatch) onUpdateMatch(updated);
                             }}
@@ -496,20 +505,31 @@ export default function StatisticianDashboard({
                                 </span>
                             </div>
 
-                            {/* Manual Override Action for Pitchside Testing */}
+                            {/* Match Start Action - Exclusively Controlled by Jonathan (Master Logger) */}
                             <div style={{ marginTop: '8px' }}>
-                                <button
-                                    onClick={() => handleForceStartLiveCapture(selectedMatch)}
-                                    style={{
-                                        padding: '12px 24px', borderRadius: '10px',
-                                        background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#ffffff',
-                                        border: 'none', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
-                                        boxShadow: '0 4px 18px rgba(34, 197, 94, 0.4)',
+                                {isMasterLogger ? (
+                                    <button
+                                        onClick={() => handleForceStartLiveCapture(selectedMatch)}
+                                        style={{
+                                            padding: '12px 24px', borderRadius: '10px',
+                                            background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#ffffff',
+                                            border: 'none', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
+                                            boxShadow: '0 4px 18px rgba(34, 197, 94, 0.4)',
+                                            display: 'flex', alignItems: 'center', gap: '8px'
+                                        }}
+                                    >
+                                        👑 Lead Match Controller · Initiate Match Kick-off &amp; Capture
+                                    </button>
+                                ) : (
+                                    <div style={{
+                                        padding: '10px 18px', borderRadius: '10px',
+                                        background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)',
+                                        color: '#38bdf8', fontSize: '12.5px', fontWeight: '700',
                                         display: 'flex', alignItems: 'center', gap: '8px'
-                                    }}
-                                >
-                                    Referee Has Blown Whistle · Begin Live Stat Capture
-                                </button>
+                                    }}>
+                                        <span>🔒</span> Official Kick-off &amp; Clock Controlled by Lead Match Controller (Jonathan Cumberbatch)
+                                    </div>
+                                )}
                             </div>
                         </div>
 

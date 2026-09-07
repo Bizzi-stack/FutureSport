@@ -56,11 +56,17 @@ export default function TileDataCaptureControlPanel({
     captureRole = 'all'
 }) {
     // Data Capturer Assigned Scope Role ('possession' | 'shots' | 'general' | 'all')
+    const isScopeLocked = Boolean(captureRole && captureRole !== 'all');
     const [activeRole, setActiveRole] = useState(captureRole || 'all');
 
     useEffect(() => {
         if (captureRole) setActiveRole(captureRole);
     }, [captureRole]);
+
+    const handleRoleChange = (newRole) => {
+        if (isScopeLocked) return;
+        setActiveRole(newRole);
+    };
 
     // Permission flags for role-based scoping
     const isPossessionEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'possession';
@@ -127,6 +133,7 @@ export default function TileDataCaptureControlPanel({
 
     // Toggle Team Possession
     const handleTogglePossession = (side) => {
+        if (!isPossessionEnabled) return;
         setPossessionSide(side);
         const teamName = side === 'home' ? home.name : away.name;
         triggerToast(`Ball Possession switched to ${teamName}`);
@@ -179,6 +186,10 @@ export default function TileDataCaptureControlPanel({
 
     // Handle Clicking a Stat Tile
     const handleTileClick = (tile) => {
+        const isShotTile = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(tile.key);
+        const isTileEnabled = isShotTile ? isShotsEnabled : isGeneralEnabled;
+        if (!isTileEnabled) return;
+
         // If a player is already selected, log directly for active player!
         if (activePlayer) {
             executeLogForPlayer(activePlayer, tile.key);
@@ -192,11 +203,13 @@ export default function TileDataCaptureControlPanel({
 
     // Execute Log for Selected Player
     const executeLogForPlayer = (player, actionKey) => {
+        const isShotAction = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+        const isActionEnabled = isShotAction ? isShotsEnabled : isGeneralEnabled;
+        if (!isActionEnabled) return;
+
         const student = resolvePlayer(player.id, [], studentsById);
         const name = resolvePlayerName(student || player, [], studentsById);
         const teamSide = player.team || (homePlayers.includes(player.id) ? 'home' : 'away');
-
-        const isShotAction = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
 
         if (isShotAction && onShotModal) {
             let defaultGoalType = 'foot';
@@ -295,7 +308,7 @@ export default function TileDataCaptureControlPanel({
                             }}>
                                 {activeRole === 'possession' ? 'Possession Specialist (1 Logger)' :
                                  activeRole === 'shots' ? 'Shot Specialist (2 Loggers)' :
-                                 activeRole === 'general' ? 'General Event Specialist (3 Loggers)' : 'Master Lead Analyst (All Tiles)'}
+                                 activeRole === 'general' ? 'General Event Specialist (4 Loggers)' : 'Master Lead Analyst (All Tiles)'}
                             </span>
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -307,29 +320,40 @@ export default function TileDataCaptureControlPanel({
                     </div>
                 </div>
 
-                {/* Role Switcher Pills */}
-                <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    {[
-                        { key: 'possession', label: '⏱️ Possession', color: '#22c55e' },
-                        { key: 'shots', label: '⚽ Shots', color: '#3b82f6' },
-                        { key: 'general', label: '📋 General Events', color: '#f59e0b' },
-                        { key: 'all', label: '👑 Master (All)', color: '#6366f1' }
-                    ].map(r => (
-                        <button
-                            key={r.key}
-                            type="button"
-                            onClick={() => setActiveRole(r.key)}
-                            style={{
-                                padding: '5px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: '800',
-                                background: activeRole === r.key ? r.color : 'transparent',
-                                color: activeRole === r.key ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                                border: 'none', cursor: 'pointer', transition: 'all 0.15s'
-                            }}
-                        >
-                            {r.label}
-                        </button>
-                    ))}
-                </div>
+                {/* Role Switcher Pills or Locked Indicator */}
+                {isScopeLocked ? (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                        padding: '6px 14px', borderRadius: '8px', color: '#f87171',
+                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em'
+                    }}>
+                        <span>🔒</span> Assigned Scope Fixed
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        {[
+                            { key: 'possession', label: '⏱️ Possession', color: '#22c55e' },
+                            { key: 'shots', label: '⚽ Shots', color: '#3b82f6' },
+                            { key: 'general', label: '📋 General Events', color: '#f59e0b' },
+                            { key: 'all', label: '👑 Master (All)', color: '#6366f1' }
+                        ].map(r => (
+                            <button
+                                key={r.key}
+                                type="button"
+                                onClick={() => handleRoleChange(r.key)}
+                                style={{
+                                    padding: '5px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: '800',
+                                    background: activeRole === r.key ? r.color : 'transparent',
+                                    color: activeRole === r.key ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                {r.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* ── 1. POSSESSION LOGGING TILES ───────────────────────────────── */}
