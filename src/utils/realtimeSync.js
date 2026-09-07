@@ -107,7 +107,8 @@ export async function pushMatchesToCloud(matchesList) {
 
     // 2. LocalStorage persistence across active v7 and legacy keys
     try {
-        localStorage.setItem('eduvision-pmc-matches-v7', JSON.stringify(matchesList));
+        localStorage.removeItem('eduvision-pmc-matches-v7');
+        localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(matchesList));
         localStorage.setItem('eduvision-pmc-matches', JSON.stringify(matchesList));
         localStorage.setItem('eduvision-sync-timestamp', String(Date.now()));
     } catch {}

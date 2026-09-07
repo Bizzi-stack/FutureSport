@@ -123,7 +123,7 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
             schoolId: club.id,
             teamAssignments,
             position: pos,
-            jerseyNumber: scP?.number || (i + 1),
+            jerseyNumber: scP?.number != null ? scP.number : (i + 1),
             gender: scP?.gender || 'Boy',
             dob: `200${6 + (i % 3)}-0${(i % 9) + 1}-15`,
             preferredFoot: rng() < 0.8 ? 'Right' : 'Left',
