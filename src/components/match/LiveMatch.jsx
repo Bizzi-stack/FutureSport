@@ -192,7 +192,19 @@ function initPlayerStats(playerIds, side) {
 }
 
 /* ─── component ────────────────────────────────────────────────────── */
-export default function LiveMatch({ matchData: matchDataProp, match: matchProp, schools: schoolsProp, allStudents: allStudentsProp, allPlayers: allPlayersProp, year, onUpdateMatch, onEndMatch, onCancel, isRefereeMode }) {
+export default function LiveMatch({ 
+    matchData: matchDataProp, 
+    match: matchProp, 
+    schools: schoolsProp, 
+    allStudents: allStudentsProp, 
+    allPlayers: allPlayersProp, 
+    year, 
+    currentAnalyst,
+    onUpdateMatch, 
+    onEndMatch, 
+    onCancel, 
+    isRefereeMode 
+}) {
     const matchData = matchDataProp || matchProp || {};
     const allStudents = allStudentsProp || allPlayersProp || [];
     const schools = schoolsProp || [];
@@ -201,6 +213,19 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         homeSquadSelection, awaySquadSelection
     } = matchData;
     
+    // Jonathan Cumberbatch is the exclusive Master Match Controller
+    const isMasterLogger = useMemo(() => {
+        if (isRefereeMode) return false;
+        if (!currentAnalyst) return true; // Default fallback if not specified
+        return currentAnalyst.isMasterLogger === true ||
+               currentAnalyst.username === 'johnathan' ||
+               currentAnalyst.username === 'jonathan' ||
+               currentAnalyst.id === 'analyst_johnathan' ||
+               currentAnalyst.id === 'analyst_jonathan';
+    }, [currentAnalyst, isRefereeMode]);
+
+    const captureRole = currentAnalyst?.captureRole || 'all';
+
     const clockState = matchData.liveState || {};
     const eventState = isRefereeMode ? (matchData.refereeLiveState || {}) : clockState;
 
@@ -274,15 +299,33 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
     const [period, setPeriod] = useState(clockState.period || '1H');          // '1H' | 'HT' | '2H'
     const [isPaused, setIsPaused] = useState(clockState.isRunning === false);
     
-    // Sync React state if the global clockState changes (e.g. Statistician started it, and Referee is just watching)
+    // Sync React state if the global clockState changes (All non-master loggers & referees follow Jonathan's clock)
     useEffect(() => {
-        if (isRefereeMode) {
+        if (!isMasterLogger) {
             setIsPaused(clockState.isRunning === false);
             setPeriod(clockState.period || '1H');
             startTimeRef.current = clockState.startTime || Date.now();
             offsetRef.current = clockState.elapsedOffset || 0;
         }
-    }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, isRefereeMode]);
+    }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, isMasterLogger]);
+
+    // Bidirectional timeline sync: Merge events logged by any logger (Shots, Events, etc.) without losing local entries
+    useEffect(() => {
+        const incomingTimeline = matchData.timeline || matchData.liveState?.timeline;
+        if (Array.isArray(incomingTimeline)) {
+            setTimeline(prevLocal => {
+                const map = new Map();
+                (prevLocal || []).forEach(ev => { if (ev && ev.id) map.set(ev.id, ev); });
+                incomingTimeline.forEach(ev => { if (ev && ev.id) map.set(ev.id, ev); });
+                const merged = Array.from(map.values());
+                merged.sort((a, b) => (a.elapsed ?? (a.minute * 60) ?? 0) - (b.elapsed ?? (b.minute * 60) ?? 0));
+                if (merged.length !== (prevLocal || []).length || merged.some((e, i) => e.id !== prevLocal[i]?.id)) {
+                    return merged;
+                }
+                return prevLocal;
+            });
+        }
+    }, [matchData.timeline, matchData.liveState?.timeline]);
 
     const [elapsed, setElapsed] = useState(() => {
         if (clockState.isRunning === false) return offsetRef.current;
@@ -297,6 +340,42 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
         };
     });
     const [timeline, setTimeline] = useState(eventState.timeline || []);
+
+    // Synchronize incoming player stats across data capturers to keep scores and stats unified
+    useEffect(() => {
+        const incomingStats = matchData.playerStats || matchData.liveState?.playerStats;
+        if (incomingStats && typeof incomingStats === 'object' && Object.keys(incomingStats).length > 0) {
+            setPlayerStats(prev => {
+                let hasChanges = false;
+                const next = { ...prev };
+                Object.keys(incomingStats).forEach(pId => {
+                    const inc = incomingStats[pId];
+                    const cur = prev[pId];
+                    if (!cur) {
+                        next[pId] = inc;
+                        hasChanges = true;
+                    } else {
+                        let updated = false;
+                        const mergedPlayer = { ...cur };
+                        Object.keys(inc).forEach(k => {
+                            if (typeof inc[k] === 'number') {
+                                const maxVal = Math.max(cur[k] || 0, inc[k]);
+                                if (maxVal !== cur[k]) {
+                                    mergedPlayer[k] = maxVal;
+                                    updated = true;
+                                }
+                            }
+                        });
+                        if (updated) {
+                            next[pId] = mergedPlayer;
+                            hasChanges = true;
+                        }
+                    }
+                });
+                return hasChanges ? next : prev;
+            });
+        }
+    }, [matchData.playerStats, matchData.liveState?.playerStats]);
     const [shotModalData, setShotModalData] = useState(null); // { player, defaultOutcome, teammates }
     const [expandedPlayer, setExpandedPlayer] = useState(null);
     const [livePossession, setLivePossession] = useState(() => matchData?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 });
@@ -320,7 +399,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
     const [timelineLayout, setTimelineLayout] = useState('expanded'); // 'expanded' | 'stream'
 
     const handleTogglePause = () => {
-        if (isRefereeMode) return; // Referee cannot control clock
+        if (isRefereeMode || !isMasterLogger) return; // Only Jonathan can control clock
         if (isPaused) {
             // Resuming
             startTimeRef.current = Date.now();
@@ -333,7 +412,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
     };
 
     const handleEndFirstHalf = () => {
-        if (isRefereeMode) return;
+        if (isRefereeMode || !isMasterLogger) return;
         offsetRef.current = 45 * 60; // strictly 45:00 at half time
         setElapsed(45 * 60);
         setIsPaused(true);
@@ -364,7 +443,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
     };
 
     const handleStartSecondHalf = () => {
-        if (isRefereeMode) return;
+        if (isRefereeMode || !isMasterLogger) return;
         offsetRef.current = 45 * 60; // strictly 45:00
         startTimeRef.current = Date.now();
         setIsPaused(false);
@@ -476,10 +555,10 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 // If statistician, update global liveState AND root match fields
                 const updatedLiveState = {
                     ...clockState,
-                    isRunning: !isPaused,
-                    startTime: startTimeRef.current,
-                    elapsedOffset: offsetRef.current,
-                    period,
+                    isRunning: isMasterLogger ? !isPaused : (clockState.isRunning ?? !isPaused),
+                    startTime: isMasterLogger ? startTimeRef.current : (clockState.startTime || startTimeRef.current),
+                    elapsedOffset: isMasterLogger ? offsetRef.current : (clockState.elapsedOffset || offsetRef.current),
+                    period: isMasterLogger ? period : (clockState.period || period),
                     playerStats,
                     timeline,
                     possession: livePossession
@@ -496,18 +575,22 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
             }
         }
         // eslint-disable-next-line
-    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession]);
+    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession, isMasterLogger]);
 
     /* quick-action handler */
     const handleQuickAction = useCallback((playerId, actionKey) => {
+        // Enforce role-based data capture scoping
+        if (captureRole === 'possession') return; // Possession specialist cannot log player events
+        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'shotBlocked', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+        if (captureRole === 'shots' && !isShotAction) return; // Shot specialist cannot log general events
+        if (captureRole === 'general' && isShotAction) return; // General events specialist cannot log shots
+
         const student = resolvePlayer(playerId, allStudents, studentsById);
         const name = resolvePlayerName(playerId, allStudents, studentsById);
         const isHome = homePlayers.includes(playerId);
         const teammates = isHome 
             ? homePlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean)
             : awayPlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean);
-
-        const isShotAction = ['goal', 'shotOnTarget', 'shotMissed', 'shotBlocked', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
 
         if (isShotAction) {
             let defaultGoalType = 'foot';
@@ -582,7 +665,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                 return ps;
             });
         }
-    }, [elapsed, homePlayers, awayPlayers, studentsById, period, matchData.homeTeamId, matchData.awayTeamId, home.name, away.name, allStudents]);
+    }, [elapsed, homePlayers, awayPlayers, studentsById, period, matchData.homeTeamId, matchData.awayTeamId, home.name, away.name, allStudents, captureRole]);
 
     /* Shot/Goal Modal Save */
     const handleSaveShot = (shotDetails) => {
@@ -859,6 +942,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
 
     /* end match */
     const confirmEnd = () => {
+        if (!isMasterLogger) return;
         const targetId = matchData?.id || match?.id;
         const targetHomeId = homeTeamId || matchData?.homeTeamId || match?.homeTeamId;
         const targetAwayId = awayTeamId || matchData?.awayTeamId || match?.awayTeamId;
@@ -1054,12 +1138,26 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                             <div style={{ fontSize: '10px', fontWeight: '800', color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '3px', marginBottom: '3px', textAlign: 'center', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                                 #{activeStudent?.jerseyNumber || (parseInt(String(activePitchPlayerMenu.playerId).replace(/\D/g, ''), 10) % 22 || 10)} {activeStudentName}
                             </div>
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'goal'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#4ade80', fontWeight: '700' }}>⚽ Log Goal / Shot</button>
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'assist'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">👟 Log Assist</button>
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'yellowCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#facc15' }}>🟨 Yellow Card</button>
-                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'redCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#f87171' }}>🟥 Red Card</button>
-                            {activeStudent?.position === 'Goalkeeper' && (
-                                <button onClick={() => { setGkSaveModalData({ player: { id: activePitchPlayerMenu.playerId, name: activeStudentName } }); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#34d399', fontWeight: '700' }}>🧤 Log GK Save</button>
+                            {captureRole === 'possession' ? (
+                                <div style={{ fontSize: '11px', color: '#94a3b8', padding: '6px 4px', textAlign: 'center', fontStyle: 'italic' }}>
+                                    🔒 Possession Logger (Use Main Possession Tracker)
+                                </div>
+                            ) : (
+                                <>
+                                    {(captureRole === 'all' || captureRole === 'shots') && (
+                                        <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'goal'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#4ade80', fontWeight: '700' }}>⚽ Log Goal / Shot</button>
+                                    )}
+                                    {(captureRole === 'all' || captureRole === 'general') && (
+                                        <>
+                                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'assist'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item">👟 Log Assist</button>
+                                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'yellowCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#facc15' }}>🟨 Yellow Card</button>
+                                            <button onClick={() => { handleQuickAction(activePitchPlayerMenu.playerId, 'redCard'); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#f87171' }}>🟥 Red Card</button>
+                                            {activeStudent?.position === 'Goalkeeper' && (
+                                                <button onClick={() => { setGkSaveModalData({ player: { id: activePitchPlayerMenu.playerId, name: activeStudentName } }); setActivePitchPlayerMenu(null); }} className="pitch-menu-item" style={{ color: '#34d399', fontWeight: '700' }}>🧤 Log GK Save</button>
+                                            )}
+                                        </>
+                                    )}
+                                </>
                             )}
                             <button onClick={() => setActivePitchPlayerMenu(null)} className="pitch-menu-item" style={{ color: 'var(--danger)', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '2px', paddingTop: '4px' }}>Close</button>
                         </div>
@@ -1102,18 +1200,26 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                             const count = badgeCount(playerId, action.key);
                             const hoverKey = `${playerId}-${action.key}`;
                             const isHovered = hoveredBtn === hoverKey;
+                            const isShotAction = action.key === 'goal';
+                            const isAllowed = captureRole === 'all' || 
+                                (captureRole === 'shots' && isShotAction) ||
+                                (captureRole === 'general' && !isShotAction);
                             return (
                                 <button
                                     key={action.key}
-                                    title={action.tooltip}
+                                    title={isAllowed ? action.tooltip : 'Restricted by Assigned Scope'}
+                                    disabled={!isAllowed}
                                     style={{
                                         ...styles.actionBtn,
-                                        background: isHovered ? action.hoverColor : action.color,
-                                        transform: isHovered ? 'scale(1.12)' : 'scale(1)',
+                                        background: isHovered && isAllowed ? action.hoverColor : action.color,
+                                        transform: isHovered && isAllowed ? 'scale(1.12)' : 'scale(1)',
+                                        opacity: isAllowed ? 1 : 0.25,
+                                        cursor: isAllowed ? 'pointer' : 'not-allowed',
+                                        filter: isAllowed ? 'none' : 'grayscale(90%)'
                                     }}
-                                    onMouseEnter={() => setHoveredBtn(hoverKey)}
+                                    onMouseEnter={() => isAllowed && setHoveredBtn(hoverKey)}
                                     onMouseLeave={() => setHoveredBtn(null)}
-                                    onClick={() => handleQuickAction(playerId, action.key)}
+                                    onClick={() => isAllowed && handleQuickAction(playerId, action.key)}
                                 >
                                     <span style={styles.actionEmoji}>{action.label}</span>
                                     {count > 0 && (
@@ -1197,101 +1303,112 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                             </span>
                             
                             {!isRefereeMode && (
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                    {period !== 'HT' && (
+                                isMasterLogger ? (
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                        {period !== 'HT' && (
+                                            <button
+                                                type="button"
+                                                onClick={handleTogglePause}
+                                                style={{
+                                                    background: 'rgba(255,255,255,0.06)',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    borderRadius: '6px',
+                                                    padding: '4px 10px',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    outline: 'none',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                                            >
+                                                {isPaused ? '▶️ Resume' : '⏸️ Pause'}
+                                            </button>
+                                        )}
+
+                                        {period === '1H' && (
+                                            <button
+                                                type="button"
+                                                onClick={handleEndFirstHalf}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.12)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                    borderRadius: '6px',
+                                                    padding: '4px 10px',
+                                                    color: '#f87171',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
+                                            >
+                                                End 1st Half
+                                            </button>
+                                        )}
+
+                                        {period === 'HT' && (
+                                            <button
+                                                type="button"
+                                                onClick={handleStartSecondHalf}
+                                                style={{
+                                                    background: 'rgba(16, 185, 129, 0.12)',
+                                                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                                                    borderRadius: '6px',
+                                                    padding: '4px 10px',
+                                                    color: '#34d399',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
+                                            >
+                                                Start 2nd Half
+                                            </button>
+                                        )}
+
                                         <button
                                             type="button"
-                                            onClick={handleTogglePause}
+                                            onClick={() => setShowConfirm(true)}
                                             style={{
-                                                background: 'rgba(255,255,255,0.06)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                borderRadius: '6px',
-                                                padding: '4px 10px',
-                                                color: 'var(--text-primary)',
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: 'pointer',
-                                                fontFamily: 'inherit',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                                outline: 'none',
-                                                transition: 'all 0.15s ease'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                                        >
-                                            {isPaused ? '▶️ Resume' : '⏸️ Pause'}
-                                        </button>
-                                    )}
-
-                                    {period === '1H' && (
-                                        <button
-                                            type="button"
-                                            onClick={handleEndFirstHalf}
-                                            style={{
-                                                background: 'rgba(239, 68, 68, 0.12)',
-                                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                                borderRadius: '6px',
-                                                padding: '4px 10px',
-                                                color: '#f87171',
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: 'pointer',
-                                                fontFamily: 'inherit',
-                                                transition: 'all 0.15s ease'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
-                                        >
-                                            End 1st Half
-                                        </button>
-                                    )}
-
-                                    {period === 'HT' && (
-                                        <button
-                                            type="button"
-                                            onClick={handleStartSecondHalf}
-                                            style={{
-                                                background: 'rgba(16, 185, 129, 0.12)',
-                                                border: '1px solid rgba(16, 185, 129, 0.25)',
-                                                borderRadius: '6px',
-                                                padding: '4px 10px',
-                                                color: '#34d399',
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: 'pointer',
-                                                fontFamily: 'inherit',
-                                                transition: 'all 0.15s ease'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
-                                        >
-                                            Start 2nd Half
-                                        </button>
-                                    )}
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirm(true)}
-                                        style={{
-                                                background: 'rgba(239, 68, 68, 0.12)',
-                                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                                borderRadius: '6px',
-                                                padding: '4px 10px',
-                                                color: '#f87171',
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: 'pointer',
-                                                fontFamily: 'inherit',
-                                                transition: 'all 0.15s ease'
-                                            }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
-                                        >
-                                            End Match
-                                        </button>
-                                </div>
+                                                    background: 'rgba(239, 68, 68, 0.12)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                    borderRadius: '6px',
+                                                    padding: '4px 10px',
+                                                    color: '#f87171',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
+                                            >
+                                                End Match
+                                            </button>
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                        padding: '4px 10px', borderRadius: '8px',
+                                        background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
+                                        fontSize: '11px', fontWeight: '700', color: '#38bdf8'
+                                    }}>
+                                        <span>🔒</span> Official Clock: Jonathan (Lead Controller)
+                                    </div>
+                                )
                             )}
                         </div>
                     </div>
@@ -1341,6 +1458,7 @@ export default function LiveMatch({ matchData: matchDataProp, match: matchProp, 
                     elapsed={elapsed}
                     period={period}
                     isPaused={isPaused}
+                    captureRole={captureRole}
                     onQuickLogEvent={(logData) => {
                         if (logData.type === 'possessionSync' && logData.possession) {
                             setLivePossession(logData.possession);

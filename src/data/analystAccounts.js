@@ -4,110 +4,132 @@ export const DEFAULT_ANALYSTS = [
     {
         id: 'analyst_johnathan',
         username: 'johnathan',
-        name: 'Johnathan Cumberbatch (Data Analyst)',
+        name: 'Johnathan Cumberbatch (Lead Match Controller)',
         email: 'johnathan.cumberbatch@gmail.com',
         password: 'password',
         role: 'statistician',
-        captureRole: 'all', // 'all' | 'possession' | 'shots' | 'general'
+        captureRole: 'all',
+        isMasterLogger: true,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'JC',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '👑',
         badgeColor: '#10b981'
     },
     {
         id: 'analyst_noah',
         username: 'noah',
-        name: 'Noah (Master Lead Analyst)',
+        name: 'Noah (Data Capturer)',
         email: 'noah@futurebarbados.bb',
         password: 'password',
         role: 'statistician',
-        captureRole: 'all', // 'all' | 'possession' | 'shots' | 'general'
+        captureRole: 'all',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
         avatar: 'N',
         badgeColor: '#38bdf8'
     },
     {
-        id: 'capturer_possession',
-        username: 'logger.possession',
-        name: 'Capturer 1 (Possession Specialist)',
+        id: 'guest_possession',
+        username: 'guest.possession',
+        name: 'Guest - Possession Logger',
         email: 'possession.logger@pmcup.bb',
         password: 'password',
         role: 'statistician',
         captureRole: 'possession',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'P',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '⏱️',
         badgeColor: '#22c55e'
     },
     {
-        id: 'capturer_shots_1',
-        username: 'logger.shots1',
-        name: 'Capturer 2 (Shot Specialist A)',
+        id: 'guest_shots_1',
+        username: 'guest.shots1',
+        name: 'Guest - Shot Logger 1',
         email: 'shots1.logger@pmcup.bb',
         password: 'password',
         role: 'statistician',
         captureRole: 'shots',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'S1',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '⚽',
         badgeColor: '#3b82f6'
     },
     {
-        id: 'capturer_shots_2',
-        username: 'logger.shots2',
-        name: 'Capturer 3 (Shot Specialist B)',
+        id: 'guest_shots_2',
+        username: 'guest.shots2',
+        name: 'Guest - Shot Logger 2',
         email: 'shots2.logger@pmcup.bb',
         password: 'password',
         role: 'statistician',
         captureRole: 'shots',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'S2',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '⚽',
         badgeColor: '#60a5fa'
     },
     {
-        id: 'capturer_general_1',
-        username: 'logger.general1',
-        name: 'Capturer 4 (General Events A)',
-        email: 'general1.logger@pmcup.bb',
+        id: 'guest_events_1',
+        username: 'guest.events1',
+        name: 'Guest - Match Events 1',
+        email: 'events1.logger@pmcup.bb',
         password: 'password',
         role: 'statistician',
         captureRole: 'general',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'G1',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '📋',
         badgeColor: '#f59e0b'
     },
     {
-        id: 'capturer_general_2',
-        username: 'logger.general2',
-        name: 'Capturer 5 (General Events B)',
-        email: 'general2.logger@pmcup.bb',
+        id: 'guest_events_2',
+        username: 'guest.events2',
+        name: 'Guest - Match Events 2',
+        email: 'events2.logger@pmcup.bb',
         password: 'password',
         role: 'statistician',
         captureRole: 'general',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'G2',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '📋',
         badgeColor: '#fbbf24'
     },
     {
-        id: 'capturer_general_3',
-        username: 'logger.general3',
-        name: 'Capturer 6 (General Events C)',
-        email: 'general3.logger@pmcup.bb',
+        id: 'guest_events_3',
+        username: 'guest.events3',
+        name: 'Guest - Match Events 3',
+        email: 'events3.logger@pmcup.bb',
         password: 'password',
         role: 'statistician',
         captureRole: 'general',
+        isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-        avatar: 'G3',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '📋',
         badgeColor: '#a78bfa'
+    },
+    {
+        id: 'guest_events_4',
+        username: 'guest.events4',
+        name: 'Guest - Match Events 4',
+        email: 'events4.logger@pmcup.bb',
+        password: 'password',
+        role: 'statistician',
+        captureRole: 'general',
+        isMasterLogger: false,
+        venue: 'Friendship, St. Michael',
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        avatar: '📋',
+        badgeColor: '#c084fc'
     }
 ];
 
-const ANALYST_STORAGE_KEY = 'eduvision-analyst-accounts-v2';
+const ANALYST_STORAGE_KEY = 'eduvision-analyst-accounts-v3';
 
 export function getAnalystAccounts() {
     try {
@@ -115,7 +137,7 @@ export function getAnalystAccounts() {
         if (saved) {
             const parsed = JSON.parse(saved);
             const str = JSON.stringify(parsed);
-            if (!str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+            if (!str.includes('guest.possession') || !str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
                 localStorage.setItem(ANALYST_STORAGE_KEY, JSON.stringify(DEFAULT_ANALYSTS));
                 return DEFAULT_ANALYSTS;
             }
@@ -147,7 +169,10 @@ export function findAnalystByEmailOrId(query) {
         a.id.toLowerCase() === clean || 
         a.email.toLowerCase() === clean ||
         a.username?.toLowerCase() === clean ||
-        a.name.toLowerCase() === clean
+        (clean === 'jonathan' && a.username === 'johnathan') ||
+        (clean === 'johnathan' && a.username === 'jonathan') ||
+        a.name.toLowerCase() === clean ||
+        a.name.toLowerCase().includes(clean)
     ) || null;
 }
 

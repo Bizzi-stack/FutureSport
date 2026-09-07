@@ -5,46 +5,119 @@ export const DEFAULT_OFFICIALS = {
         {
             id: 'analyst_johnathan',
             username: 'johnathan',
-            name: 'Johnathan Cumberbatch',
+            name: 'Johnathan Cumberbatch (Lead Match Controller)',
             email: 'johnathan.cumberbatch@gmail.com',
             password: 'password',
             role: 'statistician',
+            captureRole: 'all',
+            isMasterLogger: true,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5'],
-            avatar: 'JC'
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '👑'
         },
         {
             id: 'analyst_noah',
             username: 'noah',
-            name: 'Noah',
+            name: 'Noah (Data Capturer)',
             email: 'noah@futurebarbados.bb',
             password: 'password',
             role: 'statistician',
+            captureRole: 'all',
+            isMasterLogger: false,
             assignedVenue: 'National Stadium',
             assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
             avatar: 'N'
         },
         {
-            id: 'analyst_marcus',
-            username: 'marcus.thorne',
-            name: 'Marcus Thorne',
-            email: 'analyst1.pmcup@gmail.com',
+            id: 'guest_possession',
+            username: 'guest.possession',
+            name: 'Guest - Possession Logger',
+            email: 'possession.logger@pmcup.bb',
             password: 'password',
             role: 'statistician',
-            assignedVenue: 'RBC Field',
-            assignedMatchIds: ['match-pmc-4'],
-            avatar: 'M'
+            captureRole: 'possession',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '⏱️'
         },
         {
-            id: 'analyst_devon',
-            username: 'devon.clarke',
-            name: 'Devon Clarke',
-            email: 'analyst2.pmcup@gmail.com',
+            id: 'guest_shots_1',
+            username: 'guest.shots1',
+            name: 'Guest - Shot Logger 1',
+            email: 'shots1.logger@pmcup.bb',
             password: 'password',
             role: 'statistician',
-            assignedVenue: 'Combermere Grounds',
-            assignedMatchIds: ['match-pmc-5'],
-            avatar: 'D'
+            captureRole: 'shots',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '⚽'
+        },
+        {
+            id: 'guest_shots_2',
+            username: 'guest.shots2',
+            name: 'Guest - Shot Logger 2',
+            email: 'shots2.logger@pmcup.bb',
+            password: 'password',
+            role: 'statistician',
+            captureRole: 'shots',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '⚽'
+        },
+        {
+            id: 'guest_events_1',
+            username: 'guest.events1',
+            name: 'Guest - Match Events 1',
+            email: 'events1.logger@pmcup.bb',
+            password: 'password',
+            role: 'statistician',
+            captureRole: 'general',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '📋'
+        },
+        {
+            id: 'guest_events_2',
+            username: 'guest.events2',
+            name: 'Guest - Match Events 2',
+            email: 'events2.logger@pmcup.bb',
+            password: 'password',
+            role: 'statistician',
+            captureRole: 'general',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '📋'
+        },
+        {
+            id: 'guest_events_3',
+            username: 'guest.events3',
+            name: 'Guest - Match Events 3',
+            email: 'events3.logger@pmcup.bb',
+            password: 'password',
+            role: 'statistician',
+            captureRole: 'general',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '📋'
+        },
+        {
+            id: 'guest_events_4',
+            username: 'guest.events4',
+            name: 'Guest - Match Events 4',
+            email: 'events4.logger@pmcup.bb',
+            password: 'password',
+            role: 'statistician',
+            captureRole: 'general',
+            isMasterLogger: false,
+            assignedVenue: 'National Stadium',
+            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            avatar: '📋'
         }
     ],
     referee: [
@@ -163,7 +236,7 @@ export const DEFAULT_OFFICIALS = {
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v2';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v3';
 
 export function getOfficialsByRole(role) {
     try {
@@ -171,7 +244,7 @@ export function getOfficialsByRole(role) {
         if (saved) {
             const parsed = JSON.parse(saved);
             const str = JSON.stringify(parsed);
-            if (!str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+            if (!str.includes('guest.possession') || str.includes('analyst_marcus') || !str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
                 localStorage.setItem(OFFICIALS_STORAGE_KEY, JSON.stringify(DEFAULT_OFFICIALS));
                 return DEFAULT_OFFICIALS[role] || [];
             }
@@ -201,7 +274,10 @@ export function findOfficial(role, identifier) {
     return list.find(o => 
         o.id?.toLowerCase() === clean || 
         o.username?.toLowerCase() === clean || 
+        (clean === 'jonathan' && o.username === 'johnathan') ||
+        (clean === 'johnathan' && o.username === 'jonathan') ||
         o.email?.toLowerCase() === clean ||
-        o.name?.toLowerCase() === clean
+        o.name?.toLowerCase() === clean ||
+        o.name?.toLowerCase().includes(clean)
     ) || null;
 }
