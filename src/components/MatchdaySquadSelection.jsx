@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import StudentProfileDrawer from './StudentProfileDrawer';
 import JerseyIcon from './JerseyIcon';
 import CountdownSheetModal from './match/CountdownSheetModal';
+import MatchdayCountdownSheetModal from './match/MatchdayCountdownSheetModal';
 import UploadPlayerRosterModal from './UploadPlayerRosterModal';
 import { downloadPlayerCsvTemplate } from '../utils/playerCsvImport';
 import { 
@@ -177,6 +178,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [notificationInfo, setNotificationInfo] = useState(null);
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
+    const [activeCountdownScheduleMatch, setActiveCountdownScheduleMatch] = useState(null);
     const [reminderSentToast, setReminderSentToast] = useState(null);
 
     // Pre-Match Warm-Up Emergency Injury Amendment State
@@ -646,17 +648,32 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selectedMatch.ageGroup || 'PMC'} • {selectedMatch.matchday || selectedMatch.round} • {selectedMatch.venue}</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {/* View Official Countdown Sheet Button */}
+                                    {/* View Official Team Sheet Button */}
                                     <button
                                         type="button"
                                         onClick={() => setActiveCountdownMatch(selectedMatch)}
+                                        title="Official Team Lineup & Roster Sheet"
                                         style={{
-                                            padding: '7px 14px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700',
-                                            background: 'rgba(255,199,38,0.15)', color: '#FFC726', border: '1px solid rgba(255,199,38,0.3)',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'
+                                            padding: '7px 12px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700',
+                                            background: 'rgba(37,99,235,0.15)', color: '#60a5fa', border: '1px solid rgba(37,99,235,0.3)',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'
                                         }}
                                     >
-                                        📋 View Countdown Sheet
+                                        📋 Official Team Sheet
+                                    </button>
+
+                                    {/* View Matchday Countdown Protocol Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveCountdownScheduleMatch(selectedMatch)}
+                                        title="Operational Matchday Countdown Protocol & Timetable"
+                                        style={{
+                                            padding: '7px 12px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700',
+                                            background: 'rgba(255,199,38,0.15)', color: '#FFC726', border: '1px solid rgba(255,199,38,0.3)',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'
+                                        }}
+                                    >
+                                        ⏱️ Countdown Sheet
                                     </button>
 
                                     {selectedMatch.status === 'live' ? (
@@ -1382,7 +1399,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                 />
             )}
 
-            {/* Countdown Sheet Modal for Coaches */}
+            {/* Official Team Sheet Modal for Coaches */}
             {activeCountdownMatch && (
                 <CountdownSheetModal
                     match={activeCountdownMatch}
@@ -1402,6 +1419,19 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                         };
                         onUpdateMatch(updatedMatch);
                         setActiveCountdownMatch(updatedMatch);
+                    }}
+                />
+            )}
+
+            {/* Official Matchday Countdown Sheet Modal for Coaches */}
+            {activeCountdownScheduleMatch && (
+                <MatchdayCountdownSheetModal
+                    match={activeCountdownScheduleMatch}
+                    userRole="coach"
+                    onClose={() => setActiveCountdownScheduleMatch(null)}
+                    onUpdateMatch={(updatedMatch) => {
+                        if (onUpdateMatch) onUpdateMatch(updatedMatch);
+                        setActiveCountdownScheduleMatch(updatedMatch);
                     }}
                 />
             )}

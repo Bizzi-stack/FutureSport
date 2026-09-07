@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import LeagueTable from '../LeagueTable';
 import KnockoutBrackets from '../KnockoutBrackets';
 import CountdownSheetModal from '../match/CountdownSheetModal';
+import MatchdayCountdownSheetModal from '../match/MatchdayCountdownSheetModal';
 import JerseyIcon from '../JerseyIcon';
 import { exportPMCMatchPacket, pushMatchToPMC } from '../../utils/pmcSyncEngine';
 import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
@@ -43,6 +44,7 @@ export default function CommissionerDashboard({
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [isExpanded, setIsExpanded] = useState(false);
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
+    const [activeCountdownScheduleMatch, setActiveCountdownScheduleMatch] = useState(null);
 
     // Live Feed & Timeline States
     const [activeMatchId, setActiveMatchId] = useState(() => {
@@ -708,22 +710,42 @@ export default function CommissionerDashboard({
                     </button>
                 )}
 
-                <button
-                    onClick={() => {
-                        const firstUpcoming = (matches || []).find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || (matches || [])[0];
-                        setActiveCountdownMatch(firstUpcoming);
-                    }}
-                    style={{
-                        padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '800',
-                        background: 'rgba(255, 199, 38, 0.15)',
-                        color: '#FFC726',
-                        border: '1px solid rgba(255, 199, 38, 0.35)',
-                        cursor: 'pointer', transition: 'all 0.2s', outline: 'none', marginLeft: 'auto',
-                        display: 'flex', alignItems: 'center', gap: '6px'
-                    }}
-                >
-                    Match Countdown Sheet
-                </button>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                        onClick={() => {
+                            const target = activeMatch || (matches || []).find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || (matches || [])[0];
+                            setActiveCountdownMatch(target);
+                        }}
+                        title="View Official Starting XI, Substitutes & Verified Roster Sign-Off"
+                        style={{
+                            padding: '8px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '800',
+                            background: 'rgba(37, 99, 235, 0.15)',
+                            color: '#60a5fa',
+                            border: '1px solid rgba(37, 99, 235, 0.35)',
+                            cursor: 'pointer', transition: 'all 0.2s', outline: 'none',
+                            display: 'flex', alignItems: 'center', gap: '6px'
+                        }}
+                    >
+                        📋 Official Team Sheet
+                    </button>
+                    <button
+                        onClick={() => {
+                            const target = activeMatch || (matches || []).find(m => m.status === 'upcoming' || m.status === 'scheduled' || m.homeSquadSelection) || (matches || [])[0];
+                            setActiveCountdownScheduleMatch(target);
+                        }}
+                        title="View & Edit Operational Countdown Protocol & Timetable"
+                        style={{
+                            padding: '8px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: '800',
+                            background: 'rgba(255, 199, 38, 0.15)',
+                            color: '#FFC726',
+                            border: '1px solid rgba(255, 199, 38, 0.35)',
+                            cursor: 'pointer', transition: 'all 0.2s', outline: 'none',
+                            display: 'flex', alignItems: 'center', gap: '6px'
+                        }}
+                    >
+                        ⏱️ Matchday Countdown Sheet
+                    </button>
+                </div>
             </div>
 
             {/* TAB CONTENT: Live Feed & Timeline */}
@@ -2659,7 +2681,7 @@ export default function CommissionerDashboard({
                     </div>
                 </div>
             )}
-            {/* Countdown Sheet Modal */}
+            {/* Official Team Sheet Modal (Lineups & Rosters) */}
             {activeCountdownMatch && (
                 <CountdownSheetModal
                     match={activeCountdownMatch}
@@ -2679,6 +2701,19 @@ export default function CommissionerDashboard({
                         };
                         onUpdateMatch(updatedMatch);
                         setActiveCountdownMatch(updatedMatch);
+                    }}
+                />
+            )}
+
+            {/* Official Matchday Countdown Sheet Modal (Operational Protocol Table) */}
+            {activeCountdownScheduleMatch && (
+                <MatchdayCountdownSheetModal
+                    match={activeCountdownScheduleMatch}
+                    userRole="commissioner"
+                    onClose={() => setActiveCountdownScheduleMatch(null)}
+                    onUpdateMatch={(updatedMatch) => {
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownScheduleMatch(updatedMatch);
                     }}
                 />
             )}

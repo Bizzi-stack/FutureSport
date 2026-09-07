@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import LiveMatch from '../match/LiveMatch';
 import CountdownSheetModal from '../match/CountdownSheetModal';
+import MatchdayCountdownSheetModal from '../match/MatchdayCountdownSheetModal';
 import {
     getRefereeContactSettings,
     saveRefereeContactSettings,
@@ -24,6 +25,7 @@ export default function RefereeDashboard({
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'live'
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
+    const [activeCountdownScheduleMatch, setActiveCountdownScheduleMatch] = useState(null);
     
     // Referee Form States
     const [misconductNotes, setMisconductNotes] = useState('');
@@ -472,21 +474,37 @@ export default function RefereeDashboard({
                                             )}
                                         </div>
 
-                                        {/* Action Buttons: Countdown Sheet & Kick Off */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                        {/* Action Buttons: Team Sheet, Countdown & Kick Off */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '6px' }}>
                                             <button
                                                 type="button"
                                                 onClick={() => setActiveCountdownMatch(m)}
+                                                title="Official Team Lineup Sheet"
                                                 style={{
-                                                    padding: '8px 10px', borderRadius: '8px',
+                                                    padding: '8px 8px', borderRadius: '8px',
+                                                    background: 'rgba(37,99,235,0.12)',
+                                                    color: '#60a5fa',
+                                                    border: '1px solid rgba(37,99,235,0.3)',
+                                                    fontWeight: '700', fontSize: '11px',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px'
+                                                }}
+                                            >
+                                                📋 Team Sheet
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveCountdownScheduleMatch(m)}
+                                                title="Matchday Operational Countdown Protocol"
+                                                style={{
+                                                    padding: '8px 8px', borderRadius: '8px',
                                                     background: 'rgba(255,199,38,0.12)',
                                                     color: '#FFC726',
                                                     border: '1px solid rgba(255,199,38,0.3)',
-                                                    fontWeight: '700', fontSize: '11.5px',
-                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
+                                                    fontWeight: '700', fontSize: '11px',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px'
                                                 }}
                                             >
-                                                📋 Countdown Sheet
+                                                ⏱️ Countdown
                                             </button>
                                             <button
                                                 onClick={() => handleKickOff(m)}
@@ -724,7 +742,7 @@ export default function RefereeDashboard({
             </div>
 
             </div>
-            {/* Countdown Sheet Modal for Referees */}
+            {/* Official Team Sheet Modal for Referees */}
             {activeCountdownMatch && (
                 <CountdownSheetModal
                     match={activeCountdownMatch}
@@ -744,6 +762,19 @@ export default function RefereeDashboard({
                         };
                         onUpdateMatch(updatedMatch);
                         setActiveCountdownMatch(updatedMatch);
+                    }}
+                />
+            )}
+
+            {/* Matchday Operational Countdown Schedule Modal for Referees */}
+            {activeCountdownScheduleMatch && (
+                <MatchdayCountdownSheetModal
+                    match={activeCountdownScheduleMatch}
+                    userRole="referee"
+                    onClose={() => setActiveCountdownScheduleMatch(null)}
+                    onUpdateMatch={(updatedMatch) => {
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownScheduleMatch(updatedMatch);
                     }}
                 />
             )}
