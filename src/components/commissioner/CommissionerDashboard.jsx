@@ -518,7 +518,7 @@ export default function CommissionerDashboard({
     }, [allTeams, selectedDivision, manualHomeTeamId]);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', height: '100%', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', minHeight: '100%' }}>
             
             {/* Top Identity Header */}
             <div className="glass-panel" style={{
@@ -725,75 +725,268 @@ export default function CommissionerDashboard({
 
             {/* TAB CONTENT: Live Feed & Timeline */}
             {mainTab === 'live_feed' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                     {/* Fixture Selector Strip */}
                     <div style={{
-                        display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px',
-                        scrollbarWidth: 'thin'
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        flexShrink: 0,
+                        width: '100%'
                     }}>
-                        {(matches || []).map(m => {
-                            const isSelected = (activeMatch?.id === m.id);
-                            const isLive = m.status === 'live';
-                            const isRef = m.status === 'refereed';
-                            const hasPendingSub = (m.substitutionRequests || []).some(r => r.status === 'pending');
-                            const hasPendingWarmup = (m.warmupAmendments || []).some(a => a.status === 'pending' || a.status === 'pending_commissioner');
-                            const homeN = m.homeTeam || getSchoolName(m.homeTeamId, m);
-                            const awayN = m.awayTeam || getSchoolName(m.awayTeamId, m);
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{
+                                    fontSize: '11.5px',
+                                    fontWeight: '800',
+                                    letterSpacing: '0.08em',
+                                    textTransform: 'uppercase',
+                                    color: '#cbd5e1'
+                                }}>
+                                    {isPMC ? "Select Match to Monitor & Coordinate (Matchday 1 Opening)" : "Select Match Fixture"}
+                                </span>
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    color: '#e2e8f0',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)'
+                                }}>
+                                    {(matches || []).length} Match{((matches || []).length === 1 ? '' : 'es')}
+                                </span>
+                            </div>
+                            <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                                Click card to load live pitch feeds &amp; substitution actions
+                            </span>
+                        </div>
 
-                            return (
-                                <button
-                                    key={m.id}
-                                    type="button"
-                                    onClick={() => setActiveMatchId(m.id)}
-                                    style={{
-                                        padding: '10px 16px', borderRadius: '10px',
-                                        background: isSelected ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255,255,255,0.03)',
-                                        border: isSelected ? '1.5px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255,255,255,0.08)',
-                                        cursor: 'pointer', textAlign: 'left', minWidth: '220px', flexShrink: 0,
-                                        display: 'flex', flexDirection: 'column', gap: '4px', transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '10.5px', fontWeight: '800', color: isSelected ? '#fca5a5' : 'var(--text-muted)' }}>
-                                            {m.matchday || 'PMC Matchday'}
-                                        </span>
-                                        {isLive ? (
+                        {/* Scrollable match cards row */}
+                        <div style={{
+                            display: 'flex',
+                            gap: '14px',
+                            overflowX: 'auto',
+                            padding: '2px 2px 10px 2px',
+                            scrollbarWidth: 'thin',
+                            flexShrink: 0,
+                            minHeight: '110px'
+                        }}>
+                            {(matches || []).map(m => {
+                                const isSelected = (activeMatch?.id === m.id);
+                                const isLive = m.status === 'live';
+                                const isRef = m.status === 'refereed';
+                                const isApproved = m.status === 'approved';
+                                const hasPendingSub = (m.substitutionRequests || []).some(r => r.status === 'pending');
+                                const hasPendingWarmup = (m.warmupAmendments || []).some(a => a.status === 'pending' || a.status === 'pending_commissioner');
+                                const homeN = m.homeTeam || getSchoolName(m.homeTeamId, m);
+                                const awayN = m.awayTeam || getSchoolName(m.awayTeamId, m);
+
+                                return (
+                                    <button
+                                        key={m.id}
+                                        type="button"
+                                        onClick={() => setActiveMatchId(m.id)}
+                                        style={{
+                                            padding: '14px 18px',
+                                            borderRadius: '12px',
+                                            minWidth: '310px',
+                                            maxWidth: '360px',
+                                            minHeight: '100px',
+                                            flexShrink: 0,
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            gap: '8px',
+                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            background: isSelected 
+                                                ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(30, 41, 59, 0.95) 100%)' 
+                                                : 'linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                            border: isSelected 
+                                                ? '2px solid #ef4444' 
+                                                : '1.5px solid rgba(255, 255, 255, 0.16)',
+                                            boxShadow: isSelected 
+                                                ? '0 6px 20px rgba(239, 68, 68, 0.35), 0 0 0 1px rgba(239, 68, 68, 0.5)' 
+                                                : '0 4px 14px rgba(0, 0, 0, 0.35)',
+                                            position: 'relative',
+                                            outline: 'none'
+                                        }}
+                                    >
+                                        {/* Top Row: Matchday info + Status Pill */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                             <span style={{
-                                                fontSize: '10px', fontWeight: '800', color: '#ef4444',
-                                                background: 'rgba(239, 68, 68, 0.2)', padding: '2px 6px', borderRadius: '4px',
-                                                display: 'flex', alignItems: 'center', gap: '4px'
+                                                fontSize: '11px',
+                                                fontWeight: '800',
+                                                color: isSelected ? '#fca5a5' : '#cbd5e1',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.04em'
                                             }}>
-                                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} />
-                                                LIVE {m.currentHalf || '1H'} {m.matchTime || (m.matchClock ? m.matchClock + "'" : '')}
+                                                {m.matchday || 'PMC Matchday 1'} {m.group ? `· Grp ${m.group}` : ''}
                                             </span>
-                                        ) : isRef ? (
-                                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#a855f7', background: 'rgba(168, 85, 247, 0.15)', padding: '2px 6px', borderRadius: '4px' }}>
-                                                🏁 FT
-                                            </span>
-                                        ) : (
-                                            <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>
-                                                {m.time || '19:00'}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: '#ffffff', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>{homeN} vs {awayN}</span>
-                                        <span style={{ color: isLive ? '#4ade80' : '#ffffff', fontWeight: '800' }}>
-                                            {m.homeScore ?? 0} - {m.awayScore ?? 0}
-                                        </span>
-                                    </div>
-                                    {(hasPendingSub || hasPendingWarmup) && (
-                                        <div style={{
-                                            fontSize: '10px', fontWeight: '800', color: '#f59e0b',
-                                            display: 'flex', alignItems: 'center', gap: '4px'
-                                        }}>
-                                            <span>⚡</span>
-                                            <span>Action Required ({ (hasPendingSub ? 1 : 0) + (hasPendingWarmup ? 1 : 0) })</span>
+
+                                            {isLive ? (
+                                                <span style={{
+                                                    fontSize: '10.5px',
+                                                    fontWeight: '900',
+                                                    color: '#ffffff',
+                                                    background: '#ef4444',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.7)'
+                                                }}>
+                                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />
+                                                    LIVE {m.currentHalf || '1H'} {m.matchTime || (m.matchClock ? m.matchClock + "'" : '')}
+                                                </span>
+                                            ) : isRef ? (
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    color: '#d8b4fe',
+                                                    background: 'rgba(168, 85, 247, 0.25)',
+                                                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px'
+                                                }}>
+                                                    🏁 FT (Awaiting Sign-off)
+                                                </span>
+                                            ) : isApproved ? (
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    color: '#4ade80',
+                                                    background: 'rgba(34, 197, 94, 0.2)',
+                                                    border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px'
+                                                }}>
+                                                    ✓ Certified
+                                                </span>
+                                            ) : (
+                                                <span style={{
+                                                    fontSize: '11px',
+                                                    fontWeight: '800',
+                                                    color: '#38bdf8',
+                                                    background: 'rgba(56, 189, 248, 0.15)',
+                                                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}>
+                                                    <span>🕒</span>
+                                                    <span>{m.time || '19:00'}</span>
+                                                </span>
+                                            )}
                                         </div>
-                                    )}
-                                </button>
-                            );
-                        })}
+
+                                        {/* Middle Row: Clubs & Score */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '10px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                                                <div style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: '800',
+                                                    color: '#ffffff',
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis'
+                                                }}>
+                                                    {homeN}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: '800',
+                                                    color: '#ffffff',
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis'
+                                                }}>
+                                                    {awayN}
+                                                </div>
+                                            </div>
+
+                                            {/* Score Box */}
+                                            <div style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                background: 'rgba(0, 0, 0, 0.65)',
+                                                border: isSelected ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 255, 255, 0.14)',
+                                                borderRadius: '8px',
+                                                padding: '4px 12px',
+                                                minWidth: '54px',
+                                                flexShrink: 0
+                                            }}>
+                                                <span style={{
+                                                    fontSize: '16px',
+                                                    fontWeight: '900',
+                                                    color: isLive ? '#4ade80' : '#ffffff',
+                                                    letterSpacing: '2px'
+                                                }}>
+                                                    {m.homeScore ?? 0} : {m.awayScore ?? 0}
+                                                </span>
+                                                <span style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                                    {isLive ? 'Score' : (isRef || isApproved ? 'Final' : 'K/O')}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Bottom Row: Venue & Pending Action Alerts */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '6px' }}>
+                                            <span style={{
+                                                fontSize: '11px',
+                                                color: '#94a3b8',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}>
+                                                <span>📍</span>
+                                                <span>{m.venue || 'Friendship, St. Michael'}</span>
+                                            </span>
+
+                                            {(hasPendingSub || hasPendingWarmup) ? (
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    color: '#f59e0b',
+                                                    background: 'rgba(245, 158, 11, 0.2)',
+                                                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                    padding: '2px 7px',
+                                                    borderRadius: '6px',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <span>⚡</span>
+                                                    <span>Action Req ({ (hasPendingSub ? 1 : 0) + (hasPendingWarmup ? 1 : 0) })</span>
+                                                </span>
+                                            ) : isSelected ? (
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    color: '#fca5a5',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px'
+                                                }}>
+                                                    <span>●</span> Active Feed
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {/* Active Match Scoreboard Card */}
@@ -1429,30 +1622,42 @@ export default function CommissionerDashboard({
                                     No matches pending commissioner approval.
                                 </div>
                             ) : (
-                                pendingApprovalMatches.map(m => (
-                                    <div
-                                        key={m.id}
-                                        onClick={() => handleSelectMatch(m)}
-                                        style={{
-                                            padding: '14px', borderRadius: '10px', background: selectedMatch?.id === m.id ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.01)',
-                                            border: selectedMatch?.id === m.id ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(255, 255, 255, 0.03)',
-                                            cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '6px', transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--primary-light)', fontWeight: '700' }}>
-                                            <span>{m.ageGroup} Division</span>
-                                            <span>{m.matchday}</span>
+                                pendingApprovalMatches.map(m => {
+                                    const isSel = selectedMatch?.id === m.id;
+                                    const homeName = m.homeTeam || getSchoolName(m.homeTeamId, m);
+                                    const awayName = m.awayTeam || getSchoolName(m.awayTeamId, m);
+                                    return (
+                                        <div
+                                            key={m.id}
+                                            onClick={() => handleSelectMatch(m)}
+                                            style={{
+                                                padding: '14px 16px', borderRadius: '12px',
+                                                background: isSel 
+                                                    ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(30, 41, 59, 0.95) 100%)' 
+                                                    : 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.75) 100%)',
+                                                border: isSel ? '1.5px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.12)',
+                                                boxShadow: isSel ? '0 4px 16px rgba(99, 102, 241, 0.3)' : '0 2px 8px rgba(0, 0, 0, 0.2)',
+                                                cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '8px', transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: isSel ? '#a5b4fc' : '#94a3b8', fontWeight: '800' }}>
+                                                <span>{m.ageGroup === 'PMC' ? "Prime Minister's Cup" : `${m.ageGroup} Division`}</span>
+                                                <span>{m.matchday || 'PMC Matchday'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13.5px', fontWeight: '800', color: '#ffffff' }}>
+                                                <span style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{homeName}</span>
+                                                <span style={{ background: 'rgba(0, 0, 0, 0.5)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 10px', borderRadius: '6px', fontSize: '13px', fontWeight: '900', color: '#4ade80' }}>
+                                                    {m.homeScore ?? 0} - {m.awayScore ?? 0}
+                                                </span>
+                                                <span style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{awayName}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
+                                                <span>📍 {m.venue || 'Friendship, St. Michael'}</span>
+                                                <span style={{ color: '#fbbf24', fontWeight: '700' }}>🏁 Awaiting Review</span>
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                                            <span>{getSchoolName(m.homeTeamId).split(' ')[0]}</span>
-                                            <span style={{ background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>
-                                                {m.homeScore} - {m.awayScore}
-                                            </span>
-                                            <span>{getSchoolName(m.awayTeamId).split(' ')[0]}</span>
-                                        </div>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Venue: {m.venue}</span>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
