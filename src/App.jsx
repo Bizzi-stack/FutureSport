@@ -419,7 +419,8 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-students-v4');
+      localStorage.removeItem('eduvision-pmc-students-v4');
+      const saved = localStorage.getItem('eduvision-pmc-students-v5');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -432,7 +433,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v4', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v5', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -551,7 +552,8 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      const saved = localStorage.getItem('eduvision-pmc-matches-v7');
+      localStorage.removeItem('eduvision-pmc-matches-v7');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v8');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -573,7 +575,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v7', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -657,7 +659,8 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.setItem('eduvision-pmc-matches-v7', JSON.stringify(sanitized));
+      localStorage.removeItem('eduvision-pmc-matches-v7');
+      localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };

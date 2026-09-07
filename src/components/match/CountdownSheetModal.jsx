@@ -125,10 +125,20 @@ export default function CountdownSheetModal({
         if (!idOrObj) return null;
         if (typeof idOrObj === 'object') return idOrObj;
 
-        let found = allPlayers.find(p => String(p.id) === String(idOrObj));
+        let found = allPlayers.find(p => 
+            String(p.id) === String(idOrObj) ||
+            p.aliasIds?.some(a => String(a) === String(idOrObj)) ||
+            (p.rawId != null && String(p.rawId) === String(idOrObj)) ||
+            (p.playerId && String(p.playerId) === String(idOrObj))
+        );
         if (found) return found;
 
-        found = defaultTeamPlayers.find(p => String(p.id) === String(idOrObj));
+        found = defaultTeamPlayers.find(p => 
+            String(p.id) === String(idOrObj) ||
+            p.aliasIds?.some(a => String(a) === String(idOrObj)) ||
+            (p.rawId != null && String(p.rawId) === String(idOrObj)) ||
+            (p.playerId && String(p.playerId) === String(idOrObj))
+        );
         if (found) return found;
 
         return { id: idOrObj, name: `Player #${idOrObj}`, jerseyNumber: String(idOrObj).replace(/\D/g, '') || '?' };
