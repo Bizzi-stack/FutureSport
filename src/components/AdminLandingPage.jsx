@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SCHOOLS } from '../data/mockData';
 import { getOfficialsByRole, findOfficial } from '../data/matchOfficialAccounts';
 import DotField from './DotField';
+import fbLogo from '../assets/FB-Logo.svg';
 import './landing.css';
 
 const SparklesIcon = () => (
@@ -204,6 +205,20 @@ const AdminLandingPage = ({
             
             {/* Glassmorphic Login Card */}
             <div className="login-card-wrapper" style={{ margin: 0, width: '100%', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+
+              {/* Tournament / Platform Brand Logo */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '22px' }}>
+                <img 
+                  src={fbLogo} 
+                  alt="Football Barbados" 
+                  style={{ 
+                    height: '36px', 
+                    width: 'auto', 
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 2px 10px rgba(0, 0, 0, 0.6))' 
+                  }} 
+                />
+              </div>
 
               {error && (
                 <div style={{
