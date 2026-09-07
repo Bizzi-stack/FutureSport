@@ -7,10 +7,44 @@ export default function CountdownSheetModal({
     schools = [],
     onClose,
     onApplyCorrection,
+    onUpdateMatch,
     userRole = 'commissioner'
 }) {
     const [showCorrectionModal, setShowCorrectionModal] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState('');
+    const [isApproved, setIsApproved] = useState(() => {
+        return !!match?.teamSheetApproved || !!match?.commissionerApproved || !!match?.verifiedLineups;
+    });
+    const [approvedBy, setApprovedBy] = useState(() => match?.teamSheetApprovedBy || match?.commissioner || 'Match Commissioner');
+    const [approvedAt, setApprovedAt] = useState(() => match?.teamSheetApprovedAt || null);
+
+    useEffect(() => {
+        if (match) {
+            setIsApproved(!!match.teamSheetApproved || !!match.commissionerApproved || !!match.verifiedLineups);
+            if (match.teamSheetApprovedBy) setApprovedBy(match.teamSheetApprovedBy);
+            if (match.teamSheetApprovedAt) setApprovedAt(match.teamSheetApprovedAt);
+        }
+    }, [match]);
+
+    const handleToggleApprove = () => {
+        const nextApproved = !isApproved;
+        const nowIso = new Date().toISOString();
+        const signer = match?.commissioner || (userRole === 'referee' ? 'Match Referee' : 'Match Commissioner');
+        setIsApproved(nextApproved);
+        setApprovedAt(nextApproved ? nowIso : null);
+        setApprovedBy(nextApproved ? signer : '');
+
+        if (onUpdateMatch && match) {
+            const updatedMatch = {
+                ...match,
+                teamSheetApproved: nextApproved,
+                teamSheetApprovedBy: nextApproved ? signer : null,
+                teamSheetApprovedAt: nextApproved ? nowIso : null,
+                commissionerApproved: nextApproved
+            };
+            onUpdateMatch(updatedMatch);
+        }
+    };
 
     // Pre-match operations standard FIFA/Concacaf protocol timeline
     const protocolTimeline = [
@@ -252,6 +286,32 @@ export default function CountdownSheetModal({
                             ⏱️ {timeRemaining}
                         </div>
 
+                        {/* Match Operator Approve Lineups Button */}
+                        {(userRole === 'commissioner' || userRole === 'referee' || userRole === 'admin') && (
+                            <button
+                                type="button"
+                                onClick={handleToggleApprove}
+                                title={isApproved ? 'Click to revoke approval' : 'Click to officially approve team sheet lineups'}
+                                style={{
+                                    padding: '7px 14px',
+                                    borderRadius: '8px',
+                                    background: isApproved ? 'rgba(34,197,94,0.2)' : '#10b981',
+                                    border: isApproved ? '1px solid #22c55e' : 'none',
+                                    color: isApproved ? '#4ade80' : '#ffffff',
+                                    fontSize: '12px',
+                                    fontWeight: '800',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: isApproved ? 'none' : '0 2px 10px rgba(16,185,129,0.4)',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {isApproved ? '✓ Lineups Approved' : '✓ Approve Team Sheet'}
+                            </button>
+                        )}
+
                         {/* Authorized Correction Button */}
                         {(userRole === 'commissioner' || userRole === 'referee' || userRole === 'admin') && (
                             <button
@@ -373,21 +433,70 @@ export default function CountdownSheetModal({
                             borderLeft: '2px solid rgba(255, 199, 38, 0.4)',
                             paddingLeft: '16px'
                         }}>
-                            <div style={{
-                                padding: '4px 10px',
-                                borderRadius: '6px',
-                                background: '#dcfce7',
-                                border: '1px solid #86efac',
-                                color: '#166534',
-                                fontSize: '11px',
-                                fontWeight: '800',
-                                display: 'inline-block'
-                            }}>
-                                ✓ COMMISSIONER APPROVED
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#e2e8f0', marginTop: '4px' }}>
-                                Generated: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </div>
+                            {isApproved ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                    <div style={{
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        background: '#dcfce7',
+                                        border: '1px solid #86efac',
+                                        color: '#166534',
+                                        fontSize: '11px',
+                                        fontWeight: '800',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}>
+                                        ✓ COMMISSIONER APPROVED
+                                    </div>
+                                    <div style={{ fontSize: '10.5px', color: '#e2e8f0', marginTop: '3px' }}>
+                                        Verified by <strong>{approvedBy || match.commissioner || 'Match Commissioner'}</strong>
+                                    </div>
+                                    <div style={{ fontSize: '9.5px', color: '#cbd5e1' }}>
+                                        {approvedAt 
+                                            ? `${new Date(approvedAt).toLocaleDateString()} ${new Date(approvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                            : `Generated: ${new Date().toLocaleDateString()}`}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                    <div style={{
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        background: '#fef3c7',
+                                        border: '1px solid #fde68a',
+                                        color: '#92400e',
+                                        fontSize: '11px',
+                                        fontWeight: '800',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}>
+                                        ⏳ PENDING APPROVAL
+                                    </div>
+                                    {(userRole === 'commissioner' || userRole === 'admin' || userRole === 'referee') && (
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleApprove}
+                                            className="no-print"
+                                            style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                background: '#10b981',
+                                                border: 'none',
+                                                color: '#ffffff',
+                                                fontSize: '11px',
+                                                fontWeight: '800',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
+                                                marginTop: '2px'
+                                            }}
+                                        >
+                                            ✓ Click to Approve
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -712,9 +821,53 @@ export default function CountdownSheetModal({
                         color: '#000000'
                     }}>
                         <div>
-                            <div>Match Commissioner Sign-Off:</div>
-                            <div style={{ borderBottom: '1px solid #000000', height: '24px', marginTop: '12px' }}></div>
-                            <div style={{ marginTop: '4px', fontWeight: '700', color: '#000000' }}>{match.commissioner || 'Sarah Rollins'}</div>
+                            <div style={{ fontWeight: '600' }}>Match Commissioner Sign-Off:</div>
+                            {isApproved ? (
+                                <div style={{
+                                    borderBottom: '1px solid #166534',
+                                    height: '24px',
+                                    marginTop: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    color: '#166534',
+                                    fontSize: '11px',
+                                    fontWeight: '800'
+                                }}>
+                                    ✓ VERIFIED & APPROVED {approvedAt ? `(${new Date(approvedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : ''}
+                                </div>
+                            ) : (
+                                <div style={{
+                                    borderBottom: '1px dashed #94a3b8',
+                                    height: '24px',
+                                    marginTop: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <span style={{ color: '#94a3b8', fontSize: '10px', fontStyle: 'italic' }}>Pending Signature</span>
+                                    {(userRole === 'commissioner' || userRole === 'admin' || userRole === 'referee') && (
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleApprove}
+                                            className="no-print"
+                                            style={{
+                                                background: '#10b981',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                padding: '2px 8px',
+                                                fontSize: '10px',
+                                                fontWeight: '800',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            ✍️ Sign & Approve
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                            <div style={{ marginTop: '4px', fontWeight: '700', color: '#000000' }}>{approvedBy || match.commissioner || 'Sarah Rollins'}</div>
                         </div>
                         <div>
                             <div>Referee Sign-Off:</div>
