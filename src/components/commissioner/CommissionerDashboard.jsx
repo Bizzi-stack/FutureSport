@@ -201,7 +201,7 @@ export default function CommissionerDashboard({
 
         if (onUpdateMatch) onUpdateMatch(updatedMatch);
 
-        setOpSuccessToast(`✓ Approved Warm-Up Injury Switch: #${amendment.playerOnJersey} ${amendment.playerOnName} promoted to Starting XI for injured #${amendment.playerOffJersey} ${amendment.playerOffName}. 0 match substitutions registered.`);
+        setOpSuccessToast(`Approved Warm-Up Injury Switch: #${amendment.playerOnJersey} ${amendment.playerOnName} promoted to Starting XI for injured #${amendment.playerOffJersey} ${amendment.playerOffName}. 0 match substitutions registered.`);
         setTimeout(() => setOpSuccessToast(null), 5000);
     };
 
@@ -225,7 +225,7 @@ export default function CommissionerDashboard({
             });
         }
 
-        setOpSuccessToast(`✕ Declined warm-up amendment for ${amendment?.teamName || 'Team'}`);
+        setOpSuccessToast(`Declined warm-up amendment for ${amendment?.teamName || 'Team'}`);
         setTimeout(() => setOpSuccessToast(null), 4000);
     };
 
@@ -307,7 +307,7 @@ export default function CommissionerDashboard({
 
         if (onUpdateMatch) onUpdateMatch(updatedMatch);
 
-        setOpSuccessToast(`✓ Confirmed In-Match Substitution at ${minuteVal}': ${onName} ON for ${offName} OFF`);
+        setOpSuccessToast(`Confirmed In-Match Substitution at ${minuteVal}': ${onName} ON for ${offName} OFF`);
         setTimeout(() => setOpSuccessToast(null), 5000);
     };
 
@@ -316,9 +316,9 @@ export default function CommissionerDashboard({
             r.id === reqId 
                 ? { 
                     ...r, 
-                    status: 'rejected',
-                    rejectedAt: new Date().toISOString(),
-                    rejectedBy: isPMC ? 'Match Coordinator' : 'Match Commissioner'
+                    status: 'rejected', 
+                    rejectedAt: new Date().toISOString(), 
+                    rejectedBy: isPMC ? 'Match Coordinator' : 'Match Commissioner' 
                   } 
                 : r
         );
@@ -330,7 +330,7 @@ export default function CommissionerDashboard({
             });
         }
 
-        setOpSuccessToast(`✕ Declined substitution request.`);
+        setOpSuccessToast(`Declined substitution request.`);
         setTimeout(() => setOpSuccessToast(null), 4000);
     };
 
@@ -533,9 +533,12 @@ export default function CommissionerDashboard({
                         width: '42px', height: '42px', borderRadius: '10px',
                         background: isPMC ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)', color: '#ffffff'
                     }}>
-                        {isPMC ? '📋' : '⚖️'}
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                        </svg>
                     </div>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -629,7 +632,7 @@ export default function CommissionerDashboard({
                         display: 'flex', alignItems: 'center', gap: '8px'
                     }}
                 >
-                    <span>⚡ Touchline Subs &amp; Operations</span>
+                    <span>Touchline Subs &amp; Operations</span>
                     {totalPendingOps > 0 && (
                         <span style={{
                             background: '#ef4444', color: '#ffffff',
@@ -651,7 +654,7 @@ export default function CommissionerDashboard({
                         display: 'flex', alignItems: 'center', gap: '8px'
                     }}
                 >
-                    <span>📋 {isPMC ? 'Match Verification & Sign-Off' : 'Match Approvals & Verification'}</span>
+                    <span>{isPMC ? 'Match Verification & Sign-Off' : 'Match Approvals & Verification'}</span>
                     {pendingApprovalMatches.length > 0 && (
                         <span style={{
                             background: 'var(--primary)', color: '#ffffff',
@@ -687,7 +690,7 @@ export default function CommissionerDashboard({
                         cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    {isPMC ? '🏆 PMC Standings' : 'League Standings'}
+                    {isPMC ? 'PMC Standings' : 'League Standings'}
                 </button>
 
                 {!isPMC && (
@@ -719,7 +722,7 @@ export default function CommissionerDashboard({
                         display: 'flex', alignItems: 'center', gap: '6px'
                     }}
                 >
-                    📋 Match Countdown Sheet
+                    Match Countdown Sheet
                 </button>
             </div>
 
@@ -852,7 +855,7 @@ export default function CommissionerDashboard({
                                                     padding: '2px 8px',
                                                     borderRadius: '10px'
                                                 }}>
-                                                    🏁 FT (Awaiting Sign-off)
+                                                    FT (Awaiting Sign-off)
                                                 </span>
                                             ) : isApproved ? (
                                                 <span style={{
@@ -864,7 +867,7 @@ export default function CommissionerDashboard({
                                                     padding: '2px 8px',
                                                     borderRadius: '10px'
                                                 }}>
-                                                    ✓ Certified
+                                                    Certified
                                                 </span>
                                             ) : (
                                                 <span style={{
@@ -879,7 +882,6 @@ export default function CommissionerDashboard({
                                                     alignItems: 'center',
                                                     gap: '4px'
                                                 }}>
-                                                    <span>🕒</span>
                                                     <span>{m.time || '19:00'}</span>
                                                 </span>
                                             )}
@@ -949,7 +951,6 @@ export default function CommissionerDashboard({
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis'
                                             }}>
-                                                <span>📍</span>
                                                 <span>{m.venue || 'Friendship, St. Michael'}</span>
                                             </span>
 
@@ -967,8 +968,7 @@ export default function CommissionerDashboard({
                                                     gap: '4px',
                                                     flexShrink: 0
                                                 }}>
-                                                    <span>⚡</span>
-                                                    <span>Action Req ({ (hasPendingSub ? 1 : 0) + (hasPendingWarmup ? 1 : 0) })</span>
+                                                    <span>Action Required ({ (hasPendingSub ? 1 : 0) + (hasPendingWarmup ? 1 : 0) })</span>
                                                 </span>
                                             ) : isSelected ? (
                                                 <span style={{
@@ -1007,7 +1007,7 @@ export default function CommissionerDashboard({
                                         {activeMatch.ageGroup === 'PMC' ? "Prime Minister's Cup 2026" : `${activeMatch.ageGroup || 'NSSL'} Division`}
                                     </span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                        📍 {activeMatch.venue || 'Friendship, St. Michael'} · {activeMatch.date || 'Mon 07 Sep 2026'}
+                                        {activeMatch.venue || 'Friendship, St. Michael'} · {activeMatch.date || 'Mon 07 Sep 2026'}
                                     </span>
                                 </div>
 
@@ -1055,7 +1055,7 @@ export default function CommissionerDashboard({
                                         {activeMatch.status === 'live' && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />}
                                         {activeMatch.status === 'live' 
                                             ? `LIVE ${activeMatch.currentHalf || '1H'} ${activeMatch.matchTime || (activeMatch.matchClock ? activeMatch.matchClock + "'" : '')}`
-                                            : (activeMatch.status === 'refereed' ? '🏁 FULL TIME (Awaiting Coordinator Sign-off)' : (activeMatch.status === 'approved' ? '✅ RESULT APPROVED' : `📅 SCHEDULED ${activeMatch.time || '19:00'}`))
+                                            : (activeMatch.status === 'refereed' ? 'FULL TIME (Awaiting Coordinator Sign-off)' : (activeMatch.status === 'approved' ? 'RESULT APPROVED' : `SCHEDULED ${activeMatch.time || '19:00'}`))
                                         }
                                     </div>
                                 </div>
@@ -1119,9 +1119,14 @@ export default function CommissionerDashboard({
                                     <div style={{
                                         width: '38px', height: '38px', borderRadius: '8px',
                                         background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: '18px', color: '#ffffff'
+                                        color: '#ffffff'
                                     }}>
-                                        ⚡
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="17 1 21 5 17 9" />
+                                            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                                            <polyline points="7 23 3 19 7 15" />
+                                            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                                        </svg>
                                     </div>
                                     <div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1131,9 +1136,9 @@ export default function CommissionerDashboard({
                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>· {teamName}</span>
                                         </div>
                                         <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff', marginTop: '2px' }}>
-                                            <span style={{ color: '#4ade80' }}>🟢 IN: {onJersey}{onName}</span>
+                                            <span style={{ color: '#4ade80' }}>IN: {onJersey}{onName}</span>
                                             <span style={{ margin: '0 8px', color: 'rgba(255,255,255,0.4)' }}>⇄</span>
-                                            <span style={{ color: '#f87171' }}>🔴 OUT: {offJersey}{offName}</span>
+                                            <span style={{ color: '#f87171' }}>OUT: {offJersey}{offName}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1162,7 +1167,7 @@ export default function CommissionerDashboard({
                                             boxShadow: '0 4px 12px rgba(34, 197, 94, 0.35)', transition: 'all 0.15s'
                                         }}
                                     >
-                                        ✓ Approve &amp; Swap Lineup
+                                        Approve &amp; Swap Lineup
                                     </button>
                                     <button
                                         type="button"
@@ -1174,7 +1179,7 @@ export default function CommissionerDashboard({
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        ✕ Decline
+                                        Decline
                                     </button>
                                 </div>
                             </div>
@@ -1191,7 +1196,7 @@ export default function CommissionerDashboard({
                         }}>
                             <div>
                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#fbbf24', textTransform: 'uppercase' }}>
-                                    🚨 Pre-Match Warm-Up Injury Amendment
+                                    Pre-Match Warm-Up Injury Amendment
                                 </span>
                                 <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#ffffff', marginTop: '2px' }}>
                                     {amendment.teamName || getSchoolName(amendment.teamId, activeMatch)}: #{amendment.playerOnJersey} {amendment.playerOnName} promoted to Starting XI for injured #{amendment.playerOffJersey} {amendment.playerOffName}
@@ -1212,7 +1217,7 @@ export default function CommissionerDashboard({
                                         border: 'none', fontSize: '12px', fontWeight: '800', cursor: 'pointer'
                                     }}
                                 >
-                                    ✓ Authorize Starter Switch
+                                    Authorize Starter Switch
                                 </button>
                                 <button
                                     type="button"
@@ -1224,7 +1229,7 @@ export default function CommissionerDashboard({
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    ✕ Decline
+                                    Decline
                                 </button>
                             </div>
                         </div>
@@ -1240,7 +1245,7 @@ export default function CommissionerDashboard({
                         }}>
                             <div>
                                 <span style={{ fontSize: '11px', fontWeight: '800', color: '#a5b4fc', textTransform: 'uppercase' }}>
-                                    🏁 Official Match Sign-Off Required
+                                    Official Match Sign-Off Required
                                 </span>
                                 <div style={{ fontSize: '13.5px', fontWeight: '700', color: '#ffffff', marginTop: '2px' }}>
                                     The Referee has concluded this fixture ({activeMatch.homeScore} - {activeMatch.awayScore}). Review match statistics, incidents, and sign off on the official match report.
@@ -1294,10 +1299,10 @@ export default function CommissionerDashboard({
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                     {[
                                         { id: 'all', label: 'All Events' },
-                                        { id: 'goal_shot', label: '⚽ Goals & Shots' },
-                                        { id: 'card_foul', label: '🟨 Cards & Fouls' },
-                                        { id: 'sub', label: '🔄 Substitutions' },
-                                        { id: 'setpiece', label: '🚩 Set Pieces' }
+                                        { id: 'goal_shot', label: 'Goals & Shots' },
+                                        { id: 'card_foul', label: 'Cards & Fouls' },
+                                        { id: 'sub', label: 'Substitutions' },
+                                        { id: 'setpiece', label: 'Set Pieces' }
                                     ].map(cat => (
                                         <button
                                             key={cat.id}
@@ -1341,7 +1346,7 @@ export default function CommissionerDashboard({
                                                 border: '1px solid rgba(34, 197, 94, 0.3)', cursor: 'pointer'
                                             }}
                                         >
-                                            🟢 Home
+                                            Home
                                         </button>
                                         <button
                                             type="button"
@@ -1353,7 +1358,7 @@ export default function CommissionerDashboard({
                                                 border: '1px solid rgba(99, 102, 241, 0.3)', cursor: 'pointer'
                                             }}
                                         >
-                                            🔵 Away
+                                            Away
                                         </button>
                                     </div>
 
@@ -1366,7 +1371,7 @@ export default function CommissionerDashboard({
                                             border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer'
                                         }}
                                     >
-                                        {timelineSortOrder === 'newest' ? '⬇️ Newest First' : '⬆️ 1\' ➔ 90\''}
+                                        {timelineSortOrder === 'newest' ? 'Newest First' : '1\' - 90\''}
                                     </button>
                                 </div>
                             </div>
@@ -1414,7 +1419,11 @@ export default function CommissionerDashboard({
                                             border: '1px dashed rgba(255,255,255,0.08)',
                                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
                                         }}>
-                                            <span style={{ fontSize: '24px' }}>📡</span>
+                                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                                                <path d="M4.93 19.07A10 10 0 0 1 19.07 4.93" />
+                                                <path d="M7.76 16.24a6 6 0 0 1 8.48-8.48" />
+                                                <circle cx="12" cy="12" r="2" />
+                                            </svg>
                                             <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600' }}>
                                                 {allEvents.length === 0 
                                                     ? 'Waiting for pitch-side data capturer to log match events...'
@@ -1440,69 +1449,95 @@ export default function CommissionerDashboard({
                                                 : (activeMatch.awayTeam || getSchoolName(activeMatch.awayTeamId, activeMatch));
                                             
                                             // Event styling & configuration
-                                            let icon = '⚡';
+                                            let iconNode = (
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                            );
                                             let badgeTitle = 'Play Event';
                                             let accentClr = '#6366f1';
                                             let bgTint = 'rgba(99, 102, 241, 0.06)';
                                             const type = String(ev.type || '').toLowerCase();
 
                                             if (type === 'goal') {
-                                                icon = '⚽';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                                                );
                                                 badgeTitle = ev.goalType === 'own-goal' ? 'Own Goal' : (ev.goalType === 'penalty' ? 'Penalty Goal' : 'Goal Scored');
                                                 accentClr = '#22c55e';
                                                 bgTint = 'rgba(34, 197, 94, 0.08)';
                                             } else if (type === 'shotontarget') {
-                                                icon = '🎯';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                                );
                                                 badgeTitle = 'Shot on Target';
                                                 accentClr = '#14b8a6';
                                                 bgTint = 'rgba(20, 184, 166, 0.06)';
                                             } else if (type === 'shotmissed') {
-                                                icon = '❌';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                );
                                                 badgeTitle = 'Shot Off-Target';
                                                 accentClr = '#64748b';
                                                 bgTint = 'rgba(100, 116, 139, 0.06)';
                                             } else if (type === 'gksave') {
-                                                icon = '🧤';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                );
                                                 badgeTitle = 'Goalkeeper Save';
                                                 accentClr = '#06b6d4';
                                                 bgTint = 'rgba(6, 182, 212, 0.06)';
                                             } else if (type === 'yellowcard') {
-                                                icon = '🟨';
+                                                iconNode = (
+                                                    <span style={{ display: 'inline-block', width: '12px', height: '16px', borderRadius: '2px', background: '#f59e0b', boxShadow: '0 1px 4px rgba(245,158,11,0.4)' }} />
+                                                );
                                                 badgeTitle = 'Yellow Card Caution';
                                                 accentClr = '#f59e0b';
                                                 bgTint = 'rgba(245, 158, 11, 0.08)';
                                             } else if (type === 'redcard') {
-                                                icon = '🟥';
+                                                iconNode = (
+                                                    <span style={{ display: 'inline-block', width: '12px', height: '16px', borderRadius: '2px', background: '#ef4444', boxShadow: '0 1px 4px rgba(239,68,68,0.4)' }} />
+                                                );
                                                 badgeTitle = 'Red Card Send-Off';
                                                 accentClr = '#ef4444';
                                                 bgTint = 'rgba(239, 68, 68, 0.1)';
                                             } else if (type.includes('sub')) {
-                                                icon = '🔄';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                                                );
                                                 badgeTitle = 'Substitution Approved & Executed';
                                                 accentClr = '#a855f7';
                                                 bgTint = 'rgba(168, 85, 247, 0.08)';
                                             } else if (type === 'foul') {
-                                                icon = '🛑';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                                );
                                                 badgeTitle = 'Foul Committed';
                                                 accentClr = '#ea580c';
                                                 bgTint = 'rgba(234, 88, 12, 0.06)';
                                             } else if (type === 'corner') {
-                                                icon = '🚩';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                                                );
                                                 badgeTitle = 'Corner Kick';
                                                 accentClr = '#3b82f6';
                                                 bgTint = 'rgba(59, 130, 246, 0.06)';
                                             } else if (type === 'penalty') {
-                                                icon = '🎯';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                                                );
                                                 badgeTitle = 'Penalty Kick Awarded';
                                                 accentClr = '#8b5cf6';
                                                 bgTint = 'rgba(139, 92, 246, 0.08)';
                                             } else if (type === 'offside') {
-                                                icon = '🚩';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                                                );
                                                 badgeTitle = 'Offside Call';
                                                 accentClr = '#64748b';
                                                 bgTint = 'rgba(100, 116, 139, 0.06)';
                                             } else if (type === 'possession') {
-                                                icon = '⏱️';
+                                                iconNode = (
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isHome ? '#22c55e' : '#6366f1'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                                );
                                                 badgeTitle = 'Possession Shift';
                                                 accentClr = isHome ? '#22c55e' : '#6366f1';
                                                 bgTint = 'rgba(255, 255, 255, 0.02)';
@@ -1541,8 +1576,8 @@ export default function CommissionerDashboard({
                                                         }}>
                                                             {minDisplay}
                                                         </div>
-                                                        <div style={{ fontSize: '18px' }}>
-                                                            {icon}
+                                                        <div style={{ fontSize: '18px', display: 'flex', alignItems: 'center' }}>
+                                                            {iconNode}
                                                         </div>
                                                         <div>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1558,7 +1593,7 @@ export default function CommissionerDashboard({
                                                             <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
                                                                 {type.includes('sub') ? (
                                                                     <span>
-                                                                        <strong style={{ color: '#4ade80' }}>🟢 {onPlayerName || 'Player On'}</strong> for <strong style={{ color: '#f87171' }}>🔴 {offPlayerName || 'Player Off'}</strong>
+                                                                        <strong style={{ color: '#4ade80' }}>IN: {onPlayerName || 'Player On'}</strong> for <strong style={{ color: '#f87171' }}>OUT: {offPlayerName || 'Player Off'}</strong>
                                                                     </span>
                                                                 ) : type === 'goal' ? (
                                                                     <span>
@@ -1613,7 +1648,7 @@ export default function CommissionerDashboard({
                                     padding: '10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)',
                                     border: '1px solid rgba(16, 185, 129, 0.25)', color: 'var(--success)', fontSize: '12px', fontWeight: '600', textAlign: 'center'
                                 }}>
-                                    ✓ Match approved! Standings updated.
+                                    Match approved! Standings updated.
                                 </div>
                             )}
 
@@ -1652,8 +1687,8 @@ export default function CommissionerDashboard({
                                                 <span style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{awayName}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px' }}>
-                                                <span>📍 {m.venue || 'Friendship, St. Michael'}</span>
-                                                <span style={{ color: '#fbbf24', fontWeight: '700' }}>🏁 Awaiting Review</span>
+                                                <span>{m.venue || 'Friendship, St. Michael'}</span>
+                                                <span style={{ color: '#fbbf24', fontWeight: '700' }}>Awaiting Review</span>
                                             </div>
                                         </div>
                                     );
@@ -1821,7 +1856,7 @@ export default function CommissionerDashboard({
                                             border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: '800', fontSize: '13px',
                                             display: 'flex', alignItems: 'center', gap: '6px'
                                         }}>
-                                            👁️ Read-Only Mode (Match Certification Restricted)
+                                            Read-Only Mode (Match Certification Restricted)
                                         </span>
                                     ) : (
                                         <button
@@ -1855,7 +1890,7 @@ export default function CommissionerDashboard({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span>⚡ Matchday Operations &amp; Touchline Desk</span>
+                                <span>Matchday Operations &amp; Touchline Desk</span>
                                 {totalPendingOps > 0 && (
                                     <span style={{ fontSize: '12px', background: 'rgba(239,68,68,0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '12px', padding: '2px 10px', fontWeight: '800' }}>
                                         {totalPendingOps} Action{totalPendingOps > 1 ? 's' : ''} Pending
@@ -1878,7 +1913,7 @@ export default function CommissionerDashboard({
                             boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
                         }}>
                             <span>{opSuccessToast}</span>
-                            <button onClick={() => setOpSuccessToast(null)} style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                            <button onClick={() => setOpSuccessToast(null)} style={{ background: 'none', border: 'none', color: '#ffffff', cursor: 'pointer', fontWeight: 'bold' }}>&times;</button>
                         </div>
                     )}
 
@@ -1890,7 +1925,7 @@ export default function CommissionerDashboard({
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: 'var(--border)', paddingBottom: '14px' }}>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>🚨</span> Pre-Match Warm-Up Injury Switch
+                                        Pre-Match Warm-Up Injury Switch
                                     </h3>
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                         Emergency starter replacement prior to kickoff (0 match substitutions charged)
@@ -1914,7 +1949,7 @@ export default function CommissionerDashboard({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                 {pendingWarmupAmendments.length === 0 ? (
                                     <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
-                                        ✓ No pending warm-up injury amendments. All starting lineups are proceeding as submitted.
+                                        No pending warm-up injury amendments. All starting lineups are proceeding as submitted.
                                     </div>
                                 ) : (
                                     pendingWarmupAmendments.map(item => (
@@ -1930,7 +1965,7 @@ export default function CommissionerDashboard({
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
                                                 <span style={{ fontWeight: '800', color: 'var(--primary-light)' }}>
-                                                    🏟️ {item.match?.venue || 'Venue'} • {item.match?.matchday || 'Matchday'}
+                                                    {item.match?.venue || 'Venue'} • {item.match?.matchday || 'Matchday'}
                                                 </span>
                                                 <span>Requested: {new Date(item.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
@@ -1948,7 +1983,7 @@ export default function CommissionerDashboard({
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
                                                 }}>
                                                     <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase' }}>
-                                                        ↓ Injured Starter
+                                                        Injured Starter
                                                     </span>
                                                     <JerseyIcon number={item.playerOffJersey || '—'} color="#ef4444" size={34} />
                                                     <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
@@ -1968,7 +2003,7 @@ export default function CommissionerDashboard({
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
                                                 }}>
                                                     <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase' }}>
-                                                        ↑ Promoted to XI
+                                                        Promoted to XI
                                                     </span>
                                                     <JerseyIcon number={item.playerOnJersey || '—'} color="#22c55e" size={34} />
                                                     <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
@@ -1995,7 +2030,7 @@ export default function CommissionerDashboard({
                                                         border: '1px solid var(--border)', cursor: readOnly ? 'not-allowed' : 'pointer'
                                                     }}
                                                 >
-                                                    ✕ Decline
+                                                    Decline
                                                 </button>
                                                 <button
                                                     type="button"
@@ -2008,7 +2043,7 @@ export default function CommissionerDashboard({
                                                         boxShadow: '0 4px 12px rgba(34, 197, 94, 0.35)'
                                                     }}
                                                 >
-                                                    ✓ Approve Warm-Up Change
+                                                    Approve Warm-Up Change
                                                 </button>
                                             </div>
                                         </div>
@@ -2026,7 +2061,7 @@ export default function CommissionerDashboard({
                                         <div key={h.id} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
                                             <span>{h.teamName}: #{h.playerOnJersey} {h.playerOnName} for #{h.playerOffJersey} {h.playerOffName}</span>
                                             <span style={{ color: h.status === 'approved' ? '#4ade80' : '#f87171', fontWeight: '700' }}>
-                                                {h.status === 'approved' ? '✓ Approved' : '✕ Rejected'}
+                                                {h.status === 'approved' ? 'Approved' : 'Rejected'}
                                             </span>
                                         </div>
                                     ))}
@@ -2039,7 +2074,7 @@ export default function CommissionerDashboard({
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: 'var(--border)', paddingBottom: '14px' }}>
                                 <div>
                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>📋</span> In-Match Substitution Control Desk
+                                        In-Match Substitution Control Desk
                                     </h3>
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                         Live touchline substitution requests submitted from Coach / 4th Official devices
@@ -2063,7 +2098,7 @@ export default function CommissionerDashboard({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                 {pendingSubstitutions.length === 0 ? (
                                     <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12.5px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '12px' }}>
-                                        ✓ No live substitution requests awaiting official confirmation.
+                                        No live substitution requests awaiting official confirmation.
                                     </div>
                                 ) : (
                                     pendingSubstitutions.map(item => {
@@ -2086,7 +2121,7 @@ export default function CommissionerDashboard({
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
                                                     <span style={{ fontWeight: '800', color: '#60a5fa' }}>
-                                                        ⏱️ Match Status: {item.match?.status === 'live' ? 'LIVE' : 'Scheduled / In-Progress'}
+                                                        Match Status: {item.match?.status === 'live' ? 'LIVE' : 'Scheduled / In-Progress'}
                                                     </span>
                                                     <span>{new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </div>
@@ -2103,7 +2138,7 @@ export default function CommissionerDashboard({
                                                         display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
                                                     }}>
                                                         <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase' }}>
-                                                            ↓ COMING OFF
+                                                            COMING OFF
                                                         </span>
                                                         <JerseyIcon number={offPlayer?.jerseyNumber != null ? offPlayer.jerseyNumber : '—'} color="#ef4444" size={34} />
                                                         <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
@@ -2122,7 +2157,7 @@ export default function CommissionerDashboard({
                                                         display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px'
                                                     }}>
                                                         <span style={{ fontSize: '9.5px', fontWeight: '900', color: '#4ade80', textTransform: 'uppercase' }}>
-                                                            ↑ COMING ON
+                                                            COMING ON
                                                         </span>
                                                         <JerseyIcon number={onPlayer?.jerseyNumber != null ? onPlayer.jerseyNumber : '—'} color="#22c55e" size={34} />
                                                         <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff' }}>
@@ -2163,7 +2198,7 @@ export default function CommissionerDashboard({
                                                             border: '1px solid var(--border)', cursor: readOnly ? 'not-allowed' : 'pointer'
                                                         }}
                                                     >
-                                                        ✕ Decline
+                                                        Decline
                                                     </button>
                                                     <button
                                                         type="button"
@@ -2176,7 +2211,7 @@ export default function CommissionerDashboard({
                                                             boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)'
                                                         }}
                                                     >
-                                                        ✓ Confirm &amp; Apply Substitution
+                                                        Confirm &amp; Apply Substitution
                                                     </button>
                                                 </div>
                                             </div>
@@ -2195,7 +2230,7 @@ export default function CommissionerDashboard({
                                         <div key={h.id} style={{ padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
                                             <span>{h.minute}' • {getSchoolName(h.teamId, h.match)} ({resolvePlayerName(h.playerOn, allStudents)} for {resolvePlayerName(h.playerOff, allStudents)})</span>
                                             <span style={{ color: h.status === 'approved' ? '#4ade80' : '#f87171', fontWeight: '700' }}>
-                                                {h.status === 'approved' ? '✓ Authorized' : '✕ Rejected'}
+                                                {h.status === 'approved' ? 'Authorized' : 'Rejected'}
                                             </span>
                                         </div>
                                     ))}
@@ -2286,7 +2321,7 @@ export default function CommissionerDashboard({
                                         padding: '10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)',
                                         border: '1px solid rgba(16, 185, 129, 0.25)', color: 'var(--success)', fontSize: '12px', fontWeight: '600', textAlign: 'center'
                                     }}>
-                                        ✓ Fixtures successfully generated and scheduled!
+                                        Fixtures successfully generated and scheduled!
                                     </div>
                                 )}
 
@@ -2296,7 +2331,7 @@ export default function CommissionerDashboard({
                                         border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '12px',
                                         fontWeight: '700', textAlign: 'center', marginTop: '8px'
                                     }}>
-                                        👁️ Observer Mode (Fixture Generation Restricted)
+                                        Observer Mode (Fixture Generation Restricted)
                                     </div>
                                 ) : (
                                     <button
@@ -2432,7 +2467,7 @@ export default function CommissionerDashboard({
                                         padding: '10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)',
                                         border: '1px solid rgba(16, 185, 129, 0.25)', color: 'var(--success)', fontSize: '12px', fontWeight: '600', textAlign: 'center'
                                     }}>
-                                        ✓ Match successfully scheduled!
+                                        Match successfully scheduled!
                                     </div>
                                 )}
 
@@ -2442,7 +2477,7 @@ export default function CommissionerDashboard({
                                         border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '12px',
                                         fontWeight: '700', textAlign: 'center', marginTop: '8px'
                                     }}>
-                                        👁️ Observer Mode (Match Scheduling Restricted)
+                                        Observer Mode (Match Scheduling Restricted)
                                     </div>
                                 ) : (
                                     <button
@@ -2480,7 +2515,7 @@ export default function CommissionerDashboard({
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--primary-light)', fontWeight: '700' }}>
                                             <span>{m.ageGroup} Division ({m.matchday})</span>
-                                            <span>🏟️ {m.venue}</span>
+                                            <span>{m.venue}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
                                             <span>{getSchoolName(m.homeTeamId).split(' ')[0]}</span>
