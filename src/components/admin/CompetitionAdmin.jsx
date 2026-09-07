@@ -17,7 +17,7 @@ const DEFAULT_VENUES = [
 
 const DEFAULT_OFFICIALS = [
     { id: 'off1', name: 'Michael Beckles', role: 'Referee' },
-    { id: 'off2', name: 'Sarah Rollins', role: 'Match Commissioner' },
+    { id: 'off2', name: 'Wren', role: 'Match Commissioner' },
     { id: 'off3', name: 'Dave Yearwood', role: 'Referee' },
     { id: 'off4', name: 'Karen Thorne', role: 'Match Commissioner' },
     { id: 'off5', name: 'Adrian Hunte', role: 'Referee' },

@@ -63,7 +63,17 @@ async function runMultiRoleSyncTests() {
     assert(!usernames.includes('analyst.marcus'), 'Marcus Thorne must be purged');
     assert(!usernames.includes('analyst.devon'), 'Devon Clarke must be purged');
 
-    console.log('✓ PASS: All 9 accounts verified (Jonathan Master + Noah + 7 Scoped Guests). Deprecated accounts purged.\n');
+    // Verify Match Coordinator & Operator Desk accounts (Wren & Aundrea)
+    const { getOfficialsByRole } = await import('../src/data/matchOfficialAccounts.js');
+    const commissioners = getOfficialsByRole('commissioner');
+    const wren = commissioners.find(c => c.username === 'wren');
+    const aundrea = commissioners.find(c => c.username === 'aundrea');
+    assert(wren, 'Wren (Senior Match Coordinator) must exist');
+    assert(aundrea, 'Aundrea (Match Operator) must exist');
+    assert(wren.name.includes('Wren'), 'Wren name verified');
+    assert(aundrea.name.includes('Aundrea'), 'Aundrea name verified');
+
+    console.log('✓ PASS: All 9 accounts verified (Jonathan Master + Noah + 7 Scoped Guests) & Match Coordinator / Operator Desk verified (Wren & Aundrea). Deprecated accounts purged.\n');
 
     // ─────────────────────────────────────────────────────────────────
     // TEST 2: Role Scoping & Tile Permission Enforcer Logic

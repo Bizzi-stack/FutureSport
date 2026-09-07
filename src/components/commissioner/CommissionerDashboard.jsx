@@ -20,8 +20,8 @@ const DEFAULT_OFFICIALS = [
     { id: 'ref-3', name: 'Adrian Skeete', role: 'Referee' },
     { id: 'ref-4', name: 'Mark Forde', role: 'Referee' },
     { id: 'ref-5', name: 'Sherwin Johnson', role: 'Referee' },
-    { id: 'comm-1', name: 'Charles White', role: 'Commissioner' },
-    { id: 'comm-2', name: 'Harcourt Wason', role: 'Commissioner' }
+    { id: 'comm-1', name: 'Aundrea', role: 'Match Operator' },
+    { id: 'comm-2', name: 'Wren', role: 'Senior Match Coordinator' }
 ];
 
 export default function CommissionerDashboard({ 
@@ -1038,7 +1038,7 @@ export default function CommissionerDashboard({
                                         Referee: <strong style={{ color: '#ffffff' }}>{activeMatch.referee || 'Michael Beckles'}</strong>
                                     </span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                        Coordinator: <strong style={{ color: '#ffffff' }}>{activeMatch.commissioner || currentOfficial?.name || 'Sarah Rollins'}</strong>
+                                        Coordinator: <strong style={{ color: '#ffffff' }}>{activeMatch.commissioner || currentOfficial?.name || 'Wren'}</strong>
                                     </span>
                                 </div>
                             </div>

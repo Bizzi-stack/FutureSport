@@ -713,8 +713,8 @@ export default function MatchdayCountdownSheetModal({
                             <strong style={{ color: '#000000', fontSize: '12.5px' }}>{match.venue || 'Barbados National Stadium'}</strong>
                         </div>
                         <div>
-                            <span style={{ color: '#64748b', fontWeight: '600' }}>Match Commissioner:</span><br />
-                            <strong style={{ color: '#000000' }}>{match.commissioner || 'Sarah Rollins'}</strong>
+                            <span style={{ color: '#64748b', fontWeight: '600' }}>Match Coordinator:</span><br />
+                            <strong style={{ color: '#000000' }}>{match.commissioner || 'Wren'}</strong>
                         </div>
                         <div>
                             <span style={{ color: '#64748b', fontWeight: '600' }}>Referee:</span><br />
@@ -1080,9 +1080,9 @@ export default function MatchdayCountdownSheetModal({
                         color: '#000000'
                     }}>
                         <div>
-                            <div>Match Commissioner Sign-Off:</div>
+                            <div>Match Coordinator Sign-Off:</div>
                             <div style={{ borderBottom: '1px solid #000000', height: '24px', marginTop: '10px' }}></div>
-                            <div style={{ marginTop: '4px', fontWeight: '700' }}>{match.commissioner || 'Sarah Rollins'}</div>
+                            <div style={{ marginTop: '4px', fontWeight: '700' }}>{match.commissioner || 'Wren'}</div>
                         </div>
                         <div>
                             <div>Referee Sign-Off:</div>
