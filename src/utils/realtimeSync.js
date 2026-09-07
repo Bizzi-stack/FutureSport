@@ -51,7 +51,11 @@ function computeMatchesHash(matches) {
             subReqCount: m.substitutionRequests?.length || 0,
             lastSubStatus: m.substitutionRequests?.[m.substitutionRequests.length - 1]?.status,
             warmupCount: m.warmupAmendments?.length || 0,
-            lastWarmupStatus: m.warmupAmendments?.[m.warmupAmendments.length - 1]?.status
+            lastWarmupStatus: m.warmupAmendments?.[m.warmupAmendments.length - 1]?.status,
+            countdownLen: m.countdownProtocol?.length || 0,
+            countdownHash: (m.countdownProtocol || []).map(c => `${c.id}:${c.completed ? 1 : 0}:${c.timeBefore}:${c.action}:${c.location}`).join('|'),
+            teamSheetApproved: !!m.teamSheetApproved,
+            teamSheetApprovedBy: m.teamSheetApprovedBy || ''
         })));
     } catch {
         return '';
