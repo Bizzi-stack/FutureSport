@@ -13,8 +13,8 @@ const OFFICIALS = [
     { name: 'Adrian Skeete', role: 'Referee' },
     { name: 'Mark Forde', role: 'Referee' },
     { name: 'Sherwin Johnson', role: 'Referee' },
-    { name: 'Charles White', role: 'Commissioner' },
-    { name: 'Harcourt Wason', role: 'Commissioner' }
+    { name: 'Aundrea', role: 'Match Operator' },
+    { name: 'Wren', role: 'Match Coordinator' }
 ];
 
 export default function KnockoutBrackets({ matches, teams, schools, onAddMatches }) {

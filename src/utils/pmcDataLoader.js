@@ -250,8 +250,9 @@ export const PMC_MATCHES = [
         timeline: [],
         playerStats: {},
         substitutionRequests: [],
-        referee: 'TBA',
-        commissioner: 'TBA',
+        referee: 'Adrian Hunte',
+        commissioner: 'Wren',
+        operator: 'Aundrea',
         countdownProtocol: JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL))
     },
     {
@@ -286,8 +287,9 @@ export const PMC_MATCHES = [
         timeline: [],
         playerStats: {},
         substitutionRequests: [],
-        referee: 'TBA',
-        commissioner: 'TBA',
+        referee: 'Adrian Hunte',
+        commissioner: 'Wren',
+        operator: 'Aundrea',
         countdownProtocol: JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL))
     }
 ];

@@ -212,10 +212,10 @@ export const DEFAULT_OFFICIALS = {
     ],
     commissioner: [
         {
-            id: 'comm_sarah',
-            username: 'sarah.rollins',
-            name: 'Sarah Rollins (Senior Match Coordinator)',
-            email: 'coordinator@pmcup.bb',
+            id: 'comm_wren',
+            username: 'wren',
+            name: 'Wren (Senior Match Coordinator)',
+            email: 'wren@pmcup.bb',
             password: 'password',
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
@@ -223,10 +223,10 @@ export const DEFAULT_OFFICIALS = {
             avatar: 'MC'
         },
         {
-            id: 'comm_charles',
-            username: 'charles.white',
-            name: 'Charles White (Match Operator)',
-            email: 'operator@pmcup.bb',
+            id: 'comm_aundrea',
+            username: 'aundrea',
+            name: 'Aundrea (Match Operator)',
+            email: 'aundrea@pmcup.bb',
             password: 'password',
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
@@ -236,7 +236,7 @@ export const DEFAULT_OFFICIALS = {
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v3';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v4';
 
 export function getOfficialsByRole(role) {
     try {
@@ -244,7 +244,7 @@ export function getOfficialsByRole(role) {
         if (saved) {
             const parsed = JSON.parse(saved);
             const str = JSON.stringify(parsed);
-            if (!str.includes('guest.possession') || str.includes('analyst_marcus') || !str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb')) {
+            if (!str.includes('guest.possession') || str.includes('analyst_marcus') || !str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb') || str.includes('Sarah Rollins') || str.includes('Charles White') || !str.includes('Wren') || !str.includes('Aundrea')) {
                 localStorage.setItem(OFFICIALS_STORAGE_KEY, JSON.stringify(DEFAULT_OFFICIALS));
                 return DEFAULT_OFFICIALS[role] || [];
             }
@@ -276,6 +276,8 @@ export function findOfficial(role, identifier) {
         o.username?.toLowerCase() === clean || 
         (clean === 'jonathan' && o.username === 'johnathan') ||
         (clean === 'johnathan' && o.username === 'jonathan') ||
+        ((clean === 'sarah' || clean === 'sarah.rollins') && o.username === 'wren') ||
+        ((clean === 'charles' || clean === 'charles.white') && o.username === 'aundrea') ||
         o.email?.toLowerCase() === clean ||
         o.name?.toLowerCase() === clean ||
         o.name?.toLowerCase().includes(clean)

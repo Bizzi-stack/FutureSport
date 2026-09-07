@@ -557,8 +557,8 @@ export default function CountdownSheetModal({
                             </h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11.5px' }}>
                                 <div>
-                                    <span style={{ color: '#000000', fontWeight: '600' }}>Match Commissioner:</span><br />
-                                    <strong style={{ color: '#000000' }}>{match.commissioner || 'Sarah Rollins'}</strong>
+                                    <span style={{ color: '#000000', fontWeight: '600' }}>Match Coordinator:</span><br />
+                                    <strong style={{ color: '#000000' }}>{match.commissioner || 'Wren'}</strong>
                                 </div>
                                 <div>
                                     <span style={{ color: '#000000', fontWeight: '600' }}>Referee:</span><br />
@@ -877,7 +877,7 @@ export default function CountdownSheetModal({
                                     )}
                                 </div>
                             )}
-                            <div style={{ marginTop: '4px', fontWeight: '700', color: '#000000' }}>{approvedBy || match.commissioner || 'Sarah Rollins'}</div>
+                            <div style={{ marginTop: '4px', fontWeight: '700', color: '#000000' }}>{approvedBy || match.commissioner || 'Wren'}</div>
                         </div>
                         <div>
                             <div>Referee Sign-Off:</div>
