@@ -156,6 +156,66 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
 
 export const PMC_STUDENTS = allPmcStudents;
 
+// Standard BFA / Concacaf Pre-Match Operational Protocol Milestones
+export const DEFAULT_COUNTDOWN_PROTOCOL = [
+    {
+        id: 'cd-1',
+        timeBefore: 'T-90 min',
+        minutesBefore: 90,
+        action: 'Team arrival, pitch inspection, and music choice',
+        location: 'Stadium / Dressing Room',
+        completed: false
+    },
+    {
+        id: 'cd-2',
+        timeBefore: 'T-75 min',
+        minutesBefore: 75,
+        action: 'Submit official team sheet to referee / opponents',
+        location: 'Administration',
+        completed: false
+    },
+    {
+        id: 'cd-3',
+        timeBefore: 'T-60 min',
+        minutesBefore: 60,
+        action: 'Warm-up begins (dynamic stretching and activation)',
+        location: 'Pitch',
+        completed: false
+    },
+    {
+        id: 'cd-4',
+        timeBefore: 'T-30 min',
+        minutesBefore: 30,
+        action: 'Tactical review, final lineup reminder, and hydration',
+        location: 'Dressing Room',
+        completed: false
+    },
+    {
+        id: 'cd-5',
+        timeBefore: 'T-15 min',
+        minutesBefore: 15,
+        action: 'Team leaves dressing room for final on-pitch warm-up',
+        location: 'Tunnel / Pitch',
+        completed: false
+    },
+    {
+        id: 'cd-6',
+        timeBefore: 'T-05 min',
+        minutesBefore: 5,
+        action: 'Final lineup check, gear check, and team huddle',
+        location: 'Tunnel',
+        completed: false
+    },
+    {
+        id: 'cd-7',
+        timeBefore: 'T-00 min',
+        minutesBefore: 0,
+        action: 'Kickoff',
+        location: 'Pitch',
+        completed: false
+    }
+];
+
 // 4. Official Prime Minister's Cup Tournament Matches (Opening Matchday: Monday 07 Sep 2026)
 export const PMC_MATCHES = [
     {
@@ -191,7 +251,8 @@ export const PMC_MATCHES = [
         playerStats: {},
         substitutionRequests: [],
         referee: 'TBA',
-        commissioner: 'TBA'
+        commissioner: 'TBA',
+        countdownProtocol: JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL))
     },
     {
         id: 'pmc-fixture-2',
@@ -226,6 +287,7 @@ export const PMC_MATCHES = [
         playerStats: {},
         substitutionRequests: [],
         referee: 'TBA',
-        commissioner: 'TBA'
+        commissioner: 'TBA',
+        countdownProtocol: JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL))
     }
 ];

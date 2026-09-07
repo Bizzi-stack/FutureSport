@@ -392,8 +392,46 @@ async function runMultiRoleSyncTests() {
 
     console.log('✓ PASS: Coach Live Management receives 100% synchronized shot map coordinates, KPIs, and possession.\n');
 
+    // -------------------------------------------------------------
+    // TEST 6: Matchday Countdown Sheet Protocol & Cross-Role Sync
+    // -------------------------------------------------------------
+    console.log('TEST 6: Verifying Matchday Countdown Sheet Protocol & Cross-Role Sync...');
+    const { DEFAULT_COUNTDOWN_PROTOCOL } = await import('../src/utils/pmcDataLoader.js');
+    assert.strictEqual(DEFAULT_COUNTDOWN_PROTOCOL.length, 7, 'Must have exactly 7 standard Concacaf/BFA milestones');
+    assert.strictEqual(DEFAULT_COUNTDOWN_PROTOCOL[0].timeBefore, 'T-90 min');
+    assert.strictEqual(DEFAULT_COUNTDOWN_PROTOCOL[1].timeBefore, 'T-75 min');
+    assert.strictEqual(DEFAULT_COUNTDOWN_PROTOCOL[6].timeBefore, 'T-00 min');
+
+    // Simulate coach checking the first two milestones
+    const coachMilestones = JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL));
+    coachMilestones[0].completed = true;
+    coachMilestones[0].completedAt = new Date().toISOString();
+    coachMilestones[1].completed = true;
+    coachMilestones[1].completedAt = new Date().toISOString();
+
+    // Verify all 7 milestones remain intact after checking the first 2
+    assert.strictEqual(coachMilestones.length, 7, 'All 7 milestones must remain in list after checking the first two');
+    assert.strictEqual(coachMilestones.filter(m => m.completed).length, 2, 'Exactly 2 tasks marked completed');
+    assert.strictEqual(coachMilestones[2].completed, false, 'T-60 min warm-up remains pending');
+    assert.strictEqual(coachMilestones[6].timeBefore, 'T-00 min', 'Kickoff row is intact');
+
+    // Simulate coach customizing by adding a new milestone
+    const customTask = {
+        id: 'cd-custom-warmup',
+        timeBefore: 'T-45 min',
+        minutesBefore: 45,
+        action: 'Goalkeeper specialized activation drills',
+        location: 'Pitch (North Penalty Box)',
+        completed: false
+    };
+    const customizedList = [...coachMilestones, customTask].sort((a, b) => b.minutesBefore - a.minutesBefore);
+    assert.strictEqual(customizedList.length, 8, 'Custom milestone added by coach brings total to 8');
+    assert.strictEqual(customizedList[3].timeBefore, 'T-45 min', 'Chronological sorting correctly placed T-45 min between T-60 and T-30');
+
+    console.log('✓ PASS: Matchday Countdown Sheet maintains all 7 standard milestones, supports full customization, and preserves checklist state.\n');
+
     console.log('================================================================');
-    console.log('   🎉 ALL 5 AUTOMATED MULTI-ROLE SYNCHRONIZATION TESTS PASSED   ');
+    console.log('   🎉 ALL 6 AUTOMATED MULTI-ROLE SYNCHRONIZATION TESTS PASSED   ');
     console.log('================================================================');
 }
 

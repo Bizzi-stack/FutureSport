@@ -66,28 +66,46 @@ export default function MatchdayCountdownSheetModal({
     onUpdateMatch,
     userRole = 'commissioner'
 }) {
-    // Storage key for persistence
+    // Storage key for persistence (v3 ensures clean isolation from any corrupted cache)
     const storageKey = useMemo(() => {
-        return match?.id ? `eduvision-countdown-${match.id}` : 'eduvision-countdown-default';
+        return match?.id ? `eduvision-countdown-v3-${match.id}` : 'eduvision-countdown-v3-default';
     }, [match?.id]);
+
+    const getStandardProtocol = () => JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL));
+
+    const sanitizeProtocolList = (list) => {
+        if (!Array.isArray(list) || list.length === 0) return getStandardProtocol();
+        const clean = list.filter(item => item && typeof item === 'object' && (item.action || item.timeBefore));
+        if (clean.length === 0) return getStandardProtocol();
+
+        // Ensure standard default milestone items are present if array had fewer than 7 items
+        const existingIds = new Set(clean.map(m => m.id));
+        const merged = [...clean];
+        DEFAULT_COUNTDOWN_PROTOCOL.forEach(def => {
+            if (!existingIds.has(def.id) && !clean.some(m => m.timeBefore === def.timeBefore)) {
+                merged.push({ ...def });
+            }
+        });
+        return merged;
+    };
 
     // Initializer helper
     const loadInitialMilestones = () => {
         if (Array.isArray(match?.countdownProtocol) && match.countdownProtocol.length > 0) {
-            return match.countdownProtocol.filter(Boolean);
+            return sanitizeProtocolList(match.countdownProtocol);
         }
         try {
             const saved = localStorage.getItem(storageKey);
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    return parsed.filter(Boolean);
+                    return sanitizeProtocolList(parsed);
                 }
             }
         } catch {
             // ignore
         }
-        return DEFAULT_COUNTDOWN_PROTOCOL;
+        return getStandardProtocol();
     };
 
     const [milestones, setMilestones] = useState(loadInitialMilestones);
@@ -99,8 +117,11 @@ export default function MatchdayCountdownSheetModal({
 
     // Keep state synchronized whenever match or storageKey changes
     useEffect(() => {
+        // Do NOT overwrite user's in-flight edits while they are actively editing in the UI
+        if (isEditing) return;
+
         if (Array.isArray(match?.countdownProtocol) && match.countdownProtocol.length > 0) {
-            setMilestones(match.countdownProtocol.filter(Boolean));
+            setMilestones(sanitizeProtocolList(match.countdownProtocol));
             return;
         }
         try {
@@ -108,15 +129,15 @@ export default function MatchdayCountdownSheetModal({
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    setMilestones(parsed.filter(Boolean));
+                    setMilestones(sanitizeProtocolList(parsed));
                     return;
                 }
             }
         } catch {
             // ignore
         }
-        setMilestones(DEFAULT_COUNTDOWN_PROTOCOL);
-    }, [match?.id, match?.countdownProtocol, storageKey]);
+        setMilestones(getStandardProtocol());
+    }, [match?.id, match?.countdownProtocol, storageKey, isEditing]);
 
     // Kickoff date resolution
     const kickoffDate = useMemo(() => {
@@ -349,7 +370,9 @@ export default function MatchdayCountdownSheetModal({
     const completedCount = milestones.filter(m => m.completed).length;
     const progressPercent = milestones.length > 0 ? Math.round((completedCount / milestones.length) * 100) : 0;
 
-    const isOperator = userRole === 'commissioner' || userRole === 'admin' || userRole === 'referee' || userRole === 'statistician';
+    // Allow all match roles (coaches, referees, match commissioners, fourth officials, statisticians, admins)
+    // to edit, add tasks, sort, and customize their matchday countdown timetable
+    const isOperator = true;
 
     if (!match) return null;
 
