@@ -1407,6 +1407,10 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                     schools={schools}
                     userRole="coach"
                     onClose={() => setActiveCountdownMatch(null)}
+                    onUpdateMatch={(updatedMatch) => {
+                        if (onUpdateMatch) onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
                     onApplyCorrection={(matchId, correctionData) => {
                         const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
                         const updatedMatch = {

@@ -750,6 +750,10 @@ export default function RefereeDashboard({
                     schools={schools}
                     userRole="referee"
                     onClose={() => setActiveCountdownMatch(null)}
+                    onUpdateMatch={(updatedMatch) => {
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
                     onApplyCorrection={(matchId, correctionData) => {
                         const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
                         const updatedMatch = {

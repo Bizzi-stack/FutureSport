@@ -2689,6 +2689,10 @@ export default function CommissionerDashboard({
                     schools={schools}
                     userRole="commissioner"
                     onClose={() => setActiveCountdownMatch(null)}
+                    onUpdateMatch={(updatedMatch) => {
+                        onUpdateMatch(updatedMatch);
+                        setActiveCountdownMatch(updatedMatch);
+                    }}
                     onApplyCorrection={(matchId, correctionData) => {
                         const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
                         const updatedMatch = {
