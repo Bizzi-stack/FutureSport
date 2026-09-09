@@ -1,4 +1,5 @@
 import pmcData from '../data/pmcScrapedData.json' with { type: 'json' };
+import pmcInitialMatches from '../data/pmcInitialMatches.json' with { type: 'json' };
 
 export const PMC_YEARS = ['2026-2027'];
 const YEARS = PMC_YEARS;
@@ -212,81 +213,4 @@ export const DEFAULT_COUNTDOWN_PROTOCOL = [
 ];
 
 // 4. Official Prime Minister's Cup Tournament Matches (Opening Matchday: Monday 07 Sep 2026)
-export const PMC_MATCHES = [
-    {
-        id: 'pmc-fixture-1',
-        homeTeam: 'TECHNIQUE',
-        awayTeam: 'L & R UNITED',
-        homeTeamId: 'pmc-club-19',
-        awayTeamId: 'pmc-club-7',
-        homeScore: null,
-        awayScore: null,
-        status: 'upcoming',
-        venue: 'Friendship, St. Michael',
-        date: '2026-09-07',
-        time: '19:00',
-        round: 'Matchday 1 · PMC Group Stage',
-        matchday: 'Matchday 1',
-        year: '2026-2027',
-        ageGroup: 'PMC',
-        homePlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-19').map(s => s.id),
-        awayPlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-7').map(s => s.id),
-        homeSquadSelection: null,
-        awaySquadSelection: null,
-        liveState: {
-            period: '1H',
-            isRunning: false,
-            elapsedOffset: 0,
-            possession: {
-                homeSecs: 0,
-                awaySecs: 0,
-                activeSide: null
-            }
-        },
-        timeline: [],
-        playerStats: {},
-        substitutionRequests: [],
-        referee: 'Adrian Hunte',
-        commissioner: 'Wren',
-        operator: 'Aundrea',
-        countdownProtocol: JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL))
-    },
-    {
-        id: 'pmc-fixture-2',
-        homeTeam: 'PARADISE',
-        awayTeam: 'PROSHOTTAS',
-        homeTeamId: 'pmc-club-14',
-        awayTeamId: 'pmc-club-4',
-        homeScore: null,
-        awayScore: null,
-        status: 'upcoming',
-        venue: 'Friendship, St. Michael',
-        date: '2026-09-07',
-        time: '21:00',
-        round: 'Matchday 1 · PMC Group Stage',
-        matchday: 'Matchday 1',
-        year: '2026-2027',
-        ageGroup: 'PMC',
-        homePlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-14').map(s => s.id),
-        awayPlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-4').map(s => s.id),
-        homeSquadSelection: null,
-        awaySquadSelection: null,
-        liveState: {
-            period: '1H',
-            isRunning: false,
-            elapsedOffset: 0,
-            possession: {
-                homeSecs: 0,
-                awaySecs: 0,
-                activeSide: null
-            }
-        },
-        timeline: [],
-        playerStats: {},
-        substitutionRequests: [],
-        referee: 'Adrian Hunte',
-        commissioner: 'Wren',
-        operator: 'Aundrea',
-        countdownProtocol: JSON.parse(JSON.stringify(DEFAULT_COUNTDOWN_PROTOCOL))
-    }
-];
+export const PMC_MATCHES = pmcInitialMatches;
