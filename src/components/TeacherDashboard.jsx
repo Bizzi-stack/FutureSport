@@ -9,7 +9,7 @@ import CoachLiveManagement from './match/CoachLiveManagement';
 import CoachPostGameStatsHub from './coach/CoachPostGameStatsHub';
 import UploadPlayerRosterModal from './UploadPlayerRosterModal';
 import { downloadPlayerCsvTemplate } from '../utils/playerCsvImport';
-import { isMatchForTeam } from '../utils/fixtureUtils';
+import { isMatchForTeam, isMatchFinished, getRelevantCoachMatch, getCoachSquadInfo } from '../utils/fixtureUtils';
 
 export default function TeacherDashboard({ 
     students, year, term, subjects, settings,
@@ -34,32 +34,36 @@ export default function TeacherDashboard({
 
     const activeAlerts = alerts.filter(a => !dismissedIds.has(a.id));
 
-    // Check if the coach's selected team/school is currently playing a live match
-    const liveMatch = useMemo(() => {
+    // Resolve the relevant fixture for the coach based on live status or latest submitted Starting XI
+    const relevantCoachMatch = useMemo(() => {
         if (userRole !== 'coach') return null;
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId);
         const teamObj = (allTeams || []).find(t => t.id === selectedClassroom || t.name === selectedClassroom);
 
-        const myMatches = (matches || []).filter(m => {
-            if (m.status !== 'live') return false;
-            return isMatchForTeam(m, schoolId, teamObj?.id || selectedClassroom, schoolObj?.name);
-        });
-
-        if (myMatches.length === 0) return null;
-
-        // Sort: Prioritize the match actively receiving updates (latest event timestamp, highest event count)
-        const sorted = [...myMatches].sort((a, b) => {
-            const aLastEv = (a.timeline || []).length > 0 ? (a.timeline[a.timeline.length - 1]?.timestamp || a.timeline[a.timeline.length - 1]?.elapsed || 1) : 0;
-            const bLastEv = (b.timeline || []).length > 0 ? (b.timeline[b.timeline.length - 1]?.timestamp || b.timeline[b.timeline.length - 1]?.elapsed || 1) : 0;
-            if (bLastEv !== aLastEv) return bLastEv - aLastEv;
-
-            const aEvents = (a.timeline?.length || 0) + (a.liveState?.timeline?.length || 0);
-            const bEvents = (b.timeline?.length || 0) + (b.liveState?.timeline?.length || 0);
-            return bEvents - aEvents;
-        });
-
-        return sorted[0] || null;
+        return getRelevantCoachMatch(matches, schoolId, teamObj?.id || selectedClassroom, schoolObj?.name);
     }, [matches, schoolId, selectedClassroom, userRole, schools, allTeams]);
+
+    // Check if the coach's selected team/school is currently playing an active live match
+    const liveMatch = useMemo(() => {
+        if (!relevantCoachMatch) return null;
+        if (relevantCoachMatch.status === 'live' && !isMatchFinished(relevantCoachMatch)) {
+            return relevantCoachMatch;
+        }
+        return null;
+    }, [relevantCoachMatch]);
+
+    // Squad and submission details for the relevant match
+    const relevantMatchSquadInfo = useMemo(() => {
+        if (!relevantCoachMatch) return null;
+        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId);
+        const teamObj = (allTeams || []).find(t => t.id === selectedClassroom || t.name === selectedClassroom);
+        return getCoachSquadInfo(relevantCoachMatch, schoolId, teamObj?.id || selectedClassroom, schoolObj?.name);
+    }, [relevantCoachMatch, schoolId, selectedClassroom, schools, allTeams]);
+
+    const isRelevantMatchFinished = useMemo(() => {
+        return isMatchFinished(relevantCoachMatch);
+    }, [relevantCoachMatch]);
+
 
     // Auto-switch coach to 'live' tab when their match goes live
     useEffect(() => {
@@ -99,62 +103,6 @@ export default function TeacherDashboard({
             result[id] = { score, mean, stdDev, z };
         }
         return result;
-    }, [students, year, term]);
-
-    // Aggregated Squad Analytics & Top Performers for Coach Dashboard
-    const squadStats = useMemo(() => {
-        let totalGoals = 0;
-        let totalAssists = 0;
-        let totalShots = 0;
-        let totalShotsOnTarget = 0;
-        let totalSaves = 0;
-        let totalCleanSheets = 0;
-        let topScorer = null;
-        let topAssist = null;
-        let topSaves = null;
-
-        students.forEach(s => {
-            const perf = s.performance?.[year]?.[term] || {};
-            const g = perf['Goals'] || 0;
-            const a = perf['Assists'] || 0;
-            const sh = perf['Shots'] || 0;
-            const sot = perf['Shots on Target'] || 0;
-            const sv = perf['Saves'] || 0;
-            const cs = perf['Clean Sheets'] || 0;
-
-            totalGoals += g;
-            totalAssists += a;
-            totalShots += sh;
-            totalShotsOnTarget += sot;
-            totalSaves += sv;
-            totalCleanSheets += cs;
-
-            if (g > 0 && (!topScorer || g > topScorer.goals)) {
-                topScorer = { name: s.name, jerseyNumber: s.jerseyNumber, goals: g, position: s.position };
-            }
-            if (a > 0 && (!topAssist || a > topAssist.assists)) {
-                topAssist = { name: s.name, jerseyNumber: s.jerseyNumber, assists: a, position: s.position };
-            }
-            if (sv > 0 && (!topSaves || sv > topSaves.saves)) {
-                topSaves = { name: s.name, jerseyNumber: s.jerseyNumber, saves: sv, position: s.position };
-            }
-        });
-
-        const shotAcc = totalShots > 0 ? Math.round((totalShotsOnTarget / totalShots) * 100) : 0;
-        const convRate = totalShotsOnTarget > 0 ? Math.round((totalGoals / totalShotsOnTarget) * 100) : 0;
-
-        return {
-            totalGoals,
-            totalAssists,
-            totalShots,
-            totalSaves,
-            totalCleanSheets,
-            shotAcc,
-            convRate,
-            topScorer,
-            topAssist,
-            topSaves
-        };
     }, [students, year, term]);
 
     return (
@@ -251,6 +199,16 @@ export default function TeacherDashboard({
                                 <>
                                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', boxShadow: '0 0 8px var(--danger)' }}></span>
                                     <span>LIVE TACTICS &amp; SUBS ({liveMatch.homeScore ?? 0} - {liveMatch.awayScore ?? 0})</span>
+                                </>
+                            ) : isRelevantMatchFinished ? (
+                                <>
+                                    <span style={{ fontSize: '13px' }}>🔒</span>
+                                    <span>Tactics &amp; Subs (FT • vs {relevantMatchSquadInfo?.opponentName || 'Opponent'})</span>
+                                </>
+                            ) : relevantMatchSquadInfo?.hasSubmittedXI ? (
+                                <>
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }}></span>
+                                    <span>In-Game Tactics &amp; Subs (Starting XI Ready • vs {relevantMatchSquadInfo?.opponentName || 'Opponent'})</span>
                                 </>
                             ) : (
                                 <>
@@ -465,7 +423,7 @@ export default function TeacherDashboard({
 
             {mainTab === 'live' && userRole === 'coach' && (
                 <CoachLiveManagement
-                    match={liveMatch}
+                    match={relevantCoachMatch}
                     matches={matches}
                     schoolId={schoolId}
                     schools={schools}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const CORNERS = [
     { id: 'top-left', label: '↖️ Top Left', x: 25, y: 35 },
@@ -11,6 +11,7 @@ const CORNERS = [
 export default function LiveGkSaveModal({ player, onSave, onClose }) {
     const [saveType, setSaveType] = useState('normal'); // 'normal' | 'penalty' | 'freekick'
     const [selectedCorner, setSelectedCorner] = useState(null); // id of CORNERS
+    const actionTokenRef = useRef(`modal-gk-${player?.id || 'gk'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
 
     const handleSave = () => {
         if (!selectedCorner) {
@@ -20,7 +21,8 @@ export default function LiveGkSaveModal({ player, onSave, onClose }) {
         
         onSave({
             saveType,
-            corner: selectedCorner
+            corner: selectedCorner,
+            actionToken: actionTokenRef.current
         });
     };
 

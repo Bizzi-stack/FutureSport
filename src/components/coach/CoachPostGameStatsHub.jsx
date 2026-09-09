@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { matchesStudentId } from '../../utils/matchEngine';
 
 // ── Icons ─────────────────────────────────────────────────────────────
 const TrophyIcon = () => (
@@ -99,12 +100,12 @@ function GoalmouthShotMap({ shots = [] }) {
 
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '5%', background: '#144626', borderTop: '1px solid #166534' }} />
 
-                {shots.map((sh, idx) => {
+                {shots.filter(sh => sh.x != null && sh.y != null).map((sh, idx) => {
                     const isGoal = sh.type === 'goal' || sh.result === 'goal';
                     const isSaved = sh.type === 'shotOnTarget' || sh.result === 'saved' || sh.result === 'save';
                     const color = isGoal ? '#22c55e' : isSaved ? '#6366f1' : '#ef4444';
-                    const posX = sh.x != null ? sh.x : 50;
-                    const posY = sh.y != null ? sh.y : 50;
+                    const posX = sh.x;
+                    const posY = sh.y;
 
                     return (
                         <div
@@ -256,32 +257,171 @@ export default function CoachPostGameStatsHub({
         let topAssist = null;
         let topSaves = null;
 
+        // Player-level aggregated stats across the filtered matches
+        const playerTotals = {};
         students.forEach(s => {
-            const perf = s.performance?.[year]?.[term] || {};
-            const g = perf['Goals'] || 0;
-            const a = perf['Assists'] || 0;
-            const sh = perf['Shots'] || 0;
-            const sot = perf['Shots on Target'] || 0;
-            const sv = perf['Saves'] || 0;
-            const cs = perf['Clean Sheets'] || 0;
-
-            totalGoals += g;
-            totalAssists += a;
-            totalShots += sh;
-            totalShotsOnTarget += sot;
-            totalSaves += sv;
-            totalCleanSheets += cs;
-
-            if (g > 0 && (!topScorer || g > topScorer.goals)) {
-                topScorer = { name: s.name, jerseyNumber: s.jerseyNumber, goals: g, position: s.position, id: s.id };
-            }
-            if (a > 0 && (!topAssist || a > topAssist.assists)) {
-                topAssist = { name: s.name, jerseyNumber: s.jerseyNumber, assists: a, position: s.position, id: s.id };
-            }
-            if (sv > 0 && (!topSaves || sv > topSaves.saves)) {
-                topSaves = { name: s.name, jerseyNumber: s.jerseyNumber, saves: sv, position: s.position, id: s.id };
-            }
+            playerTotals[s.id] = {
+                id: s.id,
+                name: s.name,
+                jerseyNumber: s.jerseyNumber,
+                position: s.position,
+                goals: 0,
+                assists: 0,
+                shots: 0,
+                shotsOnTarget: 0,
+                saves: 0,
+                cleanSheets: 0,
+                appearances: 0
+            };
         });
+
+        if (rangeFilteredMatches.length > 0) {
+            const cleanSchoolId = String(schoolId || '').toLowerCase();
+            const schoolName = String(schoolObj?.name || '').toLowerCase();
+
+            rangeFilteredMatches.forEach(m => {
+                const isHome = String(m.homeTeamId || '').toLowerCase().includes(cleanSchoolId) ||
+                               String(m.homeTeam || '').toLowerCase().includes(schoolName);
+                const teamScore = isHome ? (Number(m.homeScore) || 0) : (Number(m.awayScore) || 0);
+                const oppScore = isHome ? (Number(m.awayScore) || 0) : (Number(m.homeScore) || 0);
+
+                totalGoals += teamScore;
+                if (oppScore === 0) totalCleanSheets++;
+
+                const squadSelection = isHome ? m.homeSquadSelection : m.awaySquadSelection;
+                const startingLineupIds = squadSelection?.startingXI ? Object.values(squadSelection.startingXI).map(String) : [];
+
+                const participantsInMatch = new Set();
+
+                // Process playerStats in match
+                if (m.playerStats) {
+                    students.forEach(s => {
+                        const matchedKey = Object.keys(m.playerStats).find(k => matchesStudentId(k, s));
+                        if (matchedKey) {
+                            const ps = m.playerStats[matchedKey];
+                            const pObj = playerTotals[s.id];
+                            if (pObj) {
+                                pObj.goals += (ps.Goals || 0);
+                                pObj.assists += (ps.Assists || 0);
+                                pObj.shots += (ps.Shots || 0);
+                                pObj.shotsOnTarget += (ps['Shots on Target'] || 0);
+                                pObj.saves += (ps.Saves || 0);
+
+                                const mins = typeof ps.minutesPlayed === 'number' ? ps.minutesPlayed : 0;
+                                const hasActivity = Object.entries(ps).some(([k, v]) =>
+                                    !k.startsWith('_') && k !== 'minutesPlayed' && typeof v === 'number' && v > 0
+                                );
+                                if (mins > 0 || hasActivity) {
+                                    participantsInMatch.add(s.id);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Process timeline for goals, assists, saved shots if not in playerStats
+                let timelineSaves = 0;
+                if (Array.isArray(m.timeline)) {
+                    m.timeline.forEach(e => {
+                        const isTeamEvent = isHome ? (e.team === 'home' || e.teamId === m.homeTeamId) : (e.team === 'away' || e.teamId === m.awayTeamId);
+                        const isOppEvent = !isTeamEvent;
+
+                        if (isTeamEvent) {
+                            if (e.playerId) {
+                                const s = students.find(stud => matchesStudentId(e.playerId, stud));
+                                if (s) {
+                                    participantsInMatch.add(s.id);
+                                    if (e.type === 'goal' && playerTotals[s.id]?.goals === 0) {
+                                        playerTotals[s.id].goals++;
+                                    }
+                                }
+                            }
+                            if (e.assistingPlayerId) {
+                                const aStud = students.find(stud => matchesStudentId(e.assistingPlayerId, stud));
+                                if (aStud) {
+                                    participantsInMatch.add(aStud.id);
+                                    if (playerTotals[aStud.id]?.assists === 0) {
+                                        playerTotals[aStud.id].assists++;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Opponent shots on target that were saved count as saves for our team
+                        const isSavedShot = e.result === 'saved' || (e.type === 'shotOnTarget' && e.result !== 'goal');
+                        if (isOppEvent && isSavedShot) {
+                            timelineSaves++;
+                        }
+                    });
+                }
+
+                // Mark starting XI as participants
+                startingLineupIds.forEach(id => {
+                    const s = students.find(stud => matchesStudentId(id, stud));
+                    if (s) participantsInMatch.add(s.id);
+                });
+
+                participantsInMatch.forEach(pId => {
+                    if (playerTotals[pId]) playerTotals[pId].appearances++;
+                });
+
+                // Attribute saves to team goalkeeper
+                const teamGk = students.find(s => (s.position === 'Goalkeeper' || s.position === 'GK') && (participantsInMatch.has(s.id) || startingLineupIds.includes(String(s.id)))) ||
+                               students.find(s => s.position === 'Goalkeeper' || s.position === 'GK');
+                if (teamGk && playerTotals[teamGk.id]) {
+                    if (playerTotals[teamGk.id].saves < timelineSaves) {
+                        playerTotals[teamGk.id].saves = Math.max(playerTotals[teamGk.id].saves, timelineSaves);
+                    }
+                    if (oppScore === 0) {
+                        playerTotals[teamGk.id].cleanSheets++;
+                    }
+                }
+            });
+
+            // Aggregate totals across playerTotals
+            let summedAssists = 0;
+            let summedShots = 0;
+            let summedSot = 0;
+            let summedSaves = 0;
+
+            Object.values(playerTotals).forEach(p => {
+                summedAssists += p.assists;
+                summedShots += p.shots;
+                summedSot += p.shotsOnTarget;
+                summedSaves += p.saves;
+
+                if (p.goals > 0 && (!topScorer || p.goals > topScorer.goals)) {
+                    topScorer = { name: p.name, jerseyNumber: p.jerseyNumber, goals: p.goals, position: p.position, id: p.id };
+                }
+                if (p.assists > 0 && (!topAssist || p.assists > topAssist.assists)) {
+                    topAssist = { name: p.name, jerseyNumber: p.jerseyNumber, assists: p.assists, position: p.position, id: p.id };
+                }
+                if (p.saves > 0 && (!topSaves || p.saves > topSaves.saves)) {
+                    topSaves = { name: p.name, jerseyNumber: p.jerseyNumber, saves: p.saves, position: p.position, id: p.id };
+                }
+            });
+
+            totalAssists = summedAssists;
+            totalShots = summedShots;
+            totalShotsOnTarget = summedSot;
+            totalSaves = summedSaves;
+        } else if (coachTeamMatches.length === 0) {
+            // Club has not played any matches yet -> clean 0 totals
+            totalGoals = 0;
+            totalAssists = 0;
+            totalShots = 0;
+            totalShotsOnTarget = 0;
+            totalSaves = 0;
+            totalCleanSheets = 0;
+        } else {
+            // Filter produced 0 matches (e.g. filter by 'win' when team had no wins)
+            totalGoals = 0;
+            totalAssists = 0;
+            totalShots = 0;
+            totalShotsOnTarget = 0;
+            totalSaves = 0;
+            totalCleanSheets = 0;
+        }
 
         const shotAcc = totalShots > 0 ? Math.round((totalShotsOnTarget / totalShots) * 100) : 0;
         const convRate = totalShotsOnTarget > 0 ? Math.round((totalGoals / totalShotsOnTarget) * 100) : 0;
@@ -296,9 +436,10 @@ export default function CoachPostGameStatsHub({
             convRate,
             topScorer,
             topAssist,
-            topSaves
+            topSaves,
+            playerTotals
         };
-    }, [students, year, term]);
+    }, [rangeFilteredMatches, coachTeamMatches, students, schoolId, schoolObj, year, term]);
 
     // Calculate Aggregated Metrics across the selected games
     const aggregatedStats = useMemo(() => {
@@ -354,6 +495,7 @@ export default function CoachPostGameStatsHub({
             const teamPlayerIds = isHome ? (m.homePlayers || []) : (m.awayPlayers || []);
             let matchShots = 0;
             let matchSot = 0;
+            let matchSaves = 0;
 
             teamPlayerIds.forEach(pId => {
                 const ps = m.playerStats?.[pId];
@@ -361,12 +503,22 @@ export default function CoachPostGameStatsHub({
                     matchShots += (ps.Shots || 0);
                     matchSot += (ps['Shots on Target'] || 0);
                     totalCards += (ps.yellowCards || 0) + (ps.redCards || 0);
-                    totalSaves += (ps.Saves || 0);
+                    matchSaves += (ps.Saves || 0);
                 }
             });
 
+            if (matchSaves === 0 && Array.isArray(m.timeline)) {
+                m.timeline.forEach(e => {
+                    const isOpp = isHome ? (e.team === 'away' || e.teamId === m.awayTeamId) : (e.team === 'home' || e.teamId === m.homeTeamId);
+                    if (isOpp && (e.result === 'saved' || (e.type === 'shotOnTarget' && e.result !== 'goal'))) {
+                        matchSaves++;
+                    }
+                });
+            }
+
             totalShots += matchShots;
             totalShotsOnTarget += matchSot;
+            totalSaves += matchSaves;
 
             const teamPoss = isHome ? (m.possession?.homePct || 50) : (m.possession?.awayPct || 50);
             totalPossessionSum += teamPoss;
@@ -831,16 +983,17 @@ export default function CoachPostGameStatsHub({
                             </thead>
                             <tbody>
                                 {filteredSquadMembers.map(s => {
-                                    const perf = s.performance?.[year]?.[term] || {};
-                                    const ms = s.matchStats?.[year]?.[term] || {};
-                                    const goals = perf['Goals'] || 0;
-                                    const assists = perf['Assists'] || 0;
-                                    const shots = perf['Shots'] || 0;
-                                    const sot = perf['Shots on Target'] || 0;
-                                    const shotAcc = perf['Shot Accuracy'] || (shots > 0 ? Math.round((sot / shots) * 100) : 0);
-                                    const passComp = perf['Pass Completed'] || 75;
-                                    const saves = perf['Saves'] || 0;
-                                    const apps = ms.gamesPlayed || (goals > 0 || shots > 0 ? 2 : 1);
+                                    const pt = squadStats.playerTotals?.[s.id];
+                                    const hasMatches = coachTeamMatches.length > 0;
+
+                                    const goals = pt ? pt.goals : 0;
+                                    const assists = pt ? pt.assists : 0;
+                                    const shots = pt ? pt.shots : 0;
+                                    const sot = pt ? pt.shotsOnTarget : 0;
+                                    const shotAcc = shots > 0 ? Math.round((sot / shots) * 100) : 0;
+                                    const passComp = hasMatches ? 75 : 0;
+                                    const saves = pt ? pt.saves : 0;
+                                    const apps = pt ? pt.appearances : 0;
 
                                     return (
                                         <tr
@@ -1179,7 +1332,7 @@ export default function CoachPostGameStatsHub({
                                                             {p.name}
                                                         </td>
                                                         <td style={{ padding: '10px', color: 'var(--text-muted)' }}>{p.position || '—'}</td>
-                                                        <td style={{ padding: '10px', textAlign: 'center' }}>{ps.minutesPlayed || 90}'</td>
+                                                        <td style={{ padding: '10px', textAlign: 'center' }}>{ps.minutesPlayed ?? 0}'</td>
                                                         <td style={{ padding: '10px', textAlign: 'center', color: ps.Goals > 0 ? '#4ade80' : '#ffffff', fontWeight: ps.Goals > 0 ? '800' : '500' }}>
                                                             {ps.Goals || 0}
                                                         </td>
@@ -1189,8 +1342,8 @@ export default function CoachPostGameStatsHub({
                                                         <td style={{ padding: '10px', textAlign: 'center' }}>
                                                             {ps.Shots || 0} ({ps['Shots on Target'] || 0})
                                                         </td>
-                                                        <td style={{ padding: '10px', textAlign: 'center' }}>{ps.passesCompleted || 24}</td>
-                                                        <td style={{ padding: '10px', textAlign: 'center' }}>{ps.tackles || 2}</td>
+                                                        <td style={{ padding: '10px', textAlign: 'center' }}>{ps['Pass Completed'] ?? ps.passesCompleted ?? 0}</td>
+                                                        <td style={{ padding: '10px', textAlign: 'center' }}>{ps['Successful Tackles'] ?? ps.tackles ?? 0}</td>
                                                         <td style={{ padding: '10px', textAlign: 'center', color: ps.Saves > 0 ? '#fbbf24' : '#ffffff' }}>
                                                             {ps.Saves || 0}
                                                         </td>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import JerseyIcon from '../JerseyIcon';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
-import { isMatchForTeam } from '../../utils/fixtureUtils';
+import { isMatchForTeam, isMatchFinished, getRelevantCoachMatch, sortCoachMatches, getCoachSquadInfo } from '../../utils/fixtureUtils';
 import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 
 // Standard Tactical Formations
@@ -137,7 +137,7 @@ export default function CoachLiveManagement({
     const [shotTeamFilter, setShotTeamFilter] = useState('my_team'); // 'my_team' | 'both'
     const [selectedShotDetail, setSelectedShotDetail] = useState(null);
 
-    // Robust Multi-tier Fixture Matching for Coach's Team
+    // Robust Multi-tier Fixture Matching for Coach's Team (Prioritizes Live & Submitted Squads)
     const myMatches = useMemo(() => {
         const pool = (matches && matches.length > 0) ? matches : (PMC_MATCHES || []);
         const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
@@ -151,20 +151,7 @@ export default function CoachLiveManagement({
             found = (PMC_MATCHES || []).filter(m => isMatchForTeam(m, schoolId, myTeam?.id || teamId, schoolNameStr));
         }
 
-        // Sort: Live matches first, prioritized by recent activity/event count
-        return [...found].sort((a, b) => {
-            const aLive = a.status === 'live' ? 1 : 0;
-            const bLive = b.status === 'live' ? 1 : 0;
-            if (bLive !== aLive) return bLive - aLive;
-
-            const aEvents = (a.timeline?.length || 0) + (a.liveState?.timeline?.length || 0);
-            const bEvents = (b.timeline?.length || 0) + (b.liveState?.timeline?.length || 0);
-            if (bEvents !== aEvents) return bEvents - aEvents;
-
-            const aLastEv = (a.timeline || []).length > 0 ? (a.timeline[a.timeline.length - 1]?.timestamp || a.timeline[a.timeline.length - 1]?.elapsed || 1) : 0;
-            const bLastEv = (b.timeline || []).length > 0 ? (b.timeline[b.timeline.length - 1]?.timestamp || b.timeline[b.timeline.length - 1]?.elapsed || 1) : 0;
-            return bLastEv - aLastEv;
-        });
+        return sortCoachMatches(found, schoolId, myTeam?.id || teamId, schoolNameStr);
     }, [matches, schoolId, teamId, schools, allTeams]);
 
     // Active Match resolution with foolproof fallback
@@ -176,18 +163,21 @@ export default function CoachLiveManagement({
             if (found) return found;
         }
         if (initialMatch?.id) {
-            const found = (matches || []).find(m => m.id === initialMatch.id);
+            const found = (matches || []).find(m => m.id === initialMatch.id) ||
+                          myMatches.find(m => m.id === initialMatch.id);
             if (found) return found;
             return initialMatch;
         }
-        const liveWithEvents = myMatches.find(m => m.status === 'live' && ((m.timeline?.length || 0) > 0 || m.liveState?.period === 'HT'));
-        if (liveWithEvents) return liveWithEvents;
-        const live = myMatches.find(m => m.status === 'live');
-        if (live) return live;
+
+        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
+        const schoolNameStr = schoolObj?.name || '';
+        const myTeam = (allTeams || []).find(t => t.id === teamId || t.schoolId === schoolId || t.schoolId === schoolObj?.id);
+        const relevant = getRelevantCoachMatch(myMatches, schoolId, myTeam?.id || teamId, schoolNameStr);
+        if (relevant) return relevant;
+
         if (myMatches.length > 0) return myMatches[0];
 
         // Ultimate Fallback: Active match for this coach's school so substitutions never block
-        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
         const name = schoolObj?.name || 'My School FC';
         return {
             id: `live-${schoolId || 'pmc-demo'}`,
@@ -204,7 +194,13 @@ export default function CoachLiveManagement({
             timeline: [],
             substitutionRequests: []
         };
-    }, [selectedMatchId, initialMatch, matches, myMatches, schoolId, schools]);
+    }, [selectedMatchId, initialMatch, matches, myMatches, schoolId, schools, allTeams, teamId]);
+
+    // Flag indicating if current match is completed / approved / refereed (Full Time)
+    const isFinished = useMemo(() => {
+        return isMatchFinished(currentMatch);
+    }, [currentMatch]);
+
 
     // Check if Coach's team is Home or Away in current match
     const isHome = useMemo(() => {
@@ -536,7 +532,29 @@ export default function CoachLiveManagement({
     };
 
     // ── Drag and Drop Handlers ─────────────────────────────────────────
+    // Tactical Formation Switcher
+    const handleFormationChange = (newFormation) => {
+        if (isFinished || !newFormation || !FORMATION_LAYOUTS[newFormation]) return;
+        const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+        const updatedMatch = {
+            ...currentMatch,
+            [squadKey]: {
+                ...(squadSelection || {}),
+                formation: newFormation
+            }
+        };
+        if (onUpdateMatch) {
+            onUpdateMatch(updatedMatch);
+        }
+        triggerToast(`Tactical formation switched to ${newFormation}`);
+    };
+
+    // ── Drag and Drop Handlers ─────────────────────────────────────────
     const handleDragStart = (e, item) => {
+        if (isFinished) {
+            e.preventDefault();
+            return;
+        }
         e.dataTransfer.setData('application/json', JSON.stringify(item));
         e.dataTransfer.effectAllowed = 'move';
         setDraggedItem(item);
@@ -544,6 +562,7 @@ export default function CoachLiveManagement({
 
     const handleDragOver = (e, slotIndex) => {
         e.preventDefault();
+        if (isFinished) return;
         e.dataTransfer.dropEffect = 'move';
         if (dragOverSlotIndex !== slotIndex) {
             setDragOverSlotIndex(slotIndex);
@@ -558,6 +577,10 @@ export default function CoachLiveManagement({
     const handleDrop = (e, targetSlotIndex) => {
         e.preventDefault();
         setDragOverSlotIndex(null);
+        if (isFinished) {
+            triggerToast('Cannot modify tactics: Match has finished');
+            return;
+        }
 
         let data = draggedItem;
         if (!data) {
@@ -611,6 +634,7 @@ export default function CoachLiveManagement({
 
     // Tablet Tap-to-Substitute handler
     const handleSlotClick = (slotIndex) => {
+        if (isFinished) return;
         const targetPlayerId = currentOnField[slotIndex];
         if (selectedBenchForSub && targetPlayerId) {
             setPendingSubModal({
@@ -625,6 +649,11 @@ export default function CoachLiveManagement({
 
     // ── Confirm Substitution Execution ─────────────────────────────────
     const handleConfirmSubstitution = () => {
+        if (isFinished) {
+            triggerToast('Cannot substitute: Match is finished (Full Time)');
+            setPendingSubModal(null);
+            return;
+        }
         if (!pendingSubModal) return;
 
         try {
@@ -845,15 +874,20 @@ export default function CoachLiveManagement({
                                     }}
                                 >
                                     {myMatches.map(m => {
-                                        const evCount = (m.timeline?.length || 0) + (m.liveState?.timeline?.length || 0);
+                                        const schoolObj = (schools || []).find(s => s.id === schoolId || s.name === schoolId || s.rawId === schoolId);
+                                        const myTeam = (allTeams || []).find(t => t.id === teamId || t.schoolId === schoolId || t.schoolId === schoolObj?.id);
+                                        const squadInfo = getCoachSquadInfo(m, schoolId, myTeam?.id || teamId, schoolObj?.name);
+                                        const hasXI = squadInfo?.hasSubmittedXI;
+                                        const xiBadge = hasXI ? '✓ XI Ready' : 'Pending XI';
+                                        const isDone = isMatchFinished(m);
                                         const statusLabel = m.status === 'live' 
-                                            ? `LIVE [${m.homeScore ?? 0}-${m.awayScore ?? 0}] (${evCount} ev)` 
-                                            : m.status === 'completed'
-                                            ? `FT [${m.homeScore ?? 0}-${m.awayScore ?? 0}]`
-                                            : `${m.round || m.matchday || 'Sched'}`;
+                                            ? `🔴 LIVE [${m.homeScore ?? 0}-${m.awayScore ?? 0}]` 
+                                            : isDone
+                                            ? `🔒 FT [${m.homeScore ?? 0}-${m.awayScore ?? 0}]`
+                                            : `⏳ ${m.round || m.matchday || 'Upcoming'}`;
                                         return (
                                             <option key={m.id} value={m.id} style={{ background: '#0f172a', color: '#ffffff' }}>
-                                                {statusLabel} • {m.homeTeam} vs {m.awayTeam}
+                                                {statusLabel} • [{xiBadge}] {m.homeTeam} vs {m.awayTeam}
                                             </option>
                                         );
                                     })}
@@ -976,6 +1010,140 @@ export default function CoachLiveManagement({
                 </div>
             </div>
 
+            {/* ════ RELEVANT FIXTURE & STARTING XI CONTEXT CARD ════ */}
+            <div className="glass-panel" style={{
+                padding: '14px 20px',
+                borderRadius: '14px',
+                background: isFinished 
+                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(30, 41, 59, 0.7) 100%)'
+                    : currentMatch?.status === 'live'
+                    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%)'
+                    : squadSelection?.submittedAt
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(30, 41, 59, 0.7) 100%)'
+                    : 'rgba(255, 255, 255, 0.04)',
+                border: isFinished
+                    ? '1.5px solid rgba(239, 68, 68, 0.35)'
+                    : currentMatch?.status === 'live'
+                    ? '1.5px solid rgba(239, 68, 68, 0.4)'
+                    : squadSelection?.submittedAt
+                    ? '1.5px solid rgba(34, 197, 94, 0.4)'
+                    : '1px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '14px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)'
+            }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {currentMatch?.round || currentMatch?.matchday || 'PMC Fixture'} • {currentMatch?.venue || 'Stadium'}
+                        </span>
+                        {isFinished ? (
+                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '900', textTransform: 'uppercase' }}>
+                                🔒 FULL TIME (CONCLUDED)
+                            </span>
+                        ) : currentMatch?.status === 'live' ? (
+                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '900', textTransform: 'uppercase' }}>
+                                🔴 LIVE MATCH
+                            </span>
+                        ) : (
+                            <span style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd', border: '1px solid rgba(59, 130, 246, 0.4)', padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '800', textTransform: 'uppercase' }}>
+                                ⏳ UPCOMING FIXTURE
+                            </span>
+                        )}
+                    </div>
+                    <div style={{ fontSize: '17px', fontWeight: '900', color: '#ffffff', letterSpacing: '0.01em' }}>
+                        {currentMatch?.homeTeam} <span style={{ color: 'var(--text-muted)', fontWeight: '400', fontSize: '15px' }}>vs</span> {currentMatch?.awayTeam}
+                    </div>
+                </div>
+
+                {/* Starting XI Verification Status */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {squadSelection?.submittedAt ? (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: 'rgba(34, 197, 94, 0.15)',
+                            border: '1px solid rgba(34, 197, 94, 0.4)',
+                            borderRadius: '10px',
+                            padding: '8px 14px'
+                        }}>
+                            <span style={{ color: '#4ade80', fontSize: '16px' }}>✓</span>
+                            <div>
+                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#4ade80' }}>
+                                    Relevant Fixture: Starting XI Submitted ({formationName})
+                                </div>
+                                <div style={{ fontSize: '10px', color: '#86efac' }}>
+                                    {isHome ? 'Home Squad' : 'Away Squad'} • Submitted {new Date(squadSelection.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • 11 Starters Ready
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            borderRadius: '10px',
+                            padding: '8px 14px'
+                        }}>
+                            <span style={{ color: '#fbbf24', fontSize: '16px' }}>⚠️</span>
+                            <div>
+                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#fbbf24' }}>
+                                    Starting XI Pending Submission
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                    Submit your starting 11 &amp; bench in the Matchday Squad tab
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* ════ CONCLUDED MATCH LOCKED BANNER ════ */}
+            {isFinished && (
+                <div style={{
+                    padding: '12px 18px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(185, 28, 28, 0.15) 100%)',
+                    border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    boxShadow: '0 4px 14px rgba(239, 68, 68, 0.15)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '20px' }}>🔒</span>
+                        <div>
+                            <div style={{ fontSize: '13px', fontWeight: '900', color: '#fca5a5' }}>
+                                MATCH FINISHED (FULL TIME) — In-Game Tactics &amp; Substitutions Disabled
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                                Final Score: {currentMatch.homeTeam} {currentMatch.homeScore ?? 0} - {currentMatch.awayScore ?? 0} {currentMatch.awayTeam}. All tactical changes, position swaps, and substitutions are officially locked.
+                            </div>
+                        </div>
+                    </div>
+                    <span style={{
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(239, 68, 68, 0.3)',
+                        color: '#fca5a5',
+                        fontSize: '11px',
+                        fontWeight: '900',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                    }}>
+                        Read-Only View
+                    </span>
+                </div>
+            )}
+
             {/* Approved Warm-Up Injury Switch Banner */}
             {approvedWarmupAmendment && (
                 <div style={{
@@ -1066,13 +1234,35 @@ export default function CoachLiveManagement({
                             alignItems: 'center'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>Tactical Pitch ({formationName})</span>
-                                <span style={{ fontSize: '11px', color: '#4ade80', fontWeight: '700', background: 'rgba(74, 222, 128, 0.15)', padding: '2px 8px', borderRadius: '10px' }}>
-                                    11 Active On Pitch
+                                <span style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>Tactical Pitch</span>
+                                <select
+                                    value={formationName}
+                                    disabled={isFinished}
+                                    onChange={(e) => handleFormationChange(e.target.value)}
+                                    style={{
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        background: isFinished ? 'rgba(255, 255, 255, 0.05)' : 'rgba(59, 130, 246, 0.2)',
+                                        color: isFinished ? 'var(--text-muted)' : '#93c5fd',
+                                        border: isFinished ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(59, 130, 246, 0.4)',
+                                        fontSize: '11px',
+                                        fontWeight: '800',
+                                        cursor: isFinished ? 'not-allowed' : 'pointer',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    {Object.keys(FORMATION_LAYOUTS).map(f => (
+                                        <option key={f} value={f} style={{ background: '#0f172a', color: '#ffffff' }}>{f}</option>
+                                    ))}
+                                </select>
+                                <span style={{ fontSize: '11px', color: isFinished ? 'var(--text-muted)' : '#4ade80', fontWeight: '700', background: isFinished ? 'rgba(255, 255, 255, 0.06)' : 'rgba(74, 222, 128, 0.15)', padding: '2px 8px', borderRadius: '10px' }}>
+                                    {isFinished ? 'Final Lineup (FT)' : '11 Active On Pitch'}
                                 </span>
                             </div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                Drag bench player &amp; drop onto pitch slot to substitute
+                            <div style={{ fontSize: '11px', color: isFinished ? '#fca5a5' : 'var(--text-muted)' }}>
+                                {isFinished 
+                                    ? '🔒 Tactics and substitutions are locked for finished matches'
+                                    : 'Drag bench player & drop onto pitch slot to substitute'}
                             </div>
                         </div>
 
@@ -1093,22 +1283,49 @@ export default function CoachLiveManagement({
                             <div style={{ position: 'absolute', left: '22%', right: '22%', top: '3%', height: '14%', border: '2px solid rgba(255, 255, 255, 0.25)', borderTop: 'none' }} />
                             <div style={{ position: 'absolute', left: '22%', right: '22%', bottom: '3%', height: '14%', border: '2px solid rgba(255, 255, 255, 0.25)', borderBottom: 'none' }} />
 
+                            {/* Concluded Match Watermark Notice */}
+                            {isFinished && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '12px',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    background: 'rgba(15, 23, 42, 0.92)',
+                                    border: '1.5px solid rgba(239, 68, 68, 0.6)',
+                                    color: '#fca5a5',
+                                    padding: '6px 16px',
+                                    borderRadius: '20px',
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    letterSpacing: '0.05em',
+                                    textTransform: 'uppercase',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    zIndex: 25,
+                                    pointerEvents: 'none',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+                                }}>
+                                    <span>🔒</span> FULL TIME — TACTICS &amp; LINEUP LOCKED
+                                </div>
+                            )}
+
                             {/* 11 Active Tactical Slots on Pitch */}
                             {pitchSlots.map((slot, idx) => {
                                 const playerId = currentOnField[idx];
                                 const player = getPlayer(playerId);
-                                const isDropTarget = dragOverSlotIndex === idx;
+                                const isDropTarget = !isFinished && dragOverSlotIndex === idx;
                                 const roleColor = player ? (ROLE_COLORS[slot.role] || '#3b82f6') : 'rgba(255, 255, 255, 0.1)';
 
                                 return (
                                     <div
                                         key={idx}
-                                        draggable={!!player}
-                                        onDragStart={(e) => player && handleDragStart(e, { type: 'pitch', playerId: player.id, slotIndex: idx })}
-                                        onDragOver={(e) => handleDragOver(e, idx)}
+                                        draggable={!isFinished && !!player}
+                                        onDragStart={(e) => !isFinished && player && handleDragStart(e, { type: 'pitch', playerId: player.id, slotIndex: idx })}
+                                        onDragOver={(e) => !isFinished && handleDragOver(e, idx)}
                                         onDragLeave={handleDragLeave}
-                                        onDrop={(e) => handleDrop(e, idx)}
-                                        onClick={() => handleSlotClick(idx)}
+                                        onDrop={(e) => !isFinished && handleDrop(e, idx)}
+                                        onClick={() => !isFinished && handleSlotClick(idx)}
                                         style={{
                                             position: 'absolute',
                                             left: `${slot.x}%`,
@@ -1118,7 +1335,7 @@ export default function CoachLiveManagement({
                                             flexDirection: 'column',
                                             alignItems: 'center',
                                             gap: '2px',
-                                            cursor: 'pointer',
+                                            cursor: isFinished ? 'not-allowed' : 'pointer',
                                             zIndex: isDropTarget ? 20 : 5,
                                             transition: 'transform 0.15s ease, filter 0.15s ease'
                                         }}
@@ -1225,9 +1442,9 @@ export default function CoachLiveManagement({
                                         return (
                                             <div
                                                 key={pid}
-                                                draggable={true}
-                                                onDragStart={(e) => handleDragStart(e, { type: 'bench', playerId: p.id })}
-                                                onClick={() => setSelectedBenchForSub(prev => prev === pid ? null : pid)}
+                                                draggable={!isFinished}
+                                                onDragStart={(e) => !isFinished && handleDragStart(e, { type: 'bench', playerId: p.id })}
+                                                onClick={() => !isFinished && setSelectedBenchForSub(prev => prev === pid ? null : pid)}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -1236,12 +1453,13 @@ export default function CoachLiveManagement({
                                                     borderRadius: '8px',
                                                     background: isSelectedForTap ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.03)',
                                                     border: isSelectedForTap ? '1.5px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.08)',
-                                                    cursor: 'grab',
+                                                    cursor: isFinished ? 'default' : 'grab',
+                                                    opacity: isFinished ? 0.75 : 1,
                                                     transition: 'all 0.15s'
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                                                    <span style={{ color: 'var(--text-muted)', fontSize: '14px', cursor: 'grab' }}>⠿</span>
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: '14px', cursor: isFinished ? 'default' : 'grab' }}>⠿</span>
                                                     <JerseyIcon number={p.jerseyNumber != null ? p.jerseyNumber : '—'} color="#f59e0b" size={28} />
                                                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                                         <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1255,22 +1473,25 @@ export default function CoachLiveManagement({
 
                                                 <button
                                                     type="button"
+                                                    disabled={isFinished}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setSelectedBenchForSub(pid);
+                                                        if (!isFinished) {
+                                                            setSelectedBenchForSub(pid);
+                                                        }
                                                     }}
                                                     style={{
                                                         padding: '4px 8px',
                                                         borderRadius: '6px',
                                                         fontSize: '10px',
                                                         fontWeight: '800',
-                                                        background: isSelectedForTap ? '#3b82f6' : 'rgba(255, 255, 255, 0.08)',
-                                                        color: isSelectedForTap ? '#ffffff' : 'var(--text-secondary)',
+                                                        background: isFinished ? 'rgba(255, 255, 255, 0.03)' : isSelectedForTap ? '#3b82f6' : 'rgba(255, 255, 255, 0.08)',
+                                                        color: isFinished ? 'var(--text-muted)' : isSelectedForTap ? '#ffffff' : 'var(--text-secondary)',
                                                         border: 'none',
-                                                        cursor: 'pointer'
+                                                        cursor: isFinished ? 'not-allowed' : 'pointer'
                                                     }}
                                                 >
-                                                    {isSelectedForTap ? 'Selected' : '+ Tap Sub'}
+                                                    {isFinished ? 'Locked' : isSelectedForTap ? 'Selected' : '+ Tap Sub'}
                                                 </button>
                                             </div>
                                         );

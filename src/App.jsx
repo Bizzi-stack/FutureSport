@@ -10,7 +10,8 @@ import SettingsPanel, { useSettings } from './components/SettingsPanel';
 import StudentProfileDrawer from './components/StudentProfileDrawer';
 import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOLS, getTeamStudents } from './data/mockData';
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
-import { pushMatchesToCloud, subscribeToRealtimeSync } from './utils/realtimeSync';
+import { pushMatchesToCloud, subscribeToRealtimeSync, mergeCloudMatches } from './utils/realtimeSync';
+import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays } from './utils/matchEngine';
 import { exportClassReport } from './utils/exportReport';
 import NationalHub from './components/NationalHub';
 import MatchCentre from './components/MatchCentre';
@@ -90,127 +91,8 @@ function TabBtn({ active, onClick, children }) {
     </button>
   );
 }
-function migrateTermsToMatchdays(students) {
-  if (!Array.isArray(students)) return [];
-  return students.map(student => {
-    if (!student) return student;
-    const newStudent = { ...student };
-    if (newStudent.performance && typeof newStudent.performance === 'object') {
-      const newPerf = {};
-      Object.keys(newStudent.performance).forEach(year => {
-        newPerf[year] = {};
-        if (newStudent.performance[year] && typeof newStudent.performance[year] === 'object') {
-          Object.keys(newStudent.performance[year]).forEach(term => {
-            if (term && typeof term === 'string') {
-              const newTerm = term.replace('Term ', 'Matchday ');
-              newPerf[year][newTerm] = newStudent.performance[year][term];
-            }
-          });
-        }
-      });
-      newStudent.performance = newPerf;
-    }
-    if (newStudent.matchStats && typeof newStudent.matchStats === 'object') {
-      const newStats = {};
-      Object.keys(newStudent.matchStats).forEach(year => {
-        newStats[year] = {};
-        if (newStudent.matchStats[year] && typeof newStudent.matchStats[year] === 'object') {
-          Object.keys(newStudent.matchStats[year]).forEach(term => {
-            if (term && typeof term === 'string') {
-              const newTerm = term.replace('Term ', 'Matchday ');
-              newStats[year][newTerm] = newStudent.matchStats[year][term];
-            }
-          });
-        }
-      });
-      newStudent.matchStats = newStats;
-    }
-    if (Array.isArray(newStudent.shotLogs)) {
-      newStudent.shotLogs = newStudent.shotLogs.map(shot => {
-        if (shot && shot.term && typeof shot.term === 'string') {
-          return {
-            ...shot,
-            term: shot.term.replace('Term ', 'Matchday ')
-          };
-        }
-        return shot;
-      });
-    }
-    return newStudent;
-  });
-}
 
-function cleanStudentsForSave(students) {
-  if (!Array.isArray(students)) return [];
-  return students.map(s => {
-    if (!s) return s;
-    const userShotLogs = (s.shotLogs || []).filter(shot => shot && shot.id && String(shot.id).includes('-u-'));
-    return {
-      id: s.id,
-      name: s.name,
-      schoolId: s.schoolId,
-      teamAssignments: s.teamAssignments,
-      performance: s.performance,
-      matchStats: s.matchStats,
-      extracurriculars: s.extracurriculars,
-      jerseyNumber: s.jerseyNumber,
-      shotLogs: userShotLogs,
-      // Save registration details
-      dob: s.dob,
-      gender: s.gender,
-      position: s.position,
-      preferredFoot: s.preferredFoot,
-      medicalInfo: s.medicalInfo,
-      emergencyContact: s.emergencyContact,
-      status: s.status,
-      rejectionReason: s.rejectionReason,
-      documents: s.documents,
-    };
-  });
-}
 
-function loadAndMergeStudents(savedList) {
-  if (!savedList || !Array.isArray(savedList) || savedList.length === 0) return ALL_STUDENTS;
-  const migratedList = migrateTermsToMatchdays(savedList);
-
-  const baseIds = new Set(ALL_STUDENTS.map(b => b && String(b.id)));
-  
-  // Update base students with any saved edits
-  const mergedBase = ALL_STUDENTS.map(baseStudent => {
-    if (!baseStudent) return baseStudent;
-    const savedStudent = migratedList.find(s => s && String(s.id) === String(baseStudent.id));
-    if (!savedStudent) return baseStudent;
-
-    const mockShots = (baseStudent.shotLogs || []).filter(shot => shot && shot.id && !String(shot.id).includes('-u-'));
-    const userShots = (savedStudent.shotLogs || []).filter(shot => shot && shot.id && String(shot.id).includes('-u-'));
-
-    return {
-      ...baseStudent,
-      name: savedStudent.name || baseStudent.name,
-      schoolId: savedStudent.schoolId || baseStudent.schoolId,
-      teamAssignments: savedStudent.teamAssignments || baseStudent.teamAssignments,
-      performance: savedStudent.performance || baseStudent.performance,
-      matchStats: savedStudent.matchStats || baseStudent.matchStats,
-      extracurriculars: savedStudent.extracurriculars || baseStudent.extracurriculars,
-      jerseyNumber: savedStudent.jerseyNumber != null ? savedStudent.jerseyNumber : baseStudent.jerseyNumber,
-      shotLogs: [...mockShots, ...userShots],
-      dob: savedStudent.dob !== undefined ? savedStudent.dob : baseStudent.dob,
-      gender: savedStudent.gender !== undefined ? savedStudent.gender : baseStudent.gender,
-      position: savedStudent.position !== undefined ? savedStudent.position : baseStudent.position,
-      preferredFoot: savedStudent.preferredFoot !== undefined ? savedStudent.preferredFoot : baseStudent.preferredFoot,
-      medicalInfo: savedStudent.medicalInfo !== undefined ? savedStudent.medicalInfo : baseStudent.medicalInfo,
-      emergencyContact: savedStudent.emergencyContact !== undefined ? savedStudent.emergencyContact : baseStudent.emergencyContact,
-      status: savedStudent.status !== undefined ? savedStudent.status : baseStudent.status,
-      rejectionReason: savedStudent.rejectionReason !== undefined ? savedStudent.rejectionReason : baseStudent.rejectionReason,
-      documents: savedStudent.documents !== undefined ? savedStudent.documents : baseStudent.documents,
-    };
-  });
-
-  // Preserve any newly registered custom players added by user
-  const customSaved = migratedList.filter(s => s && s.id && !baseIds.has(String(s.id)));
-  const result = [...mergedBase, ...customSaved];
-  return result.length > 0 ? result : ALL_STUDENTS;
-}
 
 function sanitizeMatchState(matchList) {
   if (!Array.isArray(matchList)) return [];
@@ -419,11 +301,21 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      localStorage.removeItem('eduvision-pmc-students-v4');
-      const saved = localStorage.getItem('eduvision-pmc-students-v5');
+      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6'].forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+      const saved = localStorage.getItem('eduvision-pmc-students-v7');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasLegacyMock = parsed.some(p => {
+            const perf = p.performance?.['2026-2027'];
+            if (!perf) return false;
+            const m1 = perf['Matchday 1'];
+            return m1 && ((m1.Goals || 0) > 0 || (m1.Assists || 0) > 0) && !p._matchContributions;
+          });
+          if (!hasLegacyMock) return parsed;
+        }
       }
     } catch (err) {
       console.error("Error loading eduvision-pmc-students:", err);
@@ -433,7 +325,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v5', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v7', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -584,19 +476,43 @@ function App() {
     const unsubscribe = subscribeToRealtimeSync((cloudMatches) => {
       if (cloudMatches && Array.isArray(cloudMatches) && cloudMatches.length > 0) {
         const sanitizedCloud = sanitizeMatchState(cloudMatches);
-        // Accurately route cloud dataset to PMC or NSSL by inspecting match identifiers
-        const isPmcDataset = sanitizedCloud.some(m => 
+
+        // Partition incoming matches cleanly between PMC and NSSL
+        const pmcOnly = sanitizedCloud.filter(m => 
           String(m.homeTeamId || '').includes('pmc-club') || 
           String(m.id || '').includes('pmc') ||
           m.ageGroup === 'PMC'
         );
+        const nsslOnly = sanitizedCloud.filter(m => 
+          !(String(m.homeTeamId || '').includes('pmc-club') || 
+            String(m.id || '').includes('pmc') ||
+            m.ageGroup === 'PMC')
+        );
 
-        if (isPmcDataset) {
-          if (sanitizedCloud.length > 0) {
-            setPmcMatches(sanitizedCloud);
-          }
-        } else {
-          setMatches(sanitizedCloud);
+        if (pmcOnly.length > 0) {
+          setPmcMatches(prev => mergeCloudMatches(prev, pmcOnly));
+        }
+        if (nsslOnly.length > 0) {
+          setMatches(prev => mergeCloudMatches(prev, nsslOnly));
+        }
+
+        // Reconstruct student statistics deterministically when completed/approved/refereed matches arrive remotely
+        const finishedMatches = sanitizedCloud.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
+        if (finishedMatches.length > 0) {
+          setAllStudents(prev => {
+            let updated = prev;
+            finishedMatches.forEach(m => {
+              updated = applyMatchContributions(updated, m);
+            });
+            return updated;
+          });
+          setPmcStudents(prev => {
+            let updated = prev;
+            finishedMatches.forEach(m => {
+              updated = applyMatchContributions(updated, m);
+            });
+            return updated;
+          });
         }
       }
     });
@@ -933,100 +849,26 @@ function App() {
       }
     }
 
-    const updateFn = prev => {
-      const next = prev.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
-      pushMatchesToCloud(next);
-      return next;
-    };
-
     const isPmc = selectedTournament === 'PMC' ||
       String(updatedMatch.id || '').includes('pmc') ||
       String(updatedMatch.homeTeamId || '').includes('pmc') ||
       updatedMatch.ageGroup === 'PMC' ||
       (pmcMatches || []).some(m => m.id === updatedMatch.id);
 
+    // Update matches state immutably and push to cloud OUTSIDE the React state updater
+    const currentList = isPmc ? pmcMatches : matches;
+    const nextMatches = (currentList || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
     if (isPmc) {
-      setPmcMatches(updateFn);
+      setPmcMatches(nextMatches);
     } else {
-      setMatches(updateFn);
+      setMatches(nextMatches);
     }
+    pushMatchesToCloud(nextMatches);
 
-    // Propagate statistics only if the match transitions to 'approved'
-    if (updatedMatch.status === 'approved') {
-      const { playerStats, matchday } = updatedMatch;
-      if (playerStats) {
-        setAllStudents(prev => prev.map(student => {
-          const stats = playerStats[String(student.id)];
-          if (!stats) return student;
-
-          const newStudent = { ...student };
-          // Merge performance stats
-          if (!newStudent.performance) newStudent.performance = {};
-          if (!newStudent.performance[selectedYear]) newStudent.performance[selectedYear] = {};
-          const md = matchday || selectedTerm;
-          if (!newStudent.performance[selectedYear][md]) newStudent.performance[selectedYear][md] = {};
-          const perf = { ...newStudent.performance[selectedYear][md] };
-
-          const perfStats = ['Goals', 'Assists', 'Shots on Target', 'Shots', 'Pass Completed',
-            'Successful Dribbles', 'Successful Clearances', 'Successful Blocks',
-            'Corners Taken', 'Freekicks Taken', 'Penalties Taken', 'Successful Tackles',
-            'Saves', 'Penalties Saved', 'Free Kick Saves', 'Goals Conceded', 'Punches', 'High Claims'];
-          perfStats.forEach(stat => {
-            if (stats[stat]) perf[stat] = (perf[stat] || 0) + stats[stat];
-          });
-
-          // Float stats — add raw values
-          ['Tackles Per Game', 'Interceptions Per Game', 'Shots Per Game'].forEach(stat => {
-            if (stats[stat]) perf[stat] = (perf[stat] || 0) + stats[stat];
-          });
-
-          // Recalculate Shot Accuracy
-          if (perf['Shots'] > 0) {
-            perf['Shot Accuracy'] = Math.round(((perf['Shots on Target'] || 0) / perf['Shots']) * 100);
-          }
-          newStudent.performance[selectedYear] = { ...newStudent.performance[selectedYear], [md]: perf };
-
-          // Merge matchStats (discipline + playtime)
-          if (!newStudent.matchStats) newStudent.matchStats = {};
-          if (!newStudent.matchStats[selectedYear]) newStudent.matchStats[selectedYear] = {};
-          if (!newStudent.matchStats[selectedYear][md]) newStudent.matchStats[selectedYear][md] = {};
-          const ms = { ...newStudent.matchStats[selectedYear][md] };
-          ms.gamesPlayed = (ms.gamesPlayed || 0) + 1;
-          if (stats.minutesPlayed) ms.minutesPlayed = (ms.minutesPlayed || 0) + stats.minutesPlayed;
-          if (stats.yellowCards) ms.yellowCards = (ms.yellowCards || 0) + stats.yellowCards;
-          if (stats.redCards) ms.redCards = (ms.redCards || 0) + stats.redCards;
-          newStudent.matchStats[selectedYear] = { ...newStudent.matchStats[selectedYear], [md]: ms };
-
-          // Merge shot logs from timeline
-          const playerShots = (updatedMatch.timeline || [])
-            .filter(event => Number(event.playerId) === Number(student.id) && (event.type === 'goal' || event.type === 'shotOnTarget' || event.type === 'shotMissed'))
-            .map((event, index) => {
-              let resultType = 'miss';
-              if (event.type === 'goal') {
-                resultType = event.goalType === 'own-goal' ? 'miss' : 'goal';
-              } else if (event.type === 'shotOnTarget') {
-                resultType = 'saved';
-              }
-
-              return {
-                id: `${student.id}-${selectedYear}-${md}-u-${Date.now()}-${index}`,
-                year: selectedYear,
-                term: md,
-                result: resultType,
-                x: event.x != null ? event.x : 50,
-                y: event.y != null ? event.y : 50,
-                goalType: event.goalType || null,
-                timestamp: Date.now()
-              };
-            });
-
-          if (playerShots.length > 0) {
-            newStudent.shotLogs = [...(newStudent.shotLogs || []), ...playerShots];
-          }
-
-          return newStudent;
-        }));
-      }
+    // Propagate statistics if the match transitions to finished state
+    if (['approved', 'completed', 'refereed'].includes(updatedMatch.status)) {
+      setAllStudents(prev => applyMatchContributions(prev, updatedMatch));
+      setPmcStudents(prev => applyMatchContributions(prev, updatedMatch));
     }
   };
 

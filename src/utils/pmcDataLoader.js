@@ -38,45 +38,40 @@ PMC_SCHOOLS.forEach(school => {
     });
 });
 
-// Helper for random performance stats
-function generatePmcPerformance(rng, isGk) {
+// Helper for clean initial tournament performance stats (0-based before match participation)
+export function generatePmcPerformance(isGk) {
     const perf = {};
     YEARS.forEach(y => {
         perf[y] = {};
         TERMS.forEach(t => {
             if (isGk) {
-                const saves = Math.floor(rng() * 15) + 5;
-                const conceded = Math.floor(rng() * 8);
                 perf[y][t] = {
-                    'Saves': saves,
-                    'Clean Sheets': rng() < 0.4 ? 1 : 0,
-                    'Goals Conceded': conceded,
-                    'Penalties Saved': rng() < 0.2 ? 1 : 0,
-                    'Pass Completed': Math.floor(rng() * 30) + 60,
-                    'Punches': Math.floor(rng() * 6),
-                    'High Claims': Math.floor(rng() * 8)
+                    'Saves': 0,
+                    'Clean Sheets': 0,
+                    'Goals Conceded': 0,
+                    'Penalties Saved': 0,
+                    'Pass Completed': 0,
+                    'Punches': 0,
+                    'High Claims': 0
                 };
             } else {
-                const goals = Math.floor(rng() * 5);
-                const shotsOnTarget = goals + Math.floor(rng() * 8);
-                const shots = shotsOnTarget + Math.floor(rng() * 6);
                 perf[y][t] = {
-                    'Goals': goals,
-                    'Assists': Math.floor(rng() * 4),
-                    'Shots on Target': shotsOnTarget,
-                    'Shots': shots,
-                    'Shots Per Game': Number((shots / 3).toFixed(1)),
-                    'Shot Accuracy': shots > 0 ? Math.round((shotsOnTarget / shots) * 100) : 0,
-                    'Pass Completed': Math.floor(rng() * 30) + 65,
-                    'Successful Dribbles': Math.floor(rng() * 10),
-                    'Tackles Per Game': Number((rng() * 4).toFixed(1)),
-                    'Interceptions Per Game': Number((rng() * 3).toFixed(1)),
-                    'Successful Clearances': Math.floor(rng() * 6),
-                    'Successful Blocks': Math.floor(rng() * 4),
-                    'Corners Taken': Math.floor(rng() * 5),
-                    'Freekicks Taken': Math.floor(rng() * 3),
-                    'Penalties Taken': Math.floor(rng() * 2),
-                    'Successful Tackles': Math.floor(rng() * 8)
+                    'Goals': 0,
+                    'Assists': 0,
+                    'Shots on Target': 0,
+                    'Shots': 0,
+                    'Shots Per Game': 0,
+                    'Shot Accuracy': 0,
+                    'Pass Completed': 0,
+                    'Successful Dribbles': 0,
+                    'Tackles Per Game': 0,
+                    'Interceptions Per Game': 0,
+                    'Successful Clearances': 0,
+                    'Successful Blocks': 0,
+                    'Corners Taken': 0,
+                    'Freekicks Taken': 0,
+                    'Penalties Taken': 0,
+                    'Successful Tackles': 0
                 };
             }
         });
@@ -131,7 +126,7 @@ PMC_SCHOOLS.forEach((club, cIdx) => {
             emergencyContact: 'Parent / Guardian',
             status: 'approved',
             isMockPlayer: false,
-            performance: generatePmcPerformance(rng, isGk),
+            performance: generatePmcPerformance(isGk),
             matchStats: {
                 yellowCards: 0,
                 redCards: 0,
@@ -232,6 +227,7 @@ export const PMC_MATCHES = [
         time: '19:00',
         round: 'Matchday 1 · PMC Group Stage',
         matchday: 'Matchday 1',
+        year: '2026-2027',
         ageGroup: 'PMC',
         homePlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-19').map(s => s.id),
         awayPlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-7').map(s => s.id),
@@ -269,6 +265,7 @@ export const PMC_MATCHES = [
         time: '21:00',
         round: 'Matchday 1 · PMC Group Stage',
         matchday: 'Matchday 1',
+        year: '2026-2027',
         ageGroup: 'PMC',
         homePlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-14').map(s => s.id),
         awayPlayers: PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-4').map(s => s.id),

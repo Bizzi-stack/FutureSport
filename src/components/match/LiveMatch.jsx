@@ -4,6 +4,17 @@ import { createPlayerLookupMap, resolvePlayer, resolvePlayerName } from '../../u
 import LiveShotModal from './LiveShotModal';
 import LiveGkSaveModal from './LiveGkSaveModal';
 import TileDataCaptureControlPanel from './TileDataCaptureControlPanel';
+import { 
+    syncPlayerStats, 
+    syncTimeline, 
+    mergeTombstones, 
+    resolveActiveGoalkeeper,
+    recordMatchActionState,
+    recordMatchShotState,
+    recordMatchGkSaveState,
+    undoMatchEventState,
+    updateMatchPlayerDetailState
+} from '../../utils/matchEngine';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 const FORMATION_LAYOUTS = {
@@ -176,16 +187,20 @@ function initPlayerStats(playerIds, side) {
     playerIds.forEach(id => {
         out[id] = {
             Goals: 0, Assists: 0, 'Shots on Target': 0, Shots: 0,
+            'Blocked Shots': 0,
             'Pass Completed': 0, 'Successful Dribbles': 0,
             'Tackles Per Game': 0, 'Interceptions Per Game': 0,
             'Successful Clearances': 0, 'Successful Blocks': 0,
             'Corners Taken': 0, 'Freekicks Taken': 0,
             'Penalties Taken': 0, 'Successful Tackles': 0,
+            'Fouls Committed': 0,
             Saves: 0, 'Penalties Saved': 0, 'Free Kick Saves': 0,
             'Goals Conceded': 0, Punches: 0, 'High Claims': 0,
             minutesPlayed: 0, yellowCards: 0, redCards: 0,
             ownGoals: 0,
             team: side,
+            _updatedAt: 0,
+            _statUpdatedAt: {}
         };
     });
     return out;
@@ -309,23 +324,37 @@ export default function LiveMatch({
         }
     }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, isMasterLogger]);
 
-    // Bidirectional timeline sync: Merge events logged by any logger (Shots, Events, etc.) without losing local entries
+    const localUpdatedAtRef = useRef(Date.now());
+    const localSeqRef = useRef(1);
+    const [tombstoneEventIds, setTombstoneEventIds] = useState(() => {
+        return matchData.tombstoneEventIds || matchData.liveState?.tombstoneEventIds || [];
+    });
+
+    // Merge incoming tombstones from remote loggers
+    useEffect(() => {
+        const incTombstones = matchData.tombstoneEventIds || matchData.liveState?.tombstoneEventIds;
+        if (Array.isArray(incTombstones) && incTombstones.length > 0) {
+            setTombstoneEventIds(prev => {
+                const merged = mergeTombstones(prev, incTombstones);
+                if (merged.length !== prev.length) return merged;
+                return prev;
+            });
+        }
+    }, [matchData.tombstoneEventIds, matchData.liveState?.tombstoneEventIds]);
+
+    // Bidirectional timeline sync: Merge events logged by any logger without resurrecting tombstoned entries
     useEffect(() => {
         const incomingTimeline = matchData.timeline || matchData.liveState?.timeline;
         if (Array.isArray(incomingTimeline)) {
             setTimeline(prevLocal => {
-                const map = new Map();
-                (prevLocal || []).forEach(ev => { if (ev && ev.id) map.set(ev.id, ev); });
-                incomingTimeline.forEach(ev => { if (ev && ev.id) map.set(ev.id, ev); });
-                const merged = Array.from(map.values());
-                merged.sort((a, b) => (a.elapsed ?? (a.minute * 60) ?? 0) - (b.elapsed ?? (b.minute * 60) ?? 0));
+                const merged = syncTimeline(prevLocal, incomingTimeline, tombstoneEventIds);
                 if (merged.length !== (prevLocal || []).length || merged.some((e, i) => e.id !== prevLocal[i]?.id)) {
                     return merged;
                 }
                 return prevLocal;
             });
         }
-    }, [matchData.timeline, matchData.liveState?.timeline]);
+    }, [matchData.timeline, matchData.liveState?.timeline, tombstoneEventIds]);
 
     const [elapsed, setElapsed] = useState(() => {
         if (clockState.isRunning === false) return offsetRef.current;
@@ -341,41 +370,18 @@ export default function LiveMatch({
     });
     const [timeline, setTimeline] = useState(eventState.timeline || []);
 
-    // Synchronize incoming player stats across data capturers to keep scores and stats unified
+    // Synchronize incoming player stats across data capturers supporting decreases and rejecting stale updates
     useEffect(() => {
         const incomingStats = matchData.playerStats || matchData.liveState?.playerStats;
         if (incomingStats && typeof incomingStats === 'object' && Object.keys(incomingStats).length > 0) {
             setPlayerStats(prev => {
-                let hasChanges = false;
-                const next = { ...prev };
-                Object.keys(incomingStats).forEach(pId => {
-                    const inc = incomingStats[pId];
-                    const cur = prev[pId];
-                    if (!cur) {
-                        next[pId] = inc;
-                        hasChanges = true;
-                    } else {
-                        let updated = false;
-                        const mergedPlayer = { ...cur };
-                        Object.keys(inc).forEach(k => {
-                            if (typeof inc[k] === 'number') {
-                                const maxVal = Math.max(cur[k] || 0, inc[k]);
-                                if (maxVal !== cur[k]) {
-                                    mergedPlayer[k] = maxVal;
-                                    updated = true;
-                                }
-                            }
-                        });
-                        if (updated) {
-                            next[pId] = mergedPlayer;
-                            hasChanges = true;
-                        }
-                    }
-                });
+                const incMatchTime = matchData.updatedAt || matchData.liveState?.updatedAt || 0;
+                const localMatchTime = localUpdatedAtRef.current || 0;
+                const { next, hasChanges } = syncPlayerStats(prev, incomingStats, localMatchTime, incMatchTime);
                 return hasChanges ? next : prev;
             });
         }
-    }, [matchData.playerStats, matchData.liveState?.playerStats]);
+    }, [matchData.playerStats, matchData.liveState?.playerStats, matchData.updatedAt, matchData.liveState?.updatedAt]);
     const [shotModalData, setShotModalData] = useState(null); // { player, defaultOutcome, teammates }
     const [expandedPlayer, setExpandedPlayer] = useState(null);
     const [livePossession, setLivePossession] = useState(() => matchData?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 });
@@ -536,12 +542,18 @@ export default function LiveMatch({
     // Sync state to Match object whenever critical states change
     useEffect(() => {
         if (onUpdateMatch) {
+            const currentUpdatedAt = localUpdatedAtRef.current || Date.now();
+            const nextVersion = (matchDataRef.current?.version || 0) + 1;
+
             // If referee, update refereeLiveState and root match fields
             if (isRefereeMode) {
                 const updatedRefereeState = {
                     ...eventState,
                     playerStats,
-                    timeline
+                    timeline,
+                    tombstoneEventIds,
+                    updatedAt: currentUpdatedAt,
+                    version: nextVersion
                 };
                 onUpdateMatch({
                     ...matchDataRef.current,
@@ -549,6 +561,9 @@ export default function LiveMatch({
                     awayScore,
                     timeline,
                     playerStats,
+                    tombstoneEventIds,
+                    updatedAt: currentUpdatedAt,
+                    version: nextVersion,
                     refereeLiveState: updatedRefereeState
                 });
             } else {
@@ -561,7 +576,10 @@ export default function LiveMatch({
                     period: isMasterLogger ? period : (clockState.period || period),
                     playerStats,
                     timeline,
-                    possession: livePossession
+                    possession: livePossession,
+                    tombstoneEventIds,
+                    updatedAt: currentUpdatedAt,
+                    version: nextVersion
                 };
                 onUpdateMatch({
                     ...matchDataRef.current,
@@ -570,12 +588,15 @@ export default function LiveMatch({
                     timeline,
                     playerStats,
                     possession: livePossession,
+                    tombstoneEventIds,
+                    updatedAt: currentUpdatedAt,
+                    version: nextVersion,
                     liveState: updatedLiveState
                 });
             }
         }
         // eslint-disable-next-line
-    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession, isMasterLogger]);
+    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession, isMasterLogger, tombstoneEventIds]);
 
     /* quick-action handler */
     const handleQuickAction = useCallback((playerId, actionKey) => {
@@ -613,59 +634,34 @@ export default function LiveMatch({
                 teammates
             });
         } else {
-            // Direct immediate logging for card/assist/foul
-            const elapsedMins = Math.floor(elapsed / 60) + 1;
-            const newEvent = {
-                id: `event-${Date.now()}`,
-                elapsed: elapsed,
-                minute: elapsedMins,
-                period: period,
-                type: actionKey,
+            // Direct immediate logging using production reducer
+            localSeqRef.current += 1;
+            const now = Date.now();
+            localUpdatedAtRef.current = now;
+
+            const actionToken = `act-${playerId}-${now}-${localSeqRef.current}`;
+            const outcome = recordMatchActionState({
+                playerStats,
+                timeline,
+                actionKey,
                 playerId,
                 playerName: name,
                 team: isHome ? 'home' : 'away',
                 teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
-                teamName: isHome ? home.name : away.name
-            };
-
-            setTimeline(prev => [...prev, newEvent]);
-
-            setPlayerStats(prev => {
-                const ps = { ...prev };
-                if (!ps[playerId]) ps[playerId] = initPlayerStats([playerId], isHome ? 'home' : 'away')[playerId];
-                ps[playerId] = { ...ps[playerId] };
-
-                if (actionKey === 'assist') ps[playerId].Assists = (ps[playerId].Assists || 0) + 1;
-                if (actionKey === 'yellowCard') ps[playerId].yellowCards = (ps[playerId].yellowCards || 0) + 1;
-                if (actionKey === 'redCard') ps[playerId].redCards = (ps[playerId].redCards || 0) + 1;
-                if (actionKey === 'corner') ps[playerId]['Corners Taken'] = (ps[playerId]['Corners Taken'] || 0) + 1;
-                if (actionKey === 'foul') ps[playerId]['Fouls Committed'] = (ps[playerId]['Fouls Committed'] || 0) + 1;
-
-                if (actionKey === 'shotMissed') {
-                    ps[playerId].Shots = (ps[playerId].Shots || 0) + 1;
-                }
-
-                if (actionKey === 'shotOnTarget') {
-                    ps[playerId].Shots = (ps[playerId].Shots || 0) + 1;
-                    ps[playerId]['Shots on Target'] = (ps[playerId]['Shots on Target'] || 0) + 1;
-
-                    // Automatically credit opposing Goalkeeper with a Save!
-                    const oppPlayers = isHome ? awayPlayers : homePlayers;
-                    const oppGkId = oppPlayers.find(id => studentsById[id]?.position === 'Goalkeeper') || oppPlayers[0];
-                    if (oppGkId) {
-                        const oppSide = isHome ? 'away' : 'home';
-                        if (!ps[oppGkId]) ps[oppGkId] = initPlayerStats([oppGkId], oppSide)[oppGkId];
-                        ps[oppGkId] = {
-                            ...ps[oppGkId],
-                            Saves: (ps[oppGkId].Saves || 0) + 1
-                        };
-                    }
-                }
-
-                return ps;
+                teamName: isHome ? home.name : away.name,
+                elapsed,
+                period,
+                now,
+                seq: localSeqRef.current,
+                actionToken
             });
+
+            if (!outcome.rejected) {
+                setTimeline(outcome.timeline);
+                setPlayerStats(outcome.playerStats);
+            }
         }
-    }, [elapsed, homePlayers, awayPlayers, studentsById, period, matchData.homeTeamId, matchData.awayTeamId, home.name, away.name, allStudents, captureRole]);
+    }, [elapsed, homePlayers, awayPlayers, studentsById, period, matchData.homeTeamId, matchData.awayTeamId, home.name, away.name, allStudents, captureRole, playerStats, timeline]);
 
     /* Shot/Goal Modal Save */
     const handleSaveShot = (shotDetails) => {
@@ -673,119 +669,71 @@ export default function LiveMatch({
         const { player } = shotModalData;
         const playerId = player.id;
         const isHome = homePlayers.includes(playerId);
-        const { result, x, y, goalType, assistPlayerId } = shotDetails;
+        const { result } = shotDetails;
 
-        const elapsedMins = Math.floor(elapsed / 60) + 1;
-        const eventId = `event-${Date.now()}`;
-        
-        // Add shot event to timeline
-        const eventType = result === 'goal' ? 'goal' : result === 'saved' ? 'shotOnTarget' : result === 'blocked' ? 'shotBlocked' : 'shotMissed';
-        const assistPlayer = assistPlayerId ? resolvePlayer(assistPlayerId, allStudents, studentsById) : null;
-        const assistPlayerName = assistPlayer ? resolvePlayerName(assistPlayer, allStudents, studentsById) : null;
         const resolvedShooterName = resolvePlayerName(player || playerId, allStudents, studentsById);
 
-        const newEvent = {
-            id: eventId,
-            elapsed: elapsed,
-            minute: elapsedMins,
-            period: period,
-            type: eventType,
-            result: result,
-            outcome: result === 'goal' ? 'Goal' : result === 'saved' ? 'Saved' : result === 'blocked' ? 'Blocked' : 'Off Target',
-            playerId,
-            playerName: resolvedShooterName,
-            team: isHome ? 'home' : 'away',
-            teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
-            teamName: isHome ? home.name : away.name,
-            x: Math.round(x),
-            y: Math.round(y),
-            goalType: goalType || 'foot',
-            shotType: goalType || 'foot',
-            shotDetail: {
-                x: Math.round(x),
-                y: Math.round(y),
-                result,
-                goalType: goalType || 'foot',
-                technique: goalType || 'foot'
-            },
-            assistingPlayerId: assistPlayerId || null,
-            assistingPlayerName: assistPlayerName || null
-        };
+        // Goalkeeper attribution: ONLY resolve or prompt for goalkeeper if result === 'saved'
+        let oppGkId = null;
+        let oppGkName = 'Goalkeeper';
 
-        setTimeline(prev => [...prev, newEvent]);
+        if (result === 'saved') {
+            const oppSide = isHome ? 'away' : 'home';
+            const oppPlayersList = isHome ? awayPlayers : homePlayers;
+            const gkRes = resolveActiveGoalkeeper({ side: oppSide, matchData, allStudents });
+            oppGkId = gkRes.goalkeeperId;
 
-        // Push shot log to student profile for shot map history
-        const shooter = studentsById[playerId];
-        if (shooter) {
-            if (!shooter.shotLogs) shooter.shotLogs = [];
-            shooter.shotLogs.push({
-                id: `shot-${Date.now()}`,
-                result: result,
-                goalType: goalType,
-                x: Math.round(x),
-                y: Math.round(y),
-                timestamp: Date.now()
-            });
+            if (gkRes.isAmbiguous || !oppGkId) {
+                const chosenId = window.prompt?.(
+                    `Goalkeeper for ${isHome ? away.name : home.name} is ambiguous. Please select or enter the Goalkeeper player ID from the active opposing lineup:\n` +
+                    oppPlayersList.map(pid => `${pid}: ${resolvePlayerName(pid, allStudents, studentsById)}`).join('\n'),
+                    oppPlayersList[0]
+                );
+
+                // CRITICAL FIX: Validate selection against the active opposing lineup and abort if cancelled
+                if (chosenId && oppPlayersList.some(p => String(p).trim() === String(chosenId).trim())) {
+                    oppGkId = chosenId.trim();
+                } else {
+                    alert(`Goalkeeper selection cancelled or not in active opposing lineup. Shot save cancelled.`);
+                    return; // DO NOT record save without crediting an active goalkeeper!
+                }
+            }
+            oppGkName = resolvePlayerName(oppGkId, allStudents, studentsById);
         }
 
-        // Update player statistics
-        setPlayerStats(prev => {
-            const ps = { ...prev };
-            
-            // Scorer update
-            if (!ps[playerId]) ps[playerId] = initPlayerStats([playerId], isHome ? 'home' : 'away')[playerId];
-            const s = { ...ps[playerId] };
+        localSeqRef.current += 1;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
 
-            if (result === 'goal') {
-                if (goalType === 'own-goal') {
-                    s.ownGoals += 1;
-                } else {
-                    s.Goals += 1;
-                    s['Shots on Target'] += 1;
-                    s.Shots += 1;
-                }
-            } else if (result === 'saved') {
-                s['Shots on Target'] += 1;
-                s.Shots += 1;
-
-                // Auto-attribute save to opposing team's Goalkeeper
-                const oppPlayers = isHome ? awayPlayers : homePlayers;
-                const oppGkId = oppPlayers.find(id => studentsById[id]?.position === 'Goalkeeper');
-                if (oppGkId && studentsById[oppGkId]) {
-                    const oppGk = studentsById[oppGkId];
-                    if (!oppGk.saveLogs) oppGk.saveLogs = [];
-                    oppGk.saveLogs.push({
-                        id: `gk-sv-${Date.now()}`,
-                        year: '2024-2025',
-                        term: 'Matchday 3',
-                        result: 'save',
-                        saveType: goalType === 'penalty' ? 'penalty' : goalType === 'freekick' ? 'freekick' : 'normal',
-                        x: Math.round(x),
-                        y: Math.round(y),
-                        timestamp: Date.now()
-                    });
-                }
-            } else if (result === 'blocked') {
-                s['Blocked Shots'] = (s['Blocked Shots'] || 0) + 1;
-                s.Shots += 1;
-            } else {
-                s.Shots += 1;
-            }
-            ps[playerId] = s;
-
-            // Assisting player update
-            if (result === 'goal' && goalType !== 'own-goal' && assistPlayerId) {
-                const assistSide = homePlayers.includes(assistPlayerId) ? 'home' : 'away';
-                if (!ps[assistPlayerId]) ps[assistPlayerId] = initPlayerStats([assistPlayerId], assistSide)[assistPlayerId];
-                ps[assistPlayerId] = {
-                    ...ps[assistPlayerId],
-                    Assists: ps[assistPlayerId].Assists + 1
-                };
-            }
-
-            return ps;
+        const actionToken = shotDetails.actionToken || `act-${playerId}-${now}-${localSeqRef.current}`;
+        const outcome = recordMatchShotState({
+            playerStats,
+            timeline,
+            shotDetails,
+            shooterId: playerId,
+            shooterName: resolvedShooterName,
+            isHome,
+            homeTeamId: matchData.homeTeamId,
+            awayTeamId: matchData.awayTeamId,
+            homeTeamName: home.name,
+            awayTeamName: away.name,
+            oppGkId,
+            oppGkName,
+            oppPlayersList: isHome ? awayPlayers : homePlayers,
+            elapsed,
+            period,
+            now,
+            seq: localSeqRef.current,
+            actionToken
         });
 
+        if (outcome.rejected) {
+            console.warn('[LiveMatch] Shot rejected:', outcome.reason);
+            return;
+        }
+
+        setTimeline(outcome.timeline);
+        setPlayerStats(outcome.playerStats);
         setShotModalData(null);
     };
 
@@ -794,138 +742,81 @@ export default function LiveMatch({
         const { player } = gkSaveModalData;
         const playerId = player.id;
         const isHome = homePlayers.includes(playerId);
-        const { saveType, corner } = gkSaveDetails;
-
-        const eventId = `event-${Date.now()}`;
-        
         const resolvedGkName = resolvePlayerName(player || playerId, allStudents, studentsById);
-        const newEvent = {
-            id: eventId,
-            elapsed: elapsed,
-            minute: Math.floor(elapsed / 60) + 1,
-            period: period,
-            type: 'gkSave',
-            playerId,
-            playerName: resolvedGkName,
-            team: isHome ? 'home' : 'away',
-            teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
-            teamName: isHome ? home.name : away.name,
-            saveType,
-            corner
-        };
 
-        setTimeline(prev => [...prev, newEvent]);
+        localSeqRef.current += 1;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
 
-        // Update goalkeeper statistics and saveLogs
-        const gk = studentsById[playerId];
-        if (gk) {
-            if (!gk.saveLogs) gk.saveLogs = [];
-            const cornerCoords = {
-                'top-left': { x: 25, y: 35 },
-                'top-right': { x: 75, y: 35 },
-                'center': { x: 50, y: 57 },
-                'bottom-left': { x: 25, y: 80 },
-                'bottom-right': { x: 75, y: 80 }
-            };
-            const coords = cornerCoords[corner] || { x: 50, y: 50 };
-            gk.saveLogs.push({
-                id: `gk-sv-${Date.now()}`,
-                year: '2024-2025',
-                term: 'Matchday 3',
-                result: 'save',
-                saveType: saveType,
-                x: coords.x,
-                y: coords.y,
-                timestamp: Date.now()
-            });
-        }
-
-        setPlayerStats(prev => {
-            const ps = { ...prev };
-            if (!ps[playerId]) ps[playerId] = initPlayerStats([playerId], isHome ? 'home' : 'away')[playerId];
-            const s = { ...ps[playerId] };
-
-            s.Saves = (s.Saves || 0) + 1;
-            if (saveType === 'penalty') {
-                s['Penalties Saved'] = (s['Penalties Saved'] || 0) + 1;
-            } else if (saveType === 'freekick') {
-                s['Free Kick Saves'] = (s['Free Kick Saves'] || 0) + 1;
-            }
-
-            ps[playerId] = s;
-            return ps;
+        const actionToken = gkSaveDetails.actionToken || `gk-${playerId}-${now}-${localSeqRef.current}`;
+        const outcome = recordMatchGkSaveState({
+            playerStats,
+            timeline,
+            gkSaveDetails,
+            gkId: playerId,
+            gkName: resolvedGkName,
+            isHome,
+            homeTeamId: matchData.homeTeamId,
+            awayTeamId: matchData.awayTeamId,
+            homeTeamName: home.name,
+            awayTeamName: away.name,
+            elapsed,
+            period,
+            now,
+            seq: localSeqRef.current,
+            actionToken
         });
 
+        if (outcome.rejected) {
+            console.warn('[LiveMatch] GK Save rejected:', outcome.reason);
+            setGkSaveModalData(null);
+            return;
+        }
+
+        setTimeline(outcome.timeline);
+        setPlayerStats(outcome.playerStats);
         setGkSaveModalData(null);
     };
 
     /* Undo/Delete Timeline Event */
     const handleUndoEvent = (eventId) => {
-        const ev = timeline.find(t => t.id === eventId);
-        if (!ev) return;
+        localSeqRef.current += 1;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
 
-        // Decrement stats
-        setPlayerStats(prev => {
-            const ps = { ...prev };
-            const pId = ev.playerId;
-            if (!ps[pId]) return prev;
-
-            const s = { ...ps[pId] };
-
-            if (ev.type === 'goal') {
-                if (ev.goalType === 'own-goal') {
-                    s.ownGoals = Math.max(0, s.ownGoals - 1);
-                } else {
-                    s.Goals = Math.max(0, s.Goals - 1);
-                    s['Shots on Target'] = Math.max(0, s['Shots on Target'] - 1);
-                    s.Shots = Math.max(0, s.Shots - 1);
-
-                    // Revert assist if any
-                    if (ev.assistingPlayerId && ps[ev.assistingPlayerId]) {
-                        ps[ev.assistingPlayerId] = {
-                            ...ps[ev.assistingPlayerId],
-                            Assists: Math.max(0, ps[ev.assistingPlayerId].Assists - 1)
-                        };
-                    }
-                }
-            } else if (ev.type === 'shotOnTarget') {
-                s['Shots on Target'] = Math.max(0, s['Shots on Target'] - 1);
-                s.Shots = Math.max(0, s.Shots - 1);
-            } else if (ev.type === 'shotMissed') {
-                s.Shots = Math.max(0, s.Shots - 1);
-            } else if (ev.type === 'assist') {
-                s.Assists = Math.max(0, s.Assists - 1);
-            } else if (ev.type === 'yellowCard') {
-                s.yellowCards = Math.max(0, s.yellowCards - 1);
-            } else if (ev.type === 'redCard') {
-                s.redCards = Math.max(0, s.redCards - 1);
-            } else if (ev.type === 'gkSave') {
-                s.Saves = Math.max(0, (s.Saves || 0) - 1);
-                if (ev.saveType === 'penalty') {
-                    s['Penalties Saved'] = Math.max(0, (s['Penalties Saved'] || 0) - 1);
-                } else if (ev.saveType === 'freekick') {
-                    s['Free Kick Saves'] = Math.max(0, (s['Free Kick Saves'] || 0) - 1);
-                }
-            }
-
-            ps[pId] = s;
-            return ps;
+        const outcome = undoMatchEventState({
+            playerStats,
+            timeline,
+            tombstoneEventIds,
+            eventId,
+            now,
+            seq: localSeqRef.current
         });
 
-        // Remove from timeline
-        setTimeline(prev => prev.filter(t => t.id !== eventId));
+        if (!outcome.undone) return;
+
+        setTombstoneEventIds(outcome.tombstoneEventIds);
+        setPlayerStats(outcome.playerStats);
+        setTimeline(outcome.timeline);
     };
 
     /* detail stat change */
     const handleDetailChange = useCallback((playerId, stat, value) => {
-        const num = Math.max(0, Number(value) || 0);
-        setPlayerStats(prev => {
-            const ps = { ...prev, [playerId]: { ...prev[playerId] } };
-            if (stat === 'Minutes Played') ps[playerId].minutesPlayed = num;
-            else ps[playerId][stat] = num;
-            return ps;
+        localSeqRef.current += 1;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
+
+        const outcome = updateMatchPlayerDetailState({
+            playerStats,
+            playerId,
+            stat,
+            value,
+            now,
+            seq: localSeqRef.current
         });
-    }, []);
+
+        setPlayerStats(outcome.playerStats);
+    }, [playerStats]);
 
     /* quick-action badge count */
     const badgeCount = useCallback((playerId, actionKey) => {
