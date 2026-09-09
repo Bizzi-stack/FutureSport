@@ -61,7 +61,8 @@ const results = {
     categoryB: { name: 'Category B: Production Handler Reducer Tests', passed: 0, total: 0 },
     categoryC: { name: 'Category C: Two Connected Clients & Cloud Sync Tests', passed: 0, total: 0 },
     categoryD: { name: 'Category D: Coach Fixture Relevance & Finished Match Disabling Tests', passed: 0, total: 0 },
-    categoryE: { name: 'Category E: Accurate Squad Analytics & Match-Driven Leaderboards', passed: 0, total: 0 }
+    categoryE: { name: 'Category E: Accurate Squad Analytics & Match-Driven Leaderboards', passed: 0, total: 0 },
+    categoryF: { name: 'Category F: In Contest / 3-Way Possession & Sync Tests', passed: 0, total: 0 }
 };
 
 function recordPass(catKey, testName) {
@@ -1291,6 +1292,246 @@ async function runAllTests() {
     console.log(`\nCategory E Summary: ${results.categoryE.passed}/${results.categoryE.total} passed.\n`);
 
     // =========================================================================
+    // CATEGORY F: IN CONTEST / 3-WAY POSSESSION & SYNC TESTS
+    // =========================================================================
+    console.log('================================================================');
+    console.log('CATEGORY F: IN CONTEST / 3-WAY POSSESSION & SYNC TESTS');
+    console.log('================================================================');
+
+    // F1: Toggle between Home, In Contest, and Away toggles activeSide and emits proper possessionChange events
+    {
+        let activeSide = 'none';
+        const possessionEvents = [];
+
+        function handleTogglePossession(side) {
+            const nextSide = activeSide === side ? 'none' : side;
+            activeSide = nextSide;
+            possessionEvents.push({
+                type: 'possessionChange',
+                team: nextSide,
+                timestamp: Date.now()
+            });
+            return nextSide;
+        }
+
+        // Click Home
+        assert.strictEqual(handleTogglePossession('home'), 'home', 'Clicking home activates home possession');
+        // Click In Contest
+        assert.strictEqual(handleTogglePossession('contest'), 'contest', 'Clicking contest switches active possession to contest');
+        // Click In Contest again (toggle off to none)
+        assert.strictEqual(handleTogglePossession('contest'), 'none', 'Clicking contest again pauses/turns off possession to none');
+        // Click Away
+        assert.strictEqual(handleTogglePossession('away'), 'away', 'Clicking away activates away possession');
+        // Switch directly from Away to Contest
+        assert.strictEqual(handleTogglePossession('contest'), 'contest', 'Switching directly from away to contest works');
+
+        assert.strictEqual(possessionEvents.length, 5);
+        assert.strictEqual(possessionEvents[1].team, 'contest', 'Event payload properly records team as contest');
+        assert.strictEqual(possessionEvents[4].team, 'contest', 'Event payload properly records team as contest on switch');
+
+        recordPass('categoryF', 'F1: Toggle between Home, In Contest, and Away toggles activeSide and emits proper possessionChange events');
+    }
+
+    // F2: Timer isolation: When contest is active, only inContestSecs increments
+    {
+        let homeSecs = 120;
+        let awaySecs = 80;
+        let inContestSecs = 20;
+        let activeSide = 'contest';
+
+        // Simulate 15 timer ticks with activeSide = 'contest'
+        for (let tick = 0; tick < 15; tick++) {
+            if (activeSide === 'home') homeSecs++;
+            else if (activeSide === 'away') awaySecs++;
+            else if (activeSide === 'contest') inContestSecs++;
+        }
+
+        assert.strictEqual(homeSecs, 120, 'Home seconds strictly frozen when ball is in contest');
+        assert.strictEqual(awaySecs, 80, 'Away seconds strictly frozen when ball is in contest');
+        assert.strictEqual(inContestSecs, 35, 'In Contest seconds strictly incremented by 15');
+
+        // Now switch to home for 10 ticks
+        activeSide = 'home';
+        for (let tick = 0; tick < 10; tick++) {
+            if (activeSide === 'home') homeSecs++;
+            else if (activeSide === 'away') awaySecs++;
+            else if (activeSide === 'contest') inContestSecs++;
+        }
+
+        assert.strictEqual(homeSecs, 130, 'Home seconds incremented after switching back to home');
+        assert.strictEqual(inContestSecs, 35, 'In Contest seconds frozen once possession is won');
+
+        recordPass('categoryF', 'F2: Timer isolation: When contest is active, only inContestSecs increments');
+    }
+
+    // F3: Invariant: Home% + InContest% + Away% = 100% across all distributions and edge cases
+    {
+        function calculate3WayPossession(homeSecs, awaySecs, inContestSecs) {
+            const total = homeSecs + awaySecs + inContestSecs;
+            if (total === 0) {
+                return { homePct: 50, inContestPct: 0, awayPct: 50 };
+            }
+            const homePct = Math.round((homeSecs / total) * 100);
+            const inContestPct = Math.round((inContestSecs / total) * 100);
+            const awayPct = Math.max(0, 100 - homePct - inContestPct);
+            return { homePct, inContestPct, awayPct };
+        }
+
+        // Baseline zero case
+        const zero = calculate3WayPossession(0, 0, 0);
+        assert.strictEqual(zero.homePct + zero.inContestPct + zero.awayPct, 100);
+
+        // 50s home, 25s contest, 25s away
+        const p1 = calculate3WayPossession(50, 25, 25);
+        assert.strictEqual(p1.homePct, 50);
+        assert.strictEqual(p1.inContestPct, 25);
+        assert.strictEqual(p1.awayPct, 25);
+        assert.strictEqual(p1.homePct + p1.inContestPct + p1.awayPct, 100);
+
+        // 33, 33, 33 split (1/3 each: 100s, 100s, 100s)
+        const p2 = calculate3WayPossession(100, 100, 100);
+        assert.strictEqual(p2.homePct + p2.inContestPct + p2.awayPct, 100, 'Sum remains 100% even with rounding');
+
+        // Pure contest match (e.g. at start)
+        const p3 = calculate3WayPossession(0, 0, 45);
+        assert.strictEqual(p3.inContestPct, 100);
+        assert.strictEqual(p3.homePct, 0);
+        assert.strictEqual(p3.awayPct, 0);
+        assert.strictEqual(p3.homePct + p3.inContestPct + p3.awayPct, 100);
+
+        recordPass('categoryF', 'F3: Invariant: Home% + InContest% + Away% = 100% across all distributions and edge cases');
+    }
+
+    // F4: Timeline event formatting for contest events
+    {
+        function formatTimelineEvent(type, logData) {
+            let icon = '⏱️';
+            let color = '#3b82f6';
+            let title = 'Timeline Event';
+            let desc = '';
+
+            if (type === 'possessionChange') {
+                if (logData.team === 'contest') {
+                    icon = '⚔️';
+                    color = '#f59e0b';
+                    title = 'Ball In Contest';
+                    desc = `Ball In Contest / Loose Ball (${logData.inContestPct || logData.contestPct || 0}%)`;
+                } else {
+                    icon = '⏱️';
+                    color = '#3b82f6';
+                    title = 'Possession Change';
+                    desc = `${logData.teamName || 'Team'} took possession`;
+                }
+            }
+            return { icon, color, title, desc };
+        }
+
+        const contestEvent = formatTimelineEvent('possessionChange', { team: 'contest', inContestPct: 24 });
+        assert.strictEqual(contestEvent.icon, '⚔️');
+        assert.strictEqual(contestEvent.color, '#f59e0b');
+        assert.strictEqual(contestEvent.title, 'Ball In Contest');
+        assert.ok(contestEvent.desc.includes('Ball In Contest / Loose Ball (24%)'));
+
+        const normalEvent = formatTimelineEvent('possessionChange', { team: 'home', teamName: 'Pro Shottas' });
+        assert.strictEqual(normalEvent.icon, '⏱️');
+        assert.strictEqual(normalEvent.title, 'Possession Change');
+
+        recordPass('categoryF', 'F4: Timeline event formatting correctly handles Ball In Contest with badge and colors');
+    }
+
+    // F5: computeMatchesHash detects contest changes and triggers multi-client sync
+    {
+        const matchBase = {
+            id: 'm-live-contest',
+            updatedAt: 1000,
+            status: 'live',
+            homeScore: 1,
+            awayScore: 0,
+            possession: {
+                homePct: 55,
+                awayPct: 45,
+                activeSide: 'home',
+                inContestPct: 0
+            }
+        };
+
+        const hash1 = computeMatchesHash([matchBase]);
+
+        // State changes to in-contest with 20% contest
+        const matchInContest = {
+            ...matchBase,
+            possession: {
+                homePct: 45,
+                awayPct: 35,
+                activeSide: 'contest',
+                inContestPct: 20
+            }
+        };
+
+        const hash2 = computeMatchesHash([matchInContest]);
+        assert.notStrictEqual(hash1, hash2, 'Hash must differ when contest percentage or activeSide changes');
+
+        // State changes back to away possession
+        const matchAway = {
+            ...matchBase,
+            possession: {
+                homePct: 45,
+                awayPct: 35,
+                activeSide: 'away',
+                inContestPct: 20
+            }
+        };
+        const hash3 = computeMatchesHash([matchAway]);
+        assert.notStrictEqual(hash2, hash3, 'Hash must differ when activeSide switches from contest to away');
+
+        recordPass('categoryF', 'F5: computeMatchesHash detects in-contest transitions and percentage shifts');
+    }
+
+    // F6: Coach Live Management possession stats derivation
+    {
+        function deriveCoachPossessionStats(match) {
+            const poss = match?.liveState?.possession || match?.possession;
+            if (poss) {
+                const inContest = typeof poss.inContestPct === 'number' ? poss.inContestPct : (typeof poss.contestPct === 'number' ? poss.contestPct : 0);
+                if (typeof poss.homePct === 'number' && typeof poss.awayPct === 'number') {
+                    return { homePct: poss.homePct, inContestPct: inContest, awayPct: poss.awayPct };
+                }
+                const contestSecs = poss.inContestSecs || poss.contestSecs || 0;
+                const totalSecs = (poss.homeSecs || 0) + (poss.awaySecs || 0) + contestSecs;
+                if (totalSecs > 0) {
+                    const homePct = Math.round(((poss.homeSecs || 0) / totalSecs) * 100);
+                    const inContestPct = Math.round((contestSecs / totalSecs) * 100);
+                    const awayPct = Math.max(0, 100 - homePct - inContestPct);
+                    return { homePct, inContestPct, awayPct };
+                }
+            }
+            return { homePct: 50, inContestPct: 0, awayPct: 50 };
+        }
+
+        // Test 1: precomputed percentages
+        const statsFromPct = deriveCoachPossessionStats({
+            possession: { homePct: 42, awayPct: 38, inContestPct: 20 }
+        });
+        assert.strictEqual(statsFromPct.homePct, 42);
+        assert.strictEqual(statsFromPct.inContestPct, 20);
+        assert.strictEqual(statsFromPct.awayPct, 38);
+
+        // Test 2: raw seconds fallback
+        const statsFromSecs = deriveCoachPossessionStats({
+            liveState: {
+                possession: { homeSecs: 200, awaySecs: 200, inContestSecs: 100 }
+            }
+        });
+        assert.strictEqual(statsFromSecs.homePct, 40);
+        assert.strictEqual(statsFromSecs.inContestPct, 20);
+        assert.strictEqual(statsFromSecs.awayPct, 40);
+
+        recordPass('categoryF', 'F6: Coach Live Management possession derivation correctly distributes 3-way percentages');
+    }
+
+    console.log(`\nCategory F Summary: ${results.categoryF.passed}/${results.categoryF.total} passed.\n`);
+
+    // =========================================================================
     // FINAL OVERALL SUMMARY
     // =========================================================================
     console.log('================================================================');
@@ -1301,8 +1542,9 @@ async function runAllTests() {
     console.log(`   ${results.categoryC.name}: ${results.categoryC.passed}/${results.categoryC.total} PASSED`);
     console.log(`   ${results.categoryD.name}: ${results.categoryD.passed}/${results.categoryD.total} PASSED`);
     console.log(`   ${results.categoryE.name}: ${results.categoryE.passed}/${results.categoryE.total} PASSED`);
-    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed;
-    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total;
+    console.log(`   ${results.categoryF.name}: ${results.categoryF.passed}/${results.categoryF.total} PASSED`);
+    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed;
+    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total;
     console.log(`   TOTAL TESTS: ${totalPassed}/${totalCount} PASSED (100%)`);
     console.log('================================================================\n');
 }

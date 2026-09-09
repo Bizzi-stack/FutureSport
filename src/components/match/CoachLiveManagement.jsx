@@ -438,16 +438,20 @@ export default function CoachLiveManagement({
     const possessionStats = useMemo(() => {
         const poss = currentMatch?.liveState?.possession || currentMatch?.possession;
         if (poss) {
+            const inContest = typeof poss.inContestPct === 'number' ? poss.inContestPct : (typeof poss.contestPct === 'number' ? poss.contestPct : 0);
             if (typeof poss.homePct === 'number' && typeof poss.awayPct === 'number') {
-                return { homePct: poss.homePct, awayPct: poss.awayPct };
+                return { homePct: poss.homePct, inContestPct: inContest, awayPct: poss.awayPct };
             }
-            const totalSecs = (poss.homeSecs || 0) + (poss.awaySecs || 0);
+            const contestSecs = poss.inContestSecs || poss.contestSecs || 0;
+            const totalSecs = (poss.homeSecs || 0) + (poss.awaySecs || 0) + contestSecs;
             if (totalSecs > 0) {
                 const homePct = Math.round(((poss.homeSecs || 0) / totalSecs) * 100);
-                return { homePct, awayPct: 100 - homePct };
+                const inContestPct = Math.round((contestSecs / totalSecs) * 100);
+                const awayPct = Math.max(0, 100 - homePct - inContestPct);
+                return { homePct, inContestPct, awayPct };
             }
         }
-        return { homePct: 50, awayPct: 50 };
+        return { homePct: 50, inContestPct: 0, awayPct: 50 };
     }, [currentMatch?.liveState?.possession, currentMatch?.possession]);
 
     // Live Synchronized Match Clock
@@ -981,16 +985,22 @@ export default function CoachLiveManagement({
                     </div>
 
                     {/* Divider & Possession % Bar */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '180px', gap: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '200px', gap: '4px' }}>
                         <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                             POSSESSION (DATA CAPTURER SYNC)
                         </span>
                         <div style={{ display: 'flex', width: '100%', height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.1)' }}>
                             <div style={{ width: `${possessionStats.homePct}%`, background: isHome ? '#3b82f6' : '#94a3b8', transition: 'width 0.5s' }} />
+                            {(possessionStats.inContestPct || 0) > 0 && (
+                                <div style={{ width: `${possessionStats.inContestPct}%`, background: '#f59e0b', transition: 'width 0.5s' }} title={`In Contest: ${possessionStats.inContestPct}%`} />
+                            )}
                             <div style={{ width: `${possessionStats.awayPct}%`, background: !isHome ? '#3b82f6' : '#94a3b8', transition: 'width 0.5s' }} />
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '10.5px', fontWeight: '800' }}>
                             <span style={{ color: isHome ? '#60a5fa' : 'var(--text-muted)' }}>{possessionStats.homePct}%</span>
+                            {(possessionStats.inContestPct || 0) > 0 && (
+                                <span style={{ color: '#f59e0b', fontSize: '9.5px' }} title="Ball In Contest">⚔️ {possessionStats.inContestPct}%</span>
+                            )}
                             <span style={{ color: !isHome ? '#60a5fa' : 'var(--text-muted)' }}>{possessionStats.awayPct}%</span>
                         </div>
                     </div>

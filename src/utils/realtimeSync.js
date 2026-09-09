@@ -54,8 +54,8 @@ export function computeMatchesHash(matches) {
                 homeSquadXI: m.homeSquadSelection?.startingXI?.join(','),
                 awaySquadXI: m.awaySquadSelection?.startingXI?.join(','),
                 possession: m.possession?.homePct != null 
-                    ? `${m.possession.homePct}-${m.possession.activeSide}` 
-                    : (m.liveState?.possession?.homePct != null ? `${m.liveState.possession.homePct}-${m.liveState.possession.activeSide}` : ''),
+                    ? `${m.possession.homePct}-${m.possession.activeSide}-${m.possession.inContestPct || m.possession.contestPct || 0}` 
+                    : (m.liveState?.possession?.homePct != null ? `${m.liveState.possession.homePct}-${m.liveState.possession.activeSide}-${m.liveState.possession.inContestPct || m.liveState.possession.contestPct || 0}` : ''),
                 livePeriod: m.liveState?.period,
                 liveRunning: m.liveState?.isRunning,
                 liveOffset: m.liveState?.elapsedOffset,
