@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import LiveMatch from '../match/LiveMatch';
 import CountdownSheetModal from '../match/CountdownSheetModal';
 import MatchdayCountdownSheetModal from '../match/MatchdayCountdownSheetModal';
+import EditMatchEventModal from '../match/EditMatchEventModal';
 import {
     getRefereeContactSettings,
     saveRefereeContactSettings,
@@ -10,6 +11,11 @@ import {
     playRefereeWhistleSound
 } from '../../services/refereeNotificationService';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
+import {
+    editMatchEventState,
+    overturnMatchEventState,
+    recalculateMatchScores
+} from '../../utils/matchEngine';
 
 export default function RefereeDashboard({ 
     matches, 
@@ -34,6 +40,113 @@ export default function RefereeDashboard({
     const [refereeSummary, setRefereeSummary] = useState('');
     const [refereeSignature, setRefereeSignature] = useState(currentReferee?.name || '');
     const [reportSaved, setReportSaved] = useState(false);
+    const [editingEvent, setEditingEvent] = useState(null);
+    const [refereeCorrectionToast, setRefereeCorrectionToast] = useState(null);
+
+    // Referee Post-Game Event Correction Handlers
+    const handleSaveRefereeEvent = (eventId, updatedFields) => {
+        if (!selectedMatch) return;
+        const now = Date.now();
+        const outcome = editMatchEventState({
+            playerStats: selectedMatch.playerStats || selectedMatch.liveState?.playerStats || {},
+            timeline: selectedMatch.timeline || selectedMatch.liveState?.timeline || [],
+            tombstoneEventIds: selectedMatch.tombstoneEventIds || [],
+            eventId,
+            updatedFields,
+            now,
+            seq: (selectedMatch.version || 0) + 1,
+            editedBy: 'referee'
+        });
+
+        if (!outcome.edited) return;
+
+        const { homeScore, awayScore } = recalculateMatchScores(selectedMatch, outcome.playerStats, outcome.timeline);
+
+        const updatedMatch = {
+            ...selectedMatch,
+            playerStats: outcome.playerStats,
+            timeline: outcome.timeline,
+            tombstoneEventIds: outcome.tombstoneEventIds,
+            homeScore,
+            awayScore,
+            updatedAt: now,
+            version: (selectedMatch.version || 0) + 1
+        };
+
+        if (updatedMatch.liveState) {
+            updatedMatch.liveState = {
+                ...updatedMatch.liveState,
+                playerStats: outcome.playerStats,
+                timeline: outcome.timeline,
+                homeScore,
+                awayScore,
+                updatedAt: now
+            };
+        }
+
+        setSelectedMatch(updatedMatch);
+        if (onUpdateMatch) {
+            onUpdateMatch(updatedMatch);
+        }
+
+        setEditingEvent(null);
+        setRefereeCorrectionToast('Referee adjustment applied: scores and stats recalculated.');
+        setTimeout(() => setRefereeCorrectionToast(null), 3500);
+    };
+
+    const handleOverturnRefereeEvent = (eventId, overturnReason) => {
+        if (!selectedMatch) return;
+        const now = Date.now();
+        const outcome = overturnMatchEventState({
+            playerStats: selectedMatch.playerStats || selectedMatch.liveState?.playerStats || {},
+            timeline: selectedMatch.timeline || selectedMatch.liveState?.timeline || [],
+            tombstoneEventIds: selectedMatch.tombstoneEventIds || [],
+            eventId,
+            overturnReason,
+            overturnedBy: 'referee',
+            now,
+            seq: (selectedMatch.version || 0) + 1,
+            removeCompletely: false
+        });
+
+        if (!outcome.overturned) return;
+
+        const { homeScore, awayScore } = recalculateMatchScores(selectedMatch, outcome.playerStats, outcome.timeline);
+
+        const updatedMatch = {
+            ...selectedMatch,
+            playerStats: outcome.playerStats,
+            timeline: outcome.timeline,
+            tombstoneEventIds: outcome.tombstoneEventIds,
+            homeScore,
+            awayScore,
+            updatedAt: now,
+            version: (selectedMatch.version || 0) + 1
+        };
+
+        if (updatedMatch.liveState) {
+            updatedMatch.liveState = {
+                ...updatedMatch.liveState,
+                playerStats: outcome.playerStats,
+                timeline: outcome.timeline,
+                homeScore,
+                awayScore,
+                updatedAt: now
+            };
+        }
+
+        const auditNote = `[Referee Review]: Overturned call (${overturnReason}).`;
+        setRefereeSummary(prev => prev ? `${prev}\n${auditNote}` : auditNote);
+
+        setSelectedMatch(updatedMatch);
+        if (onUpdateMatch) {
+            onUpdateMatch(updatedMatch);
+        }
+
+        setEditingEvent(null);
+        setRefereeCorrectionToast(`Call overturned: ${overturnReason}`);
+        setTimeout(() => setRefereeCorrectionToast(null), 3500);
+    };
 
     // Referee Contact & Notification Settings State
     const [refereeSettings, setRefereeSettings] = useState(getRefereeContactSettings);
@@ -630,15 +743,159 @@ export default function RefereeDashboard({
                         </div>
 
                         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            {/* Match Summary info */}
-                            <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: 'var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', flexDir: 'column', gap: '2px' }}>
-                                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600' }}>Live Timeline Events Logged</span>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '700' }}>
-                                        {selectedMatch.timeline?.length || 0} match events recorded by statistician
-                                    </span>
+                            {/* Official Match Events Ledger & Post-Game Audit */}
+                            <div style={{
+                                padding: '16px',
+                                borderRadius: '10px',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: 'var(--border)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '12px'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-primary)' }}>
+                                                Official Match Events Ledger & Post-Game Audit
+                                            </span>
+                                            <span style={{
+                                                fontSize: '10px',
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                background: 'rgba(56, 189, 248, 0.12)',
+                                                color: '#38bdf8',
+                                                fontWeight: '700'
+                                            }}>
+                                                {(selectedMatch.timeline || selectedMatch.liveState?.timeline || []).length} Events
+                                            </span>
+                                        </div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                            Review calls recorded by statistician. If you changed or overturned a call on pitch, edit or overturn it before submitting report.
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{
+                                            fontSize: '12px',
+                                            fontWeight: '800',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            background: 'rgba(16, 185, 129, 0.1)',
+                                            color: '#34d399',
+                                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                                        }}>
+                                            Score: {selectedMatch.homeScore ?? 0} - {selectedMatch.awayScore ?? 0}
+                                        </div>
+                                    </div>
                                 </div>
-                                <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '700' }}>Score Verified ✓</span>
+
+                                {(!selectedMatch.timeline || selectedMatch.timeline.length === 0) && (!selectedMatch.liveState?.timeline || selectedMatch.liveState.timeline.length === 0) ? (
+                                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                        No timeline events logged for this match.
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                                        {(selectedMatch.timeline || selectedMatch.liveState?.timeline || []).map((evt, idx) => {
+                                            const isOverturned = !!evt.overturned;
+                                            return (
+                                                <div
+                                                    key={evt.id || idx}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '10px 14px',
+                                                        borderRadius: '8px',
+                                                        background: isOverturned ? 'rgba(245, 158, 11, 0.05)' : 'rgba(255,255,255,0.03)',
+                                                        border: isOverturned ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid rgba(255,255,255,0.06)',
+                                                        opacity: isOverturned ? 0.7 : 1,
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                                        <span style={{ fontWeight: '800', color: '#38bdf8', width: '32px', fontSize: '12px' }}>
+                                                            {evt.minute ? `${evt.minute}'` : `${evt.time || '-'}`}
+                                                        </span>
+                                                        <span style={{
+                                                            fontWeight: '700',
+                                                            fontSize: '12px',
+                                                            color: 'var(--text-primary)',
+                                                            textDecoration: isOverturned ? 'line-through' : 'none'
+                                                        }}>
+                                                            {evt.type === 'goal' ? '⚽ Goal' :
+                                                             evt.type === 'yellow_card' ? '🟨 Yellow Card' :
+                                                             evt.type === 'red_card' ? '🟥 Red Card' :
+                                                             evt.type === 'penalty' ? '🎯 Penalty' :
+                                                             evt.type === 'save' ? '🧤 Save' :
+                                                             evt.type === 'shot' ? '⚡ Shot' :
+                                                             evt.type || evt.event || 'Event'}
+                                                        </span>
+                                                        {evt.playerName && (
+                                                            <span style={{
+                                                                color: 'var(--text-secondary)',
+                                                                fontSize: '12px',
+                                                                textDecoration: isOverturned ? 'line-through' : 'none'
+                                                            }}>
+                                                                — {evt.playerName}
+                                                            </span>
+                                                        )}
+                                                        {evt.assistingPlayerName && !isOverturned && (
+                                                            <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                                                                (assist: {evt.assistingPlayerName})
+                                                            </span>
+                                                        )}
+                                                        {isOverturned && (
+                                                            <span style={{
+                                                                fontSize: '10px',
+                                                                fontWeight: '800',
+                                                                color: '#fbbf24',
+                                                                background: 'rgba(245, 158, 11, 0.2)',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '4px',
+                                                                border: '1px solid rgba(245, 158, 11, 0.35)'
+                                                            }}>
+                                                                CALL OVERTURNED: {evt.overturnReason || 'Referee Disallowed'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <span style={{
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            color: evt.teamSide === 'home' || evt.team === 'home' ? '#60a5fa' : '#f472b6',
+                                                            background: evt.teamSide === 'home' || evt.team === 'home' ? 'rgba(96, 165, 250, 0.1)' : 'rgba(244, 114, 182, 0.1)',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '4px'
+                                                        }}>
+                                                            {(evt.teamSide || evt.team || 'Team').toUpperCase()}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            title="Edit event details or overturn/rescind this call"
+                                                            onClick={() => setEditingEvent(evt)}
+                                                            style={{
+                                                                padding: '5px 12px',
+                                                                borderRadius: '6px',
+                                                                background: 'rgba(56, 189, 248, 0.15)',
+                                                                color: '#38bdf8',
+                                                                border: '1px solid rgba(56, 189, 248, 0.35)',
+                                                                fontSize: '11px',
+                                                                fontWeight: '700',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px'
+                                                            }}
+                                                        >
+                                                            <span>✏️</span> Edit / Overturn Call
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Conditions */}
@@ -781,6 +1038,42 @@ export default function RefereeDashboard({
                         setActiveCountdownScheduleMatch(updatedMatch);
                     }}
                 />
+            )}
+
+            {/* Referee Post-Match Edit / Overturn Call Modal */}
+            {editingEvent && (
+                <EditMatchEventModal
+                    isOpen={!!editingEvent}
+                    event={editingEvent}
+                    match={selectedMatch}
+                    allPlayers={allPlayers}
+                    userRole="referee"
+                    onSave={handleSaveRefereeEvent}
+                    onOverturn={handleOverturnRefereeEvent}
+                    onClose={() => setEditingEvent(null)}
+                />
+            )}
+
+            {/* Referee Correction Toast Notification */}
+            {refereeCorrectionToast && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    zIndex: 10001,
+                    background: 'rgba(16, 185, 129, 0.95)',
+                    color: '#ffffff',
+                    padding: '12px 20px',
+                    borderRadius: '10px',
+                    fontWeight: '800',
+                    fontSize: '13px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <span>✓</span> {refereeCorrectionToast}
+                </div>
             )}
         </div>
     );

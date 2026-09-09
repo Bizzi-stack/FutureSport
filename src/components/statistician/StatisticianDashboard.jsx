@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import LiveMatch from '../match/LiveMatch';
+import EditMatchEventModal from '../match/EditMatchEventModal';
 import {
     getRefereeContactSettings,
     saveRefereeContactSettings,
@@ -10,6 +11,11 @@ import {
 import { getAnalystAccounts } from '../../data/analystAccounts';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
 import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
+import {
+    editMatchEventState,
+    overturnMatchEventState,
+    recalculateMatchScores
+} from '../../utils/matchEngine';
 
 export default function StatisticianDashboard({
     matches = [],
@@ -29,6 +35,8 @@ export default function StatisticianDashboard({
     const [searchQuery, setSearchQuery] = useState('');
     const [filterTab, setFilterTab] = useState('all'); // 'all' | 'assigned'
     const [loggerToast, setLoggerToast] = useState(null);
+    const [editingEvent, setEditingEvent] = useState(null);
+    const [postMatchEditToast, setPostMatchEditToast] = useState(null);
 
     const activeAnalyst = useMemo(() => {
         return currentAnalyst || getAnalystAccounts()[0];
@@ -164,6 +172,106 @@ export default function StatisticianDashboard({
         };
         if (onUpdateMatch) onUpdateMatch(updated);
         setSelectedMatchId(match.id);
+    };
+
+    // ── Operator Post-Match Event Correction Handlers ──
+    const handleSavePostMatchEvent = (eventId, updatedFields) => {
+        if (!selectedMatch) return;
+        const now = Date.now();
+        const outcome = editMatchEventState({
+            playerStats: selectedMatch.playerStats || selectedMatch.liveState?.playerStats || {},
+            timeline: selectedMatch.timeline || selectedMatch.liveState?.timeline || [],
+            tombstoneEventIds: selectedMatch.tombstoneEventIds || [],
+            eventId,
+            updatedFields,
+            now,
+            seq: (selectedMatch.version || 0) + 1,
+            editedBy: 'operator'
+        });
+
+        if (!outcome.edited) return;
+
+        const { homeScore, awayScore } = recalculateMatchScores(selectedMatch, outcome.playerStats, outcome.timeline);
+
+        const updatedMatch = {
+            ...selectedMatch,
+            playerStats: outcome.playerStats,
+            timeline: outcome.timeline,
+            tombstoneEventIds: outcome.tombstoneEventIds,
+            homeScore,
+            awayScore,
+            updatedAt: now,
+            version: (selectedMatch.version || 0) + 1
+        };
+
+        if (updatedMatch.liveState) {
+            updatedMatch.liveState = {
+                ...updatedMatch.liveState,
+                playerStats: outcome.playerStats,
+                timeline: outcome.timeline,
+                homeScore,
+                awayScore,
+                updatedAt: now
+            };
+        }
+
+        if (onUpdateMatch) {
+            onUpdateMatch(updatedMatch);
+        }
+
+        setEditingEvent(null);
+        setPostMatchEditToast('Event updated & match scores recalculated!');
+        setTimeout(() => setPostMatchEditToast(null), 3500);
+    };
+
+    const handleOverturnPostMatchEvent = (eventId, overturnReason) => {
+        if (!selectedMatch) return;
+        const now = Date.now();
+        const outcome = overturnMatchEventState({
+            playerStats: selectedMatch.playerStats || selectedMatch.liveState?.playerStats || {},
+            timeline: selectedMatch.timeline || selectedMatch.liveState?.timeline || [],
+            tombstoneEventIds: selectedMatch.tombstoneEventIds || [],
+            eventId,
+            overturnReason,
+            overturnedBy: 'operator',
+            now,
+            seq: (selectedMatch.version || 0) + 1,
+            removeCompletely: false
+        });
+
+        if (!outcome.overturned) return;
+
+        const { homeScore, awayScore } = recalculateMatchScores(selectedMatch, outcome.playerStats, outcome.timeline);
+
+        const updatedMatch = {
+            ...selectedMatch,
+            playerStats: outcome.playerStats,
+            timeline: outcome.timeline,
+            tombstoneEventIds: outcome.tombstoneEventIds,
+            homeScore,
+            awayScore,
+            updatedAt: now,
+            version: (selectedMatch.version || 0) + 1
+        };
+
+        if (updatedMatch.liveState) {
+            updatedMatch.liveState = {
+                ...updatedMatch.liveState,
+                playerStats: outcome.playerStats,
+                timeline: outcome.timeline,
+                homeScore,
+                awayScore,
+                updatedAt: now
+            };
+        }
+
+        if (onUpdateMatch) {
+            onUpdateMatch(updatedMatch);
+        }
+
+        setEditingEvent(null);
+        setPostMatchEditToast('Referee call overturned & stats reverted!');
+        setTimeout(() => setPostMatchEditToast(null), 3500);
     };
 
     // ── Selected Match View (Active Live Match, Post-Match Concluded Station, OR Pre-Kickoff Waiting Room) ──
@@ -356,27 +464,53 @@ export default function StatisticianDashboard({
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
                                     {timelineEvents.map((evt, idx) => (
-                                        <div key={idx} style={{
+                                        <div key={evt.id || idx} style={{
                                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                            padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)',
-                                            border: '1px solid rgba(255,255,255,0.05)', fontSize: '12px'
+                                            padding: '8px 12px', borderRadius: '8px',
+                                            background: evt.overturned ? 'rgba(245, 158, 11, 0.05)' : 'rgba(255,255,255,0.03)',
+                                            border: evt.overturned ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(255,255,255,0.05)',
+                                            fontSize: '12px', opacity: evt.overturned ? 0.65 : 1
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <span style={{ fontWeight: '800', color: '#38bdf8', width: '32px' }}>
                                                     {evt.minute ? `${evt.minute}'` : `${evt.time || '-'}`}
                                                 </span>
-                                                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                                                <span style={{ fontWeight: '700', color: 'var(--text-primary)', textDecoration: evt.overturned ? 'line-through' : 'none' }}>
                                                     {evt.type || evt.event || 'Event'}
                                                 </span>
                                                 {evt.playerName && (
-                                                    <span style={{ color: 'var(--text-secondary)' }}>
+                                                    <span style={{ color: 'var(--text-secondary)', textDecoration: evt.overturned ? 'line-through' : 'none' }}>
                                                         — {evt.playerName}
                                                     </span>
                                                 )}
+                                                {evt.overturned && (
+                                                    <span style={{
+                                                        fontSize: '10px', fontWeight: '800', color: '#fbbf24',
+                                                        background: 'rgba(245, 158, 11, 0.2)', padding: '2px 6px', borderRadius: '4px',
+                                                        border: '1px solid rgba(245, 158, 11, 0.3)'
+                                                    }}>
+                                                        OVERTURNED: {evt.overturnReason || 'Ref Call Change'}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                                {evt.teamSide ? evt.teamSide.toUpperCase() : ''}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                    {evt.teamSide ? evt.teamSide.toUpperCase() : ''}
+                                                </span>
+                                                <button
+                                                    title="Edit event details or overturn call"
+                                                    onClick={() => setEditingEvent(evt)}
+                                                    style={{
+                                                        padding: '4px 10px', borderRadius: '6px',
+                                                        background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8',
+                                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                        fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                                                        display: 'flex', alignItems: 'center', gap: '4px'
+                                                    }}
+                                                >
+                                                    <span>✏️</span> Edit / Overturn
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -607,6 +741,32 @@ export default function StatisticianDashboard({
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* Operator Post-Match Edit / Overturn Modal */}
+                {editingEvent && (
+                    <EditMatchEventModal
+                        isOpen={!!editingEvent}
+                        event={editingEvent}
+                        match={selectedMatch}
+                        allPlayers={allPlayers}
+                        userRole="operator"
+                        onSave={handleSavePostMatchEvent}
+                        onOverturn={handleOverturnPostMatchEvent}
+                        onClose={() => setEditingEvent(null)}
+                    />
+                )}
+
+                {/* Post-match toast notification */}
+                {postMatchEditToast && (
+                    <div style={{
+                        position: 'fixed', bottom: '24px', right: '24px', zIndex: 10001,
+                        background: 'rgba(16, 185, 129, 0.95)', color: '#ffffff',
+                        padding: '12px 20px', borderRadius: '10px', fontWeight: '800', fontSize: '13px',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '8px'
+                    }}>
+                        <span>✓</span> {postMatchEditToast}
                     </div>
                 )}
             </div>

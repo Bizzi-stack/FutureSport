@@ -3,6 +3,7 @@ import { SCHOOLS, TEAMS } from '../../data/mockData';
 import { createPlayerLookupMap, resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
 import LiveShotModal from './LiveShotModal';
 import LiveGkSaveModal from './LiveGkSaveModal';
+import EditMatchEventModal from './EditMatchEventModal';
 import TileDataCaptureControlPanel from './TileDataCaptureControlPanel';
 import { 
     syncPlayerStats, 
@@ -13,6 +14,8 @@ import {
     recordMatchShotState,
     recordMatchGkSaveState,
     undoMatchEventState,
+    editMatchEventState,
+    overturnMatchEventState,
     updateMatchPlayerDetailState
 } from '../../utils/matchEngine';
 
@@ -383,6 +386,7 @@ export default function LiveMatch({
         }
     }, [matchData.playerStats, matchData.liveState?.playerStats, matchData.updatedAt, matchData.liveState?.updatedAt]);
     const [shotModalData, setShotModalData] = useState(null); // { player, defaultOutcome, teammates }
+    const [editingEvent, setEditingEvent] = useState(null); // Event being edited or overturned
     const [expandedPlayer, setExpandedPlayer] = useState(null);
     const [livePossession, setLivePossession] = useState(() => matchData?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 });
     const [showConfirm, setShowConfirm] = useState(false);
@@ -798,6 +802,56 @@ export default function LiveMatch({
         setTombstoneEventIds(outcome.tombstoneEventIds);
         setPlayerStats(outcome.playerStats);
         setTimeline(outcome.timeline);
+    };
+
+    /* Edit Match Event */
+    const handleSaveEditedEvent = (eventId, updatedFields) => {
+        localSeqRef.current += 1;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
+
+        const outcome = editMatchEventState({
+            playerStats,
+            timeline,
+            tombstoneEventIds,
+            eventId,
+            updatedFields,
+            now,
+            seq: localSeqRef.current,
+            editedBy: isRefereeMode ? 'referee' : 'operator'
+        });
+
+        if (!outcome.edited) return;
+
+        setPlayerStats(outcome.playerStats);
+        setTimeline(outcome.timeline);
+        setEditingEvent(null);
+    };
+
+    /* Overturn Match Event (Referee Call Change) */
+    const handleOverturnEvent = (eventId, overturnReason) => {
+        localSeqRef.current += 1;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
+
+        const outcome = overturnMatchEventState({
+            playerStats,
+            timeline,
+            tombstoneEventIds,
+            eventId,
+            overturnReason,
+            overturnedBy: isRefereeMode ? 'referee' : 'operator',
+            now,
+            seq: localSeqRef.current,
+            removeCompletely: false
+        });
+
+        if (!outcome.overturned) return;
+
+        setPlayerStats(outcome.playerStats);
+        setTimeline(outcome.timeline);
+        setTombstoneEventIds(outcome.tombstoneEventIds);
+        setEditingEvent(null);
     };
 
     /* detail stat change */
@@ -1752,35 +1806,66 @@ export default function LiveMatch({
                                                                 }}>
                                                                     {isHomeEvent ? (home?.name || 'Home') : (away?.name || 'Away')}
                                                                 </span>
+                                                                {event.overturned && (
+                                                                    <span style={{
+                                                                        fontSize: '10px', fontWeight: '800',
+                                                                        color: '#fbbf24', background: 'rgba(245, 158, 11, 0.2)',
+                                                                        padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.4)'
+                                                                    }}>
+                                                                        OVERTURNED
+                                                                    </span>
+                                                                )}
                                                             </div>
 
-                                                            <button
-                                                                title="Undo this event and revert stats"
-                                                                onClick={() => handleUndoEvent(event.id)}
-                                                                style={{
-                                                                    background: 'rgba(239, 68, 68, 0.15)',
-                                                                    color: '#f87171',
-                                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                                    borderRadius: '6px',
-                                                                    padding: '3px 8px',
-                                                                    fontSize: '11px', fontWeight: '700', cursor: 'pointer',
-                                                                    display: 'flex', alignItems: 'center', gap: '4px'
-                                                                }}
-                                                            >
-                                                                <span>✕</span> Undo
-                                                            </button>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <button
+                                                                    title="Edit event details or overturn call"
+                                                                    onClick={() => setEditingEvent(event)}
+                                                                    style={{
+                                                                        background: 'rgba(56, 189, 248, 0.15)',
+                                                                        color: '#38bdf8',
+                                                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                                        borderRadius: '6px',
+                                                                        padding: '3px 8px',
+                                                                        fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                                                                        display: 'flex', alignItems: 'center', gap: '3px'
+                                                                    }}
+                                                                >
+                                                                    <span>✏️</span> Edit
+                                                                </button>
+                                                                <button
+                                                                    title="Undo this event and revert stats"
+                                                                    onClick={() => handleUndoEvent(event.id)}
+                                                                    style={{
+                                                                        background: 'rgba(239, 68, 68, 0.15)',
+                                                                        color: '#f87171',
+                                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                        borderRadius: '6px',
+                                                                        padding: '3px 8px',
+                                                                        fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                                                                        display: 'flex', alignItems: 'center', gap: '4px'
+                                                                    }}
+                                                                >
+                                                                    <span>✕</span> Undo
+                                                                </button>
+                                                            </div>
                                                         </div>
 
                                                         {/* Card Body */}
-                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', opacity: event.overturned ? 0.65 : 1 }}>
                                                             <span style={{ fontSize: '20px', lineHeight: 1 }}>{icon}</span>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ fontSize: '12px', fontWeight: '800', color: clr, letterSpacing: '0.02em' }}>
+                                                                <div style={{ fontSize: '12px', fontWeight: '800', color: clr, letterSpacing: '0.02em', textDecoration: event.overturned ? 'line-through' : 'none' }}>
                                                                     {badgeTitle}
                                                                 </div>
-                                                                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px', wordBreak: 'break-word' }}>
+                                                                <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px', wordBreak: 'break-word', textDecoration: event.overturned ? 'line-through' : 'none' }}>
                                                                     {desc}
                                                                 </div>
+                                                                {event.overturned && (
+                                                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#fbbf24', marginTop: '4px' }}>
+                                                                        Call Overturned: {event.overturnReason || 'Referee changed call'}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1877,6 +1962,27 @@ export default function LiveMatch({
                                                     <span style={{ fontSize: '13px', fontWeight: '700', color: '#ffffff', whiteSpace: 'nowrap' }}>
                                                         {desc}
                                                     </span>
+                                                    {event.overturned && (
+                                                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#fbbf24', background: 'rgba(245,158,11,0.2)', padding: '2px 5px', borderRadius: '4px' }}>
+                                                            OVERTURNED
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        title="Edit this event or overturn call"
+                                                        onClick={() => setEditingEvent(event)}
+                                                        style={{
+                                                            background: 'rgba(56, 189, 248, 0.15)',
+                                                            color: '#38bdf8',
+                                                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                            borderRadius: '50%',
+                                                            width: '20px', height: '20px',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '10px', fontWeight: 'bold', cursor: 'pointer',
+                                                            marginLeft: '4px'
+                                                        }}
+                                                    >
+                                                        ✏️
+                                                    </button>
                                                     <button
                                                         title="Undo this event"
                                                         onClick={() => handleUndoEvent(event.id)}
@@ -2047,17 +2153,40 @@ export default function LiveMatch({
                                     }
 
                                     return (
-                                        <div key={event.id} style={styles.timelineItem(clr)}>
+                                        <div key={event.id} style={{ ...styles.timelineItem(clr), opacity: event.overturned ? 0.6 : 1 }}>
                                             <span style={styles.timelineTime}>{formatEventTime(event.elapsed, event.period)}</span>
                                             <span style={{ fontSize: '14px' }}>{icon}</span>
-                                            <span style={styles.timelineText}>{desc}</span>
-                                            <button
-                                                title="Undo this event"
-                                                onClick={() => handleUndoEvent(event.id)}
-                                                style={styles.undoBtn}
-                                            >
-                                                ✕
-                                            </button>
+                                            <span style={{ ...styles.timelineText, textDecoration: event.overturned ? 'line-through' : 'none' }}>
+                                                {desc}
+                                                {event.overturned && (
+                                                    <span style={{ color: '#fbbf24', marginLeft: '6px', fontWeight: '800', fontSize: '10px' }}>
+                                                        [OVERTURNED]
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                <button
+                                                    title="Edit event details or overturn call"
+                                                    onClick={() => setEditingEvent(event)}
+                                                    style={{
+                                                        background: 'rgba(56, 189, 248, 0.15)',
+                                                        color: '#38bdf8',
+                                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                        borderRadius: '4px',
+                                                        padding: '2px 6px',
+                                                        fontSize: '10px', fontWeight: '700', cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    title="Undo this event"
+                                                    onClick={() => handleUndoEvent(event.id)}
+                                                    style={styles.undoBtn}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -2157,6 +2286,20 @@ export default function LiveMatch({
                     player={gkSaveModalData.player}
                     onSave={handleSaveGkSave}
                     onClose={() => setGkSaveModalData(null)}
+                />
+            )}
+
+            {/* ── Edit / Overturn Match Event Modal ────────────────────── */}
+            {editingEvent && (
+                <EditMatchEventModal
+                    isOpen={!!editingEvent}
+                    event={editingEvent}
+                    match={matchData}
+                    allPlayers={allStudents}
+                    userRole={isRefereeMode ? 'referee' : 'operator'}
+                    onSave={handleSaveEditedEvent}
+                    onOverturn={handleOverturnEvent}
+                    onClose={() => setEditingEvent(null)}
                 />
             )}
 
