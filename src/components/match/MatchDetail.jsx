@@ -119,6 +119,13 @@ function PlayerRow({ name, stats, isGoalScorer }) {
             <td style={cellStyle}>{stats.Shots || 0}</td>
             <td style={{
                 ...cellStyle,
+                color: (stats.Saves || 0) > 0 ? '#fbbf24' : 'var(--text-muted)',
+                fontWeight: (stats.Saves || 0) > 0 ? '700' : '500'
+            }}>
+                {stats.Saves || 0}
+            </td>
+            <td style={{
+                ...cellStyle,
                 color: (stats.yellowCards || 0) > 0 ? '#f59e0b' : 'var(--text-muted)',
                 fontWeight: (stats.yellowCards || 0) > 0 ? '700' : '500'
             }}>
@@ -198,6 +205,7 @@ function TeamStatsTable({ teamId, teamPlayers, allStudents, accentColor }) {
                             <th style={headerCellStyle}>🅰️</th>
                             <th style={headerCellStyle}>🎯</th>
                             <th style={headerCellStyle}>Shots</th>
+                            <th style={headerCellStyle}>🧤</th>
                             <th style={headerCellStyle}>🟨</th>
                             <th style={headerCellStyle}>🟥</th>
                         </tr>
@@ -213,7 +221,7 @@ function TeamStatsTable({ teamId, teamPlayers, allStudents, accentColor }) {
                         ))}
                         {sorted.length === 0 && (
                             <tr>
-                                <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                                     No player data available
                                 </td>
                             </tr>
@@ -241,24 +249,39 @@ export default function MatchDetail({ match, allStudents, onBack }) {
         const home = [];
         const away = [];
         const totals = {
-            home: { shots: 0, shotsOnTarget: 0, passes: 0, tackles: 0 },
-            away: { shots: 0, shotsOnTarget: 0, passes: 0, tackles: 0 }
+            home: { shots: 0, shotsOnTarget: 0, passes: 0, tackles: 0, saves: 0, fouls: 0, corners: 0 },
+            away: { shots: 0, shotsOnTarget: 0, passes: 0, tackles: 0, saves: 0, fouls: 0, corners: 0 }
         };
 
         if (match.playerStats) {
+            const homePids = (match.homePlayers || []).map(String);
+            const awayPids = (match.awayPlayers || []).map(String);
+
             Object.entries(match.playerStats).forEach(([pid, ps]) => {
                 const entry = { id: pid, stats: ps };
-                const side = ps.team === 'home' ? 'home' : 'away';
+                let side = ps.team;
+                if (side !== 'home' && side !== 'away') {
+                    if (homePids.includes(String(pid))) side = 'home';
+                    else if (awayPids.includes(String(pid))) side = 'away';
+                    else {
+                        const student = (allStudents || []).find(s => String(s.id) === String(pid) || s.aliasIds?.map(String).includes(String(pid)));
+                        if (student && (student.teamId === match.homeTeamId || student.school === match.homeTeamId)) side = 'home';
+                        else side = 'away';
+                    }
+                }
                 if (side === 'home') home.push(entry); else away.push(entry);
 
                 totals[side].shots += ps.Shots || 0;
                 totals[side].shotsOnTarget += ps['Shots on Target'] || 0;
-                totals[side].passes += ps['Pass Completed'] || 0;
-                totals[side].tackles += (ps['Successful Tackles'] || 0);
+                totals[side].passes += (ps['Pass Completed'] ?? ps.passesCompleted ?? 0);
+                totals[side].tackles += (ps['Successful Tackles'] ?? ps.tackles ?? 0);
+                totals[side].saves += (ps.Saves || 0);
+                totals[side].fouls += (ps['Fouls Committed'] || 0);
+                totals[side].corners += (ps['Corners Taken'] || 0);
             });
         }
         return { homePlayers: home, awayPlayers: away, teamTotals: totals };
-    }, [match.playerStats]);
+    }, [match.playerStats, match.homePlayers, match.awayPlayers, match.homeTeamId, allStudents]);
 
     // ── Determine match result labels ──────────────────────────────────
     const homeWin = match.homeScore > match.awayScore;
@@ -420,8 +443,11 @@ export default function MatchDetail({ match, allStudents, onBack }) {
 
                 <ComparisonBar label="Total Shots" homeVal={teamTotals.home.shots} awayVal={teamTotals.away.shots} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
                 <ComparisonBar label="Shots on Target" homeVal={teamTotals.home.shotsOnTarget} awayVal={teamTotals.away.shotsOnTarget} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
+                <ComparisonBar label="Goalkeeper Saves" homeVal={teamTotals.home.saves} awayVal={teamTotals.away.saves} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
                 <ComparisonBar label="Passes Completed" homeVal={teamTotals.home.passes} awayVal={teamTotals.away.passes} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
                 <ComparisonBar label="Successful Tackles" homeVal={teamTotals.home.tackles} awayVal={teamTotals.away.tackles} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
+                <ComparisonBar label="Corner Kicks" homeVal={teamTotals.home.corners} awayVal={teamTotals.away.corners} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
+                <ComparisonBar label="Fouls Committed" homeVal={teamTotals.home.fouls} awayVal={teamTotals.away.fouls} homeColor={HOME_COLOR} awayColor={AWAY_COLOR} />
             </div>
 
             {/* ── Match Event Timeline ───────────────────────────────────── */}
@@ -486,6 +512,23 @@ export default function MatchDetail({ match, allStudents, onBack }) {
                                 icon = '🟥';
                                 clr = '#ef4444';
                                 desc = `Red Card - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
+                            } else if (event.type === 'gkSave') {
+                                icon = '🧤';
+                                clr = '#3b82f6';
+                                let saveLabel = 'Goalkeeper Save';
+                                if (event.subtype === 'penalty' || event.goalType === 'penalty') saveLabel = 'Penalty Save 🧤';
+                                else if (event.subtype === 'freekick' || event.goalType === 'freekick') saveLabel = 'Free Kick Save 🧤';
+                                desc = `${saveLabel} - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
+                            } else if (event.type === 'foul') {
+                                icon = '⚠️';
+                                clr = '#eab308';
+                                desc = `Foul Committed - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
+                            } else if (event.type === 'corner') {
+                                icon = '🚩';
+                                clr = '#06b6d4';
+                                desc = `Corner Kick Taken - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
+                            } else {
+                                desc = `${event.type || 'Event'} - ${event.playerName || getPlayerName(allStudents, event.playerId)}`;
                             }
 
                             const timeString = formatEventTime(event.elapsed, event.period);

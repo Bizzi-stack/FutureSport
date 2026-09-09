@@ -185,16 +185,17 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
         const total = filteredShots.length;
         const goals = filteredShots.filter(l => l.result === 'goal').length;
         const saved = filteredShots.filter(l => l.result === 'saved').length;
-        const missed = filteredShots.filter(l => l.result === 'miss').length;
+        const missed = filteredShots.filter(l => l.result === 'miss' || l.result === 'missed').length;
+        const blocked = filteredShots.filter(l => l.result === 'blocked').length;
         
         const onTarget = goals + saved;
         const accuracy = total > 0 ? Math.round((onTarget / total) * 100) : 0;
         const conversion = total > 0 ? Math.round((goals / total) * 100) : 0;
 
         // Zones: Left (x < 40), Center (x >= 40 && x <= 60), Right (x > 60)
-        const leftShots = filteredShots.filter(l => l.x < 40);
-        const centerShots = filteredShots.filter(l => l.x >= 40 && l.x <= 60);
-        const rightShots = filteredShots.filter(l => l.x > 60);
+        const leftShots = filteredShots.filter(l => l.x != null && l.x < 40);
+        const centerShots = filteredShots.filter(l => l.x != null && l.x >= 40 && l.x <= 60);
+        const rightShots = filteredShots.filter(l => l.x != null && l.x > 60);
 
         const leftCount = leftShots.length;
         const centerCount = centerShots.length;
@@ -213,7 +214,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
         const rightConv = rightCount > 0 ? Math.round((rightGoals / rightCount) * 100) : 0;
 
         return {
-            total, goals, saved, missed, accuracy, conversion,
+            total, goals, saved, missed, blocked, accuracy, conversion,
             zones: {
                 left: { count: leftCount, pct: leftPct, conv: leftConv, goals: leftGoals },
                 center: { count: centerCount, pct: centerPct, conv: centerConv, goals: centerGoals },
@@ -281,9 +282,9 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
         const savePct = total > 0 ? Math.round((saves / total) * 100) : 0;
 
         // Zones: Left (x < 40), Center (x >= 40 && x <= 60), Right (x > 60)
-        const leftSaves = filteredSaves.filter(l => l.x < 40);
-        const centerSaves = filteredSaves.filter(l => l.x >= 40 && l.x <= 60);
-        const rightSaves = filteredSaves.filter(l => l.x > 60);
+        const leftSaves = filteredSaves.filter(l => l.x != null && l.x < 40);
+        const centerSaves = filteredSaves.filter(l => l.x != null && l.x >= 40 && l.x <= 60);
+        const rightSaves = filteredSaves.filter(l => l.x != null && l.x > 60);
 
         const leftCount = leftSaves.length;
         const centerCount = centerSaves.length;
@@ -324,6 +325,53 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
 
         return `${student.name} holds a ${savePct}% overall save rate. Highest stopping efficiency is on the ${bestZone} side of the goal with a ${bestRate}% save rate across all recorded shot events.`;
     }, [saveStats, student]);
+
+    // Authoritative recorded totals from student performance across terms/years
+    const recordedTotals = useMemo(() => {
+        let saves = 0;
+        let goals = 0;
+        let hasPerfSaves = false;
+        let hasPerfGoals = false;
+
+        if (student?.performance) {
+            if (shotFilter === 'all') {
+                Object.values(student.performance).forEach(termObj => {
+                    if (termObj && typeof termObj === 'object') {
+                        Object.values(termObj).forEach(stats => {
+                            if (stats && typeof stats === 'object') {
+                                if (stats['Saves'] !== undefined) {
+                                    saves += Number(stats['Saves']) || 0;
+                                    hasPerfSaves = true;
+                                }
+                                if (stats['Goals'] !== undefined) {
+                                    goals += Number(stats['Goals']) || 0;
+                                    hasPerfGoals = true;
+                                }
+                            }
+                        });
+                    }
+                });
+            } else {
+                const [yr, tr] = shotFilter.split('|');
+                const stats = student.performance?.[yr]?.[tr];
+                if (stats && typeof stats === 'object') {
+                    if (stats['Saves'] !== undefined) {
+                        saves = Number(stats['Saves']) || 0;
+                        hasPerfSaves = true;
+                    }
+                    if (stats['Goals'] !== undefined) {
+                        goals = Number(stats['Goals']) || 0;
+                        hasPerfGoals = true;
+                    }
+                }
+            }
+        }
+
+        return {
+            saves: hasPerfSaves ? saves : null,
+            goals: hasPerfGoals ? goals : null,
+        };
+    }, [student, shotFilter]);
 
     return (
         <div style={{
@@ -504,7 +552,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                     }} />
 
                                     {/* Plot Save Dots */}
-                                    {filteredSaves.map(save => {
+                                    {filteredSaves.filter(save => save.x != null && save.y != null).map(save => {
                                         const isSaved = save.result === 'save';
                                         const color = isSaved ? 'var(--success)' : 'var(--danger)';
                                         const label = isSaved ? 'Save Made' : 'Goal Conceded';
@@ -544,7 +592,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '14px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
                                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }}></span>
-                                        Saves Made ({saveStats.saves})
+                                        Mapped Saves ({saveStats.saves})
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
                                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', display: 'inline-block' }}></span>
@@ -565,7 +613,7 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                     </div>
                                     <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px', borderRadius: '10px', border: 'var(--border)', textAlign: 'center' }}>
                                         <div style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Saves</div>
-                                        <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{saveStats.saves}</div>
+                                        <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{recordedTotals.saves != null ? recordedTotals.saves : saveStats.saves}</div>
                                     </div>
                                 </div>
                                 
@@ -759,9 +807,9 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                     }} />
 
                                     {/* Plot Shot Dots */}
-                                    {filteredShots.map(shot => {
-                                        const color = shot.result === 'goal' ? 'var(--success)' : shot.result === 'saved' ? 'var(--primary-light)' : 'var(--danger)';
-                                        const label = shot.result === 'goal' ? 'Goal' : shot.result === 'saved' ? 'Goalkeeper Save' : 'Off Target';
+                                    {filteredShots.filter(shot => shot.x != null && shot.y != null).map(shot => {
+                                        const color = shot.result === 'goal' ? 'var(--success)' : shot.result === 'saved' ? 'var(--primary-light)' : shot.result === 'blocked' ? '#a855f7' : 'var(--danger)';
+                                        const label = shot.result === 'goal' ? 'Goal' : shot.result === 'saved' ? 'Goalkeeper Save' : shot.result === 'blocked' ? 'Blocked Shot' : 'Off Target';
                                         
                                         const formatType = (type) => {
                                             if (!type) return 'Foot';
@@ -802,6 +850,10 @@ export default function StudentProfileDrawer({ student, subjects, onClose, setti
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
                                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary-light)', display: 'inline-block' }}></span>
                                         Saved ({shotStats.saved})
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a855f7', display: 'inline-block' }}></span>
+                                        Blocked ({shotStats.blocked || 0})
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)' }}>
                                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)', display: 'inline-block' }}></span>

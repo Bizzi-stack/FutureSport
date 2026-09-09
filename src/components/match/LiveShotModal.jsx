@@ -7,6 +7,7 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
     const [goalType, setGoalType] = useState(defaultGoalType || 'foot'); // 'foot' | 'header' | 'freekick' | 'penalty' | 'own-goal'
     const [assistPlayerId, setAssistPlayerId] = useState(''); // player ID
     const goalRef = useRef(null);
+    const actionTokenRef = useRef(`modal-shot-${player?.id || 'p'}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
 
     const handleGoalClick = (e) => {
         if (!goalRef.current) return;
@@ -71,7 +72,8 @@ export default function LiveShotModal({ player, teammates, defaultOutcome, defau
             x: coords.x,
             y: coords.y,
             goalType: goalType,
-            assistPlayerId: result === 'goal' && goalType !== 'own-goal' && assistPlayerId ? parsedAssist : null
+            assistPlayerId: result === 'goal' && goalType !== 'own-goal' && assistPlayerId ? parsedAssist : null,
+            actionToken: actionTokenRef.current
         });
     };
 
