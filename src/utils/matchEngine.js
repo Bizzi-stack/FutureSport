@@ -1403,3 +1403,313 @@ export function updateMatchPlayerDetailState({
 
     return { playerStats: next };
 }
+
+/**
+ * Internal helper to apply or revert a single event's statistical contribution on playerStats.
+ * delta = +1 to add, delta = -1 to reverse/decrement.
+ */
+export function applyEventStatsDelta(playerStats = {}, ev = null, delta = 1, now = Date.now(), seq = 1, op = 'edit') {
+    if (!ev || !ev.playerId) return playerStats;
+    const pId = ev.playerId;
+    const nextPlayerStats = { ...playerStats };
+    if (!nextPlayerStats[pId]) {
+        nextPlayerStats[pId] = initPlayerStats(pId);
+    }
+    const s = { ...nextPlayerStats[pId] };
+    const statTimes = { ...(s._statUpdatedAt || {}) };
+    const statSeq = { ...(s._statSeq || {}) };
+    const statOp = { ...(s._statOp || {}) };
+
+    const adjustField = (field, d) => {
+        s[field] = Math.max(0, (s[field] || 0) + d);
+        if (field === 'Goals') s.goals = s[field];
+        if (field === 'Assists') s.assists = s[field];
+        if (field === 'Shots') s.shots = s[field];
+        if (field === 'Shots on Target') s.shotsOnTarget = s[field];
+        if (field === 'Saves') s.saves = s[field];
+        if (field === 'Fouls Committed') s.fouls = s[field];
+        if (field === 'yellowCards') s['Yellow Cards'] = s[field];
+        if (field === 'redCards') s['Red Cards'] = s[field];
+
+        statTimes[field] = now;
+        statSeq[field] = seq;
+        statOp[field] = op;
+    };
+
+    if (ev.type === 'goal') {
+        if (ev.goalType === 'own-goal') {
+            adjustField('ownGoals', delta);
+        } else {
+            adjustField('Goals', delta);
+            adjustField('Shots on Target', delta);
+            adjustField('Shots', delta);
+
+            // Handle assist if present
+            if (ev.assistingPlayerId) {
+                const aId = ev.assistingPlayerId;
+                if (!nextPlayerStats[aId]) nextPlayerStats[aId] = initPlayerStats(aId);
+                const a = { ...nextPlayerStats[aId] };
+                const aTimes = { ...(a._statUpdatedAt || {}) };
+                const aSeq = { ...(a._statSeq || {}) };
+                const aOp = { ...(a._statOp || {}) };
+
+                a.Assists = Math.max(0, (a.Assists || 0) + delta);
+                a.assists = a.Assists;
+                aTimes.Assists = now;
+                aSeq.Assists = seq;
+                aOp.Assists = op;
+                a._updatedAt = now;
+                a._statUpdatedAt = aTimes;
+                a._statSeq = aSeq;
+                a._statOp = aOp;
+                nextPlayerStats[aId] = a;
+            }
+        }
+    } else if (ev.type === 'shotOnTarget') {
+        adjustField('Shots on Target', delta);
+        adjustField('Shots', delta);
+    } else if (ev.type === 'shot') {
+        if (ev.onTarget || ev.result === 'saved') {
+            adjustField('Shots on Target', delta);
+        }
+        adjustField('Shots', delta);
+    } else if (ev.type === 'shotBlocked') {
+        adjustField('Blocked Shots', delta);
+        adjustField('Shots', delta);
+    } else if (ev.type === 'shotMissed') {
+        adjustField('Shots', delta);
+    } else if (ev.type === 'assist') {
+        adjustField('Assists', delta);
+    } else if (ev.type === 'yellowCard' || ev.type === 'yellow_card') {
+        adjustField('yellowCards', delta);
+        adjustField('Fouls Committed', delta);
+    } else if (ev.type === 'redCard' || ev.type === 'red_card') {
+        adjustField('redCards', delta);
+        adjustField('Fouls Committed', delta);
+    } else if (ev.type === 'foul') {
+        adjustField('Fouls Committed', delta);
+    } else if (ev.type === 'corner') {
+        adjustField('Corners Taken', delta);
+    } else if (ev.type === 'gkSave' || ev.type === 'save') {
+        adjustField('Saves', delta);
+        if (ev.saveType === 'penalty' || ev.subtype === 'penalty') adjustField('Penalties Saved', delta);
+        else if (ev.saveType === 'freekick' || ev.subtype === 'freekick') adjustField('Free Kick Saves', delta);
+    }
+
+    s._updatedAt = now;
+    s._statUpdatedAt = statTimes;
+    s._statSeq = statSeq;
+    s._statOp = statOp;
+    nextPlayerStats[pId] = s;
+
+    return nextPlayerStats;
+}
+
+/**
+ * State transition for editing an existing match event.
+ * Reverses the old event contributions and applies the updated event contributions.
+ */
+export function editMatchEventState({
+    playerStats = {},
+    timeline = [],
+    tombstoneEventIds = [],
+    eventId,
+    updatedFields = {},
+    now = Date.now(),
+    seq = 1,
+    editedBy = 'operator'
+}) {
+    const evIndex = timeline.findIndex(t => t.id === eventId);
+    if (evIndex === -1) {
+        return { playerStats, timeline, tombstoneEventIds, edited: false };
+    }
+
+    const oldEv = timeline[evIndex];
+
+    // If event was previously overturned, it did not contribute stats
+    let nextPlayerStats = { ...playerStats };
+    if (!oldEv.overturned) {
+        // 1. Revert old event contributions
+        nextPlayerStats = applyEventStatsDelta(nextPlayerStats, oldEv, -1, now, seq, 'undo');
+    }
+
+    // 2. Build updated event
+    const newEv = {
+        ...oldEv,
+        ...updatedFields,
+        edited: true,
+        editedAt: now,
+        editedBy,
+        overturned: false // un-overturn if actively edited with new call
+    };
+
+    // If minute or elapsed changed, ensure both are in sync
+    if (typeof updatedFields.minute === 'number' && typeof updatedFields.elapsed !== 'number') {
+        newEv.elapsed = Math.max(0, (updatedFields.minute - 1) * 60);
+    } else if (typeof updatedFields.elapsed === 'number' && typeof updatedFields.minute !== 'number') {
+        newEv.minute = Math.floor(updatedFields.elapsed / 60) + 1;
+    }
+
+    // 3. Apply new event contributions
+    nextPlayerStats = applyEventStatsDelta(nextPlayerStats, newEv, 1, now, seq, 'edit');
+
+    // 4. Update timeline and sort chronologically
+    const nextTimeline = [...timeline];
+    nextTimeline[evIndex] = newEv;
+    nextTimeline.sort((a, b) => (a.elapsed ?? (a.minute * 60) ?? 0) - (b.elapsed ?? (b.minute * 60) ?? 0));
+
+    return {
+        playerStats: nextPlayerStats,
+        timeline: nextTimeline,
+        tombstoneEventIds,
+        edited: true,
+        updatedEvent: newEv
+    };
+}
+
+/**
+ * State transition for overturning / nullifying a match event (e.g. referee disallowed goal, overturned card).
+ * Fully reverses stats and marks event with audit overturn metadata (or removes if removeCompletely=true).
+ */
+export function overturnMatchEventState({
+    playerStats = {},
+    timeline = [],
+    tombstoneEventIds = [],
+    eventId,
+    overturnReason = 'Referee changed call',
+    overturnedBy = 'referee',
+    now = Date.now(),
+    seq = 1,
+    removeCompletely = false
+}) {
+    const evIndex = timeline.findIndex(t => t.id === eventId);
+    if (evIndex === -1) {
+        return { playerStats, timeline, tombstoneEventIds, overturned: false };
+    }
+
+    const oldEv = timeline[evIndex];
+    if (oldEv.overturned) {
+        return { playerStats, timeline, tombstoneEventIds, overturned: false };
+    }
+
+    // 1. Revert stats from the event
+    let nextPlayerStats = applyEventStatsDelta(playerStats, oldEv, -1, now, seq, 'undo');
+
+    // Also handle linked companion events if any (e.g. companion gkSave for shotOnTarget, or vice versa)
+    const linkedEvents = timeline.filter(t =>
+        (oldEv.linkedSaveEventId && t.id === oldEv.linkedSaveEventId) ||
+        (oldEv.linkedShotEventId && t.id === oldEv.linkedShotEventId) ||
+        t.linkedShotEventId === eventId ||
+        t.linkedSaveEventId === eventId
+    );
+
+    linkedEvents.forEach(lEv => {
+        if (!lEv.overturned) {
+            nextPlayerStats = applyEventStatsDelta(nextPlayerStats, lEv, -1, now, seq, 'undo');
+        }
+    });
+
+    let nextTimeline;
+    let nextTombstones = [...(tombstoneEventIds || [])];
+    const linkedIds = new Set(linkedEvents.map(l => l.id));
+
+    if (removeCompletely) {
+        const toRemove = new Set([eventId, ...linkedIds]);
+        nextTombstones = Array.from(new Set([...nextTombstones, ...toRemove].map(String)));
+        nextTimeline = timeline.filter(t => !toRemove.has(t.id));
+    } else {
+        // Mark as overturned with audit metadata
+        nextTimeline = timeline.map(t => {
+            if (t.id === eventId || linkedIds.has(t.id)) {
+                return {
+                    ...t,
+                    overturned: true,
+                    overturnReason,
+                    overturnedBy,
+                    overturnedAt: now
+                };
+            }
+            return t;
+        });
+    }
+
+    return {
+        playerStats: nextPlayerStats,
+        timeline: nextTimeline,
+        tombstoneEventIds: nextTombstones,
+        overturned: true
+    };
+}
+
+/**
+ * Reliably derives and cross-verifies home and away match scores
+ * from both playerStats and valid (non-overturned) goal events in the timeline.
+ */
+export function recalculateMatchScores(match = {}, playerStats = null, timeline = null) {
+    const pStats = playerStats || match.playerStats || match.liveState?.playerStats || {};
+    const tLine = timeline || match.timeline || match.liveState?.timeline || [];
+
+    const homePids = new Set([
+        ...(match.homePlayers || []),
+        ...(match.homeSquadSelection?.startingXI || []),
+        ...(match.homeSquadSelection?.substitutes || [])
+    ].map(String));
+
+    const awayPids = new Set([
+        ...(match.awayPlayers || []),
+        ...(match.awaySquadSelection?.startingXI || []),
+        ...(match.awaySquadSelection?.substitutes || [])
+    ].map(String));
+
+    // If player lists are empty, infer from pStats[id].team
+    Object.entries(pStats).forEach(([pid, s]) => {
+        if (s?.team === 'home' || s?.teamSide === 'home') homePids.add(String(pid));
+        else if (s?.team === 'away' || s?.teamSide === 'away') awayPids.add(String(pid));
+    });
+
+    let homeGoals = 0;
+    let homeOwnGoals = 0;
+    let awayGoals = 0;
+    let awayOwnGoals = 0;
+
+    homePids.forEach(id => {
+        homeGoals += (pStats[id]?.Goals ?? 0);
+        awayOwnGoals += (pStats[id]?.ownGoals ?? 0);
+    });
+
+    awayPids.forEach(id => {
+        awayGoals += (pStats[id]?.Goals ?? 0);
+        homeOwnGoals += (pStats[id]?.ownGoals ?? 0);
+    });
+
+    let calcHomeScore = homeGoals + homeOwnGoals;
+    let calcAwayScore = awayGoals + awayOwnGoals;
+
+    // Cross-verify with active non-overturned goal events in timeline
+    const activeGoals = tLine.filter(t => t.type === 'goal' && !t.overturned);
+    if (activeGoals.length > 0 || (calcHomeScore === 0 && calcAwayScore === 0)) {
+        let tHome = 0;
+        let tAway = 0;
+        activeGoals.forEach(g => {
+            const side = g.team || g.teamSide || (homePids.has(String(g.playerId)) ? 'home' : 'away');
+            const isOwnGoal = g.goalType === 'own-goal' || g.isOwnGoal;
+            if (side === 'home') {
+                if (isOwnGoal) tAway++; else tHome++;
+            } else {
+                if (isOwnGoal) tHome++; else tAway++;
+            }
+        });
+
+        // If pStats had 0 or missing players, timeline is authoritative
+        if (Object.keys(pStats).length === 0 || (homeGoals === 0 && awayGoals === 0 && activeGoals.length > 0)) {
+            calcHomeScore = tHome;
+            calcAwayScore = tAway;
+        }
+    }
+
+    return {
+        homeScore: Math.max(0, calcHomeScore),
+        awayScore: Math.max(0, calcAwayScore)
+    };
+}
+

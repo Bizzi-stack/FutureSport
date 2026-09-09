@@ -35,7 +35,11 @@ import {
     recordMatchShotState,
     recordMatchGkSaveState,
     undoMatchEventState,
-    updateMatchPlayerDetailState
+    updateMatchPlayerDetailState,
+    editMatchEventState,
+    overturnMatchEventState,
+    recalculateMatchScores,
+    applyEventStatsDelta
 } from '../src/utils/matchEngine.js';
 
 import {
@@ -62,7 +66,8 @@ const results = {
     categoryC: { name: 'Category C: Two Connected Clients & Cloud Sync Tests', passed: 0, total: 0 },
     categoryD: { name: 'Category D: Coach Fixture Relevance & Finished Match Disabling Tests', passed: 0, total: 0 },
     categoryE: { name: 'Category E: Accurate Squad Analytics & Match-Driven Leaderboards', passed: 0, total: 0 },
-    categoryF: { name: 'Category F: In Contest / 3-Way Possession & Sync Tests', passed: 0, total: 0 }
+    categoryF: { name: 'Category F: In Contest / 3-Way Possession & Sync Tests', passed: 0, total: 0 },
+    categoryG: { name: 'Category G: Match Operator & Referee Event Correction Engine', passed: 0, total: 0 }
 };
 
 function recordPass(catKey, testName) {
@@ -1532,6 +1537,339 @@ async function runAllTests() {
     console.log(`\nCategory F Summary: ${results.categoryF.passed}/${results.categoryF.total} passed.\n`);
 
     // =========================================================================
+    // CATEGORY G: MATCH OPERATOR & REFEREE EVENT CORRECTION ENGINE
+    // =========================================================================
+    console.log('================================================================');
+    console.log('CATEGORY G: MATCH OPERATOR & REFEREE EVENT CORRECTION ENGINE');
+    console.log('================================================================');
+
+    // G1: Operator In-Game Edit (re-attributes goal from Player A to Player B)
+    {
+        const initialStats = {
+            'p-101': { ...initPlayerStats('p-101'), Goals: 1, goals: 1, Shots: 1, shots: 1, 'Shots on Target': 1, shotsOnTarget: 1 },
+            'p-102': { ...initPlayerStats('p-102'), Goals: 0, goals: 0, Shots: 0, shots: 0, 'Shots on Target': 0, shotsOnTarget: 0 }
+        };
+        const initialTimeline = [
+            {
+                id: 'evt-goal-1',
+                type: 'goal',
+                playerId: 'p-101',
+                playerName: 'Player One',
+                teamSide: 'home',
+                minute: 25,
+                timestamp: 1000
+            }
+        ];
+
+        const match = {
+            id: 'm-edit-1',
+            homeTeamId: 'team-h',
+            awayTeamId: 'team-a',
+            homeScore: 1,
+            awayScore: 0,
+            playerStats: initialStats,
+            timeline: initialTimeline
+        };
+
+        const result = editMatchEventState({
+            playerStats: initialStats,
+            timeline: initialTimeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-goal-1',
+            updatedFields: {
+                playerId: 'p-102',
+                playerName: 'Player Two'
+            },
+            now: 2000,
+            seq: 2,
+            editedBy: 'operator'
+        });
+
+        assert.strictEqual(result.edited, true);
+        assert.strictEqual(result.playerStats['p-101'].Goals, 0);
+        assert.strictEqual(result.playerStats['p-101']['Shots on Target'], 0);
+        assert.strictEqual(result.playerStats['p-102'].Goals, 1);
+        assert.strictEqual(result.playerStats['p-102']['Shots on Target'], 1);
+
+        const updatedEvt = result.timeline.find(e => e.id === 'evt-goal-1');
+        assert.strictEqual(updatedEvt.playerId, 'p-102');
+        assert.strictEqual(updatedEvt.playerName, 'Player Two');
+        assert.strictEqual(updatedEvt.edited, true);
+        assert.strictEqual(updatedEvt.editedBy, 'operator');
+
+        const scores = recalculateMatchScores(match, result.playerStats, result.timeline);
+        assert.strictEqual(scores.homeScore, 1);
+        assert.strictEqual(scores.awayScore, 0);
+
+        recordPass('categoryG', 'G1: Operator in-game edit re-attributes goal and player stats while preserving match score');
+    }
+
+    // G2: Operator In-Game Overturn (Goal Disallowed for Offside -> Score Decrements 1-0 to 0-0)
+    {
+        const stats = {
+            'p-101': { ...initPlayerStats('p-101'), Goals: 1, goals: 1, Shots: 1, shots: 1, 'Shots on Target': 1, shotsOnTarget: 1 }
+        };
+        const timeline = [
+            {
+                id: 'evt-goal-offside',
+                type: 'goal',
+                playerId: 'p-101',
+                playerName: 'Player One',
+                teamSide: 'home',
+                minute: 34,
+                timestamp: 1500
+            }
+        ];
+        const match = {
+            id: 'm-overturn-1',
+            homeScore: 1,
+            awayScore: 0,
+            playerStats: stats,
+            timeline: timeline
+        };
+
+        const result = overturnMatchEventState({
+            playerStats: stats,
+            timeline: timeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-goal-offside',
+            overturnReason: 'Disallowed for Offside',
+            overturnedBy: 'operator',
+            now: 2500,
+            seq: 3,
+            removeCompletely: false
+        });
+
+        assert.strictEqual(result.overturned, true);
+        assert.strictEqual(result.playerStats['p-101'].Goals, 0);
+        assert.strictEqual(result.playerStats['p-101']['Shots on Target'], 0);
+
+        const evt = result.timeline.find(e => e.id === 'evt-goal-offside');
+        assert.strictEqual(evt.overturned, true);
+        assert.strictEqual(evt.overturnReason, 'Disallowed for Offside');
+        assert.strictEqual(evt.overturnedBy, 'operator');
+
+        const scores = recalculateMatchScores(match, result.playerStats, result.timeline);
+        assert.strictEqual(scores.homeScore, 0);
+        assert.strictEqual(scores.awayScore, 0);
+
+        recordPass('categoryG', 'G2: Operator in-game goal overturn reverses player stats and decrements score from 1-0 to 0-0');
+    }
+
+    // G3: Referee Post-Game Review Overturn (Late Goal Disallowed, Score Decrements 2-1 to 1-1)
+    {
+        const stats = {
+            'p-101': { ...initPlayerStats('p-101'), Goals: 1, goals: 1, Assists: 1, assists: 1 },
+            'p-102': { ...initPlayerStats('p-102'), Goals: 1, goals: 1 },
+            'p-201': { ...initPlayerStats('p-201'), Goals: 1, goals: 1 }
+        };
+        const timeline = [
+            { id: 'evt-g1', type: 'goal', playerId: 'p-101', teamSide: 'home', minute: 20 },
+            { id: 'evt-g2', type: 'goal', playerId: 'p-201', teamSide: 'away', minute: 50 },
+            { id: 'evt-g3', type: 'goal', playerId: 'p-102', assistingPlayerId: 'p-101', teamSide: 'home', minute: 88 }
+        ];
+        const match = {
+            id: 'm-ref-review',
+            status: 'completed',
+            homeScore: 2,
+            awayScore: 1,
+            playerStats: stats,
+            timeline: timeline
+        };
+
+        const result = overturnMatchEventState({
+            playerStats: stats,
+            timeline: timeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-g3',
+            overturnReason: 'Handball in build-up disallowed after official review',
+            overturnedBy: 'referee',
+            now: 5000,
+            seq: 10,
+            removeCompletely: false
+        });
+
+        assert.strictEqual(result.overturned, true);
+        assert.strictEqual(result.playerStats['p-102'].Goals, 0);
+        assert.strictEqual(result.playerStats['p-101'].Assists, 0); // Assist reverted
+        assert.strictEqual(result.playerStats['p-101'].Goals, 1);   // Earlier goal preserved
+
+        const scores = recalculateMatchScores(match, result.playerStats, result.timeline);
+        assert.strictEqual(scores.homeScore, 1);
+        assert.strictEqual(scores.awayScore, 1);
+
+        recordPass('categoryG', 'G3: Referee post-game overturn decrements score 2-1 to 1-1 and cleanly reverts scorer & assist stats');
+    }
+
+    // G4: Disciplinary Card Re-attribution & Rescinding (Mistaken identity & Red card rescinded)
+    {
+        const stats = {
+            'p-104': { ...initPlayerStats('p-104'), yellowCards: 1, 'Fouls Committed': 1 },
+            'p-105': { ...initPlayerStats('p-105'), yellowCards: 0, redCards: 1, 'Fouls Committed': 1 }
+        };
+        const timeline = [
+            { id: 'evt-yc', type: 'yellow_card', playerId: 'p-104', minute: 42 },
+            { id: 'evt-rc', type: 'red_card', playerId: 'p-105', minute: 70 }
+        ];
+
+        // Step 1: Referee corrects mistaken identity on yellow card
+        const editRes = editMatchEventState({
+            playerStats: stats,
+            timeline: timeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-yc',
+            updatedFields: { playerId: 'p-105' },
+            now: 6000,
+            seq: 11,
+            editedBy: 'referee'
+        });
+
+        assert.strictEqual(editRes.playerStats['p-104'].yellowCards, 0);
+        assert.strictEqual(editRes.playerStats['p-105'].yellowCards, 1);
+
+        // Step 2: Red card rescinded
+        const overturnRes = overturnMatchEventState({
+            playerStats: editRes.playerStats,
+            timeline: editRes.timeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-rc',
+            overturnReason: 'Red card rescinded - accidental collision',
+            overturnedBy: 'referee',
+            now: 6100,
+            seq: 12,
+            removeCompletely: false
+        });
+
+        assert.strictEqual(overturnRes.playerStats['p-105'].redCards, 0);
+        const rescindedCard = overturnRes.timeline.find(e => e.id === 'evt-rc');
+        assert.strictEqual(rescindedCard.overturned, true);
+
+        recordPass('categoryG', 'G4: Disciplinary card correction supports mistaken identity re-attribution and red card rescinding');
+    }
+
+    // G5: Event Chronological Re-sorting After Minute Edit
+    {
+        const stats = { 'p-1': initPlayerStats('p-1') };
+        const timeline = [
+            { id: 'evt-1', minute: 15, type: 'foul' },
+            { id: 'evt-2', minute: 40, type: 'shot' },
+            { id: 'evt-3', minute: 75, type: 'goal', playerId: 'p-1' }
+        ];
+
+        // Operator corrects minute of evt-3 from 75' to 10'
+        const result = editMatchEventState({
+            playerStats: stats,
+            timeline: timeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-3',
+            updatedFields: { minute: 10 },
+            now: 7000,
+            seq: 15,
+            editedBy: 'operator'
+        });
+
+        assert.strictEqual(result.timeline[0].id, 'evt-3');
+        assert.strictEqual(result.timeline[0].minute, 10);
+        assert.strictEqual(result.timeline[1].id, 'evt-1');
+        assert.strictEqual(result.timeline[2].id, 'evt-2');
+
+        recordPass('categoryG', 'G5: Minute corrections automatically preserve strictly chronological timeline ordering');
+    }
+
+    // G6: Companion Linked Events Reversion on Overturn (Shot + GK Save)
+    {
+        const stats = {
+            'striker-1': { ...initPlayerStats('striker-1'), Shots: 1, 'Shots on Target': 1 },
+            'gk-1': { ...initPlayerStats('gk-1'), Saves: 1 }
+        };
+        const timeline = [
+            { id: 'evt-shot-1', type: 'shot', playerId: 'striker-1', onTarget: true, minute: 60 },
+            { id: 'evt-save-1', type: 'save', playerId: 'gk-1', linkedShotEventId: 'evt-shot-1', minute: 60 }
+        ];
+
+        const result = overturnMatchEventState({
+            playerStats: stats,
+            timeline: timeline,
+            tombstoneEventIds: [],
+            eventId: 'evt-shot-1',
+            overturnReason: 'Play called back for offside prior to attempt',
+            overturnedBy: 'operator',
+            now: 8000,
+            seq: 20
+        });
+
+        assert.strictEqual(result.playerStats['striker-1'].Shots, 0);
+        assert.strictEqual(result.playerStats['striker-1']['Shots on Target'], 0);
+        assert.strictEqual(result.playerStats['gk-1'].Saves, 0);
+
+        const linkedSave = result.timeline.find(e => e.id === 'evt-save-1');
+        assert.strictEqual(linkedSave.overturned, true);
+
+        recordPass('categoryG', 'G6: Overturning an event automatically reverts linked companion events (shots and goalkeeper saves)');
+    }
+
+    // G7: Season Leaderboard & Squad Analytics Integrity via applyMatchContributions
+    {
+        const studentMarcus = {
+            id: 'stu-marcus',
+            name: 'Marcus Sterling',
+            school: 'pmc-club-4',
+            schoolId: 'pmc-club-4',
+            goals: 0,
+            appearances: 0,
+            performance: { '2026-2027': { 'Matchday 1': { Goals: 0 } } },
+            matchStats: { '2026-2027': { 'Matchday 1': { gamesPlayed: 0, minutesPlayed: 0 } } },
+            _matchContributions: {}
+        };
+
+        const studentAlex = {
+            id: 'stu-alex',
+            name: 'Alex Rover',
+            school: 'pmc-club-4',
+            schoolId: 'pmc-club-4',
+            goals: 0,
+            appearances: 0,
+            performance: { '2026-2027': { 'Matchday 1': { Goals: 0 } } },
+            matchStats: { '2026-2027': { 'Matchday 1': { gamesPlayed: 0, minutesPlayed: 0 } } },
+            _matchContributions: {}
+        };
+
+        // Match with 1 overturned goal for Marcus, and 1 legitimate goal for Alex
+        const completedMatch = {
+            id: 'm-audit-final',
+            status: 'completed',
+            ageGroup: 'PMC',
+            year: '2026-2027',
+            matchday: 'Matchday 1',
+            homeTeamId: 'pmc-club-4',
+            awayTeamId: 'pmc-club-1',
+            homeScore: 1,
+            awayScore: 0,
+            playerStats: {
+                'stu-marcus': { ...initPlayerStats('stu-marcus'), Goals: 0, minutesPlayed: 90 },
+                'stu-alex': { ...initPlayerStats('stu-alex'), Goals: 1, minutesPlayed: 90 }
+            },
+            timeline: [
+                { id: 'evt-disallowed', type: 'goal', playerId: 'stu-marcus', overturned: true, minute: 30 },
+                { id: 'evt-legit', type: 'goal', playerId: 'stu-alex', overturned: false, minute: 72 }
+            ]
+        };
+
+        const updatedStudents = applyMatchContributions([studentMarcus, studentAlex], completedMatch);
+        const updatedMarcus = updatedStudents.find(s => s.id === 'stu-marcus');
+        const updatedAlex = updatedStudents.find(s => s.id === 'stu-alex');
+
+        assert.strictEqual(updatedMarcus._matchContributions['m-audit-final'].stats.Goals, 0);
+        assert.strictEqual(updatedAlex._matchContributions['m-audit-final'].stats.Goals, 1);
+        assert.strictEqual(updatedMarcus.performance['2026-2027']['Matchday 1'].Goals, 0);
+        assert.strictEqual(updatedAlex.performance['2026-2027']['Matchday 1'].Goals, 1);
+
+        recordPass('categoryG', 'G7: Season leaderboard & squad analytics maintain 100% integrity when ingesting matches with overturned events');
+    }
+
+    console.log(`\nCategory G Summary: ${results.categoryG.passed}/${results.categoryG.total} passed.\n`);
+
+    // =========================================================================
     // FINAL OVERALL SUMMARY
     // =========================================================================
     console.log('================================================================');
@@ -1543,8 +1881,9 @@ async function runAllTests() {
     console.log(`   ${results.categoryD.name}: ${results.categoryD.passed}/${results.categoryD.total} PASSED`);
     console.log(`   ${results.categoryE.name}: ${results.categoryE.passed}/${results.categoryE.total} PASSED`);
     console.log(`   ${results.categoryF.name}: ${results.categoryF.passed}/${results.categoryF.total} PASSED`);
-    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed;
-    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total;
+    console.log(`   ${results.categoryG.name}: ${results.categoryG.passed}/${results.categoryG.total} PASSED`);
+    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed;
+    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total;
     console.log(`   TOTAL TESTS: ${totalPassed}/${totalCount} PASSED (100%)`);
     console.log('================================================================\n');
 }
