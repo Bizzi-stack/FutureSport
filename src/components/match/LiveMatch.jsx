@@ -1369,6 +1369,7 @@ export default function LiveMatch({
                             const nextPoss = logData.possession || {
                                 homePct: logData.homePct ?? 50,
                                 awayPct: logData.awayPct ?? 50,
+                                inContestPct: logData.inContestPct ?? 0,
                                 activeSide: logData.team,
                                 teamName: logData.teamName
                             };
@@ -1384,7 +1385,10 @@ export default function LiveMatch({
                                     teamName: logData.teamName,
                                     homePct: logData.homePct,
                                     awayPct: logData.awayPct,
-                                    playerName: `Ball Possession: ${logData.teamName} (${logData.team === 'home' ? logData.homePct : logData.awayPct}%)`
+                                    inContestPct: logData.inContestPct ?? nextPoss.inContestPct ?? 0,
+                                    playerName: logData.team === 'contest'
+                                        ? `Ball In Contest / Loose Ball (${logData.inContestPct ?? nextPoss.inContestPct ?? 0}%)`
+                                        : `Ball Possession: ${logData.teamName} (${logData.team === 'home' ? logData.homePct : logData.awayPct}%)`
                                 }
                             ]);
                             if (onUpdateMatch) {
@@ -1684,10 +1688,10 @@ export default function LiveMatch({
                                                     badgeTitle = 'Red Card Send-Off';
                                                     desc = `${event.playerName}`;
                                                 } else if (event.type === 'possession') {
-                                                    icon = '⏱️';
-                                                    clr = event.team === 'home' ? '#22c55e' : '#6366f1';
-                                                    badgeTitle = 'Ball Possession Shift';
-                                                    desc = event.playerName || `${event.teamName} Possession`;
+                                                    icon = event.team === 'contest' ? '⚔️' : '⏱️';
+                                                    clr = event.team === 'contest' ? '#f59e0b' : (event.team === 'home' ? '#22c55e' : '#6366f1');
+                                                    badgeTitle = event.team === 'contest' ? 'Ball In Contest' : 'Ball Possession Shift';
+                                                    desc = event.playerName || (event.team === 'contest' ? 'Ball In Contest / Loose Ball' : `${event.teamName} Possession`);
                                                 } else if (event.type === 'foul') {
                                                     icon = '🛑';
                                                     clr = '#ea580c';
@@ -1827,9 +1831,9 @@ export default function LiveMatch({
                                                 clr = '#ef4444';
                                                 desc = `Red Card - ${event.playerName}`;
                                             } else if (event.type === 'possession') {
-                                                icon = '⏱️';
-                                                clr = event.team === 'home' ? '#22c55e' : '#6366f1';
-                                                desc = event.playerName || `Ball Possession: ${event.teamName}`;
+                                                icon = event.team === 'contest' ? '⚔️' : '⏱️';
+                                                clr = event.team === 'contest' ? '#f59e0b' : (event.team === 'home' ? '#22c55e' : '#6366f1');
+                                                desc = event.playerName || (event.team === 'contest' ? 'Ball In Contest / Loose Ball' : `Ball Possession: ${event.teamName}`);
                                             } else if (event.type === 'foul') {
                                                 icon = '🛑';
                                                 clr = '#ea580c';
@@ -2021,9 +2025,9 @@ export default function LiveMatch({
                                         const cornerLabel = event.corner ? event.corner.replace('-', ' ') : '';
                                         desc = `${saveLabel} in the ${cornerLabel} corner by ${event.playerName}`;
                                     } else if (event.type === 'possession') {
-                                        icon = '⏱️';
-                                        clr = event.team === 'home' ? '#22c55e' : '#6366f1';
-                                        desc = event.playerName || `Ball Possession: ${event.teamName}`;
+                                        icon = event.team === 'contest' ? '⚔️' : '⏱️';
+                                        clr = event.team === 'contest' ? '#f59e0b' : (event.team === 'home' ? '#22c55e' : '#6366f1');
+                                        desc = event.playerName || (event.team === 'contest' ? 'Ball In Contest / Loose Ball' : `Ball Possession: ${event.teamName}`);
                                     } else if (event.type === 'foul') {
                                         icon = '🛑';
                                         clr = '#ea580c';

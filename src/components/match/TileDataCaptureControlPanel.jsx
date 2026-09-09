@@ -73,10 +73,11 @@ export default function TileDataCaptureControlPanel({
     const isShotsEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'shots';
     const isGeneralEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'general';
 
-    // Active Possession Tracking State
-    const [possessionSide, setPossessionSide] = useState(match?.liveState?.possession?.activeSide || null); // 'home' | 'away' | null
+    // Active Possession Tracking State ('home' | 'away' | 'contest' | null)
+    const [possessionSide, setPossessionSide] = useState(match?.liveState?.possession?.activeSide || null);
     const [homePossessionSecs, setHomePossessionSecs] = useState(match?.liveState?.possession?.homeSecs || 0);
     const [awayPossessionSecs, setAwayPossessionSecs] = useState(match?.liveState?.possession?.awaySecs || 0);
+    const [inContestSecs, setInContestSecs] = useState(match?.liveState?.possession?.inContestSecs || match?.liveState?.possession?.contestSecs || 0);
 
     // Selected Active Player (Optional Player-First Flow)
     const [activePlayer, setActivePlayer] = useState(null); // { id, name, team: 'home'|'away' }
@@ -96,20 +97,29 @@ export default function TileDataCaptureControlPanel({
                 interval = setInterval(() => setHomePossessionSecs(s => s + 1), 1000);
             } else if (possessionSide === 'away') {
                 interval = setInterval(() => setAwayPossessionSecs(s => s + 1), 1000);
+            } else if (possessionSide === 'contest') {
+                interval = setInterval(() => setInContestSecs(s => s + 1), 1000);
             }
         }
         return () => { if (interval) clearInterval(interval); };
     }, [possessionSide, isPaused, period]);
 
-    // Calculate Possession Percentages
-    const totalPossessionSecs = homePossessionSecs + awayPossessionSecs;
-    const homePossessionPct = totalPossessionSecs > 0 ? Math.round((homePossessionSecs / totalPossessionSecs) * 100) : 50;
-    const awayPossessionPct = totalPossessionSecs > 0 ? 100 - homePossessionPct : 50;
+    // Calculate Possession Percentages (Home / In Contest / Away)
+    const totalPossessionSecs = homePossessionSecs + awayPossessionSecs + inContestSecs;
+    let homePossessionPct = 50;
+    let awayPossessionPct = 50;
+    let inContestPct = 0;
+
+    if (totalPossessionSecs > 0) {
+        homePossessionPct = Math.round((homePossessionSecs / totalPossessionSecs) * 100);
+        inContestPct = Math.round((inContestSecs / totalPossessionSecs) * 100);
+        awayPossessionPct = Math.max(0, 100 - homePossessionPct - inContestPct);
+    }
 
     // Persist possession back to parent live state whenever possession state updates (throttled to avoid network flooding)
     useEffect(() => {
         if (!onQuickLogEvent) return;
-        const totalSecs = homePossessionSecs + awayPossessionSecs;
+        const totalSecs = homePossessionSecs + awayPossessionSecs + inContestSecs;
         // Sync on first start, every 3 seconds of active possession, or whenever paused / period changes
         if (totalSecs === 1 || totalSecs % 3 === 0 || isPaused || period === 'HT') {
             onQuickLogEvent({
@@ -117,13 +127,17 @@ export default function TileDataCaptureControlPanel({
                 possession: {
                     homePct: homePossessionPct,
                     awayPct: awayPossessionPct,
+                    inContestPct,
+                    contestPct: inContestPct,
                     homeSecs: homePossessionSecs,
                     awaySecs: awayPossessionSecs,
+                    inContestSecs,
+                    contestSecs: inContestSecs,
                     activeSide: possessionSide
                 }
             });
         }
-    }, [homePossessionSecs, awayPossessionSecs, possessionSide, homePossessionPct, awayPossessionPct, isPaused, period]);
+    }, [homePossessionSecs, awayPossessionSecs, inContestSecs, possessionSide, homePossessionPct, awayPossessionPct, inContestPct, isPaused, period]);
 
     const formatPossessionTime = (secs) => {
         const m = Math.floor(secs / 60);
@@ -131,18 +145,38 @@ export default function TileDataCaptureControlPanel({
         return `${m}m ${String(s).padStart(2, '0')}s`;
     };
 
-    // Toggle Team Possession
+    // Toggle Team Possession / In Contest
     const handleTogglePossession = (side) => {
         if (!isPossessionEnabled) return;
         setPossessionSide(side);
-        const teamName = side === 'home' ? home.name : away.name;
-        triggerToast(`Ball Possession switched to ${teamName}`);
+        
+        const teamName = side === 'home' ? home.name : (side === 'away' ? away.name : 'In Contest');
+        if (side === 'contest') {
+            triggerToast('⚔️ Ball In Contest / Loose Ball');
+        } else {
+            triggerToast(`Ball Possession switched to ${teamName}`);
+        }
         
         const nextHomeSecs = side === 'home' ? Math.max(1, homePossessionSecs) : homePossessionSecs;
         const nextAwaySecs = side === 'away' ? Math.max(1, awayPossessionSecs) : awayPossessionSecs;
-        const nextTotal = nextHomeSecs + nextAwaySecs;
-        const nextHomePct = nextTotal > 0 ? Math.round((nextHomeSecs / nextTotal) * 100) : (side === 'home' ? 55 : 45);
-        const nextAwayPct = 100 - nextHomePct;
+        const nextContestSecs = side === 'contest' ? Math.max(1, inContestSecs) : inContestSecs;
+        const nextTotal = nextHomeSecs + nextAwaySecs + nextContestSecs;
+
+        let nextHomePct = 50;
+        let nextAwayPct = 50;
+        let nextContestPct = 0;
+
+        if (nextTotal > 0) {
+            nextHomePct = Math.round((nextHomeSecs / nextTotal) * 100);
+            nextContestPct = Math.round((nextContestSecs / nextTotal) * 100);
+            nextAwayPct = Math.max(0, 100 - nextHomePct - nextContestPct);
+        } else if (side === 'home') {
+            nextHomePct = 55; nextAwayPct = 45; nextContestPct = 0;
+        } else if (side === 'away') {
+            nextHomePct = 45; nextAwayPct = 55; nextContestPct = 0;
+        } else if (side === 'contest') {
+            nextHomePct = 50; nextAwayPct = 50; nextContestPct = 10;
+        }
 
         if (onQuickLogEvent) {
             onQuickLogEvent({
@@ -151,11 +185,16 @@ export default function TileDataCaptureControlPanel({
                 teamName,
                 homePct: nextHomePct,
                 awayPct: nextAwayPct,
+                inContestPct: nextContestPct,
                 possession: {
                     homePct: nextHomePct,
                     awayPct: nextAwayPct,
+                    inContestPct: nextContestPct,
+                    contestPct: nextContestPct,
                     homeSecs: nextHomeSecs,
                     awaySecs: nextAwaySecs,
+                    inContestSecs: nextContestSecs,
+                    contestSecs: nextContestSecs,
                     activeSide: side
                 }
             });
@@ -391,7 +430,7 @@ export default function TileDataCaptureControlPanel({
                     </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
                     {/* Home Possession Tile */}
                     <button
                         type="button"
@@ -436,6 +475,59 @@ export default function TileDataCaptureControlPanel({
                             </span>
                             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
                                 Time: {formatPossessionTime(homePossessionSecs)}
+                            </span>
+                        </div>
+                    </button>
+
+                    {/* ⚔️ In Contest (Loose Ball / 50-50 Dual) Tile */}
+                    <button
+                        type="button"
+                        disabled={!isPossessionEnabled}
+                        onClick={() => handleTogglePossession('contest')}
+                        style={{
+                            padding: '18px 20px', borderRadius: '14px',
+                            background: possessionSide === 'contest'
+                                ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))'
+                                : 'rgba(255, 255, 255, 0.03)',
+                            border: possessionSide === 'contest'
+                                ? ((isPaused || period === 'HT') ? '2px solid #ef4444' : '2px solid #f59e0b')
+                                : '1px solid rgba(255, 255, 255, 0.1)',
+                            cursor: isPossessionEnabled ? 'pointer' : 'not-allowed', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
+                            boxShadow: possessionSide === 'contest'
+                                ? ((isPaused || period === 'HT') ? '0 0 20px rgba(239, 68, 68, 0.2)' : '0 0 24px rgba(245, 158, 11, 0.3)')
+                                : 'none',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div>
+                                <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>⚔️</span> In Contest
+                                </span>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    Loose Ball · 50/50 Dual
+                                </div>
+                            </div>
+                            {possessionSide === 'contest' && (
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    color: (isPaused || period === 'HT') ? '#f87171' : '#fbbf24',
+                                    background: (isPaused || period === 'HT') ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: (isPaused || period === 'HT') ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(245,158,11,0.4)'
+                                }}>
+                                    {(isPaused || period === 'HT') ? 'IN CONTEST (PAUSED)' : 'IN CONTEST'}
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'contest' ? ((isPaused || period === 'HT') ? '#f87171' : '#fbbf24') : 'var(--text-muted)' }}>
+                                {inContestPct}%
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                Time: {formatPossessionTime(inContestSecs)}
                             </span>
                         </div>
                     </button>
@@ -487,6 +579,20 @@ export default function TileDataCaptureControlPanel({
                             </span>
                         </div>
                     </button>
+                </div>
+
+                {/* 3-Way Realtime Possession Distribution Bar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', width: '100%', height: '10px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.08)' }}>
+                        <div style={{ width: `${homePossessionPct}%`, background: '#22c55e', transition: 'width 0.4s ease' }} title={`${home.name}: ${homePossessionPct}%`} />
+                        <div style={{ width: `${inContestPct}%`, background: '#f59e0b', transition: 'width 0.4s ease' }} title={`In Contest: ${inContestPct}%`} />
+                        <div style={{ width: `${awayPossessionPct}%`, background: '#6366f1', transition: 'width 0.4s ease' }} title={`${away.name}: ${awayPossessionPct}%`} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: '800' }}>
+                        <span style={{ color: '#4ade80' }}>{home.name} ({homePossessionPct}%)</span>
+                        <span style={{ color: '#fbbf24' }}>⚔️ In Contest ({inContestPct}%)</span>
+                        <span style={{ color: '#818cf8' }}>{away.name} ({awayPossessionPct}%)</span>
+                    </div>
                 </div>
             </div>
 
