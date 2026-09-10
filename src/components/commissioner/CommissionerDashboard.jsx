@@ -47,6 +47,17 @@ export default function CommissionerDashboard({
     const [activeCountdownMatch, setActiveCountdownMatch] = useState(null);
     const [activeCountdownScheduleMatch, setActiveCountdownScheduleMatch] = useState(null);
 
+    // Reactively bind selectedMatch and activeCountdownMatch to the live matches prop
+    const activeSelectedMatch = useMemo(() => {
+        if (!selectedMatch) return null;
+        return (matches || []).find(m => m.id === selectedMatch.id) || selectedMatch;
+    }, [matches, selectedMatch]);
+
+    const currentActiveCountdownMatch = useMemo(() => {
+        if (!activeCountdownMatch) return null;
+        return (matches || []).find(m => m.id === activeCountdownMatch.id) || activeCountdownMatch;
+    }, [matches, activeCountdownMatch]);
+
     // Live Feed & Timeline States
     const [activeMatchId, setActiveMatchId] = useState(() => {
         const live = (matches || []).find(m => m.status === 'live');
@@ -339,10 +350,10 @@ export default function CommissionerDashboard({
 
     // Compute Discrepancies
     const discrepancies = useMemo(() => {
-        if (!selectedMatch) return [];
+        if (!activeSelectedMatch) return [];
         const issues = [];
-        const statTimeline = selectedMatch.timeline || [];
-        const refTimeline = selectedMatch.refereeLiveState?.timeline || [];
+        const statTimeline = activeSelectedMatch.timeline || [];
+        const refTimeline = activeSelectedMatch.refereeLiveState?.timeline || [];
 
         const isGoalEvent = (e) => String(e?.type || '').toLowerCase().trim() === 'goal';
         const isYellowEvent = (e) => {
@@ -379,7 +390,7 @@ export default function CommissionerDashboard({
         }
 
         return issues;
-    }, [selectedMatch]);
+    }, [activeSelectedMatch]);
 
     const getSchoolName = (schoolId, matchObj) => {
         if (!schoolId && !matchObj) return 'Unknown Team';
@@ -487,7 +498,7 @@ export default function CommissionerDashboard({
         if (!commissionerSignature.trim()) return;
 
         const updatedMatch = {
-            ...selectedMatch,
+            ...activeSelectedMatch,
             status: 'approved',
             commissionerReport: {
                 incidentRating: parseInt(incidentRating),
@@ -1767,13 +1778,13 @@ export default function CommissionerDashboard({
 
                     {/* Right side: Detailed approval pane */}
                     <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
-                        {selectedMatch ? (
+                        {activeSelectedMatch ? (
                             <form onSubmit={handleApproveMatch} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                                 <div style={{ padding: '20px 24px', borderBottom: 'var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
                                         <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)' }}>Match Commissioner Verification Panel</h3>
                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                            {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)}
+                                            {getSchoolName(activeSelectedMatch.homeTeamId)} vs {getSchoolName(activeSelectedMatch.awayTeamId)}
                                         </span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1825,14 +1836,14 @@ export default function CommissionerDashboard({
                                             <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                                     <span style={{ color: 'var(--text-muted)' }}>Score:</span>
-                                                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{selectedMatch.homeScore} - {selectedMatch.awayScore}</span>
+                                                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{activeSelectedMatch.homeScore} - {activeSelectedMatch.awayScore}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '8px' }}>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Logged scorers:</span>
-                                                    {selectedMatch.timeline?.length === 0 ? (
+                                                    {activeSelectedMatch.timeline?.length === 0 ? (
                                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No event logs.</span>
                                                     ) : (
-                                                        selectedMatch.timeline?.map((ev, i) => (
+                                                        activeSelectedMatch.timeline?.map((ev, i) => (
                                                             <div key={i} style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
                                                                 Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
                                                             </div>
@@ -1848,10 +1859,10 @@ export default function CommissionerDashboard({
                                             <div style={{ padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', border: 'var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Referee logged events:</span>
-                                                    {selectedMatch.refereeLiveState?.timeline?.length === 0 ? (
+                                                    {activeSelectedMatch.refereeLiveState?.timeline?.length === 0 ? (
                                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No event logs.</span>
                                                     ) : (
-                                                        selectedMatch.refereeLiveState?.timeline?.map((ev, i) => (
+                                                        activeSelectedMatch.refereeLiveState?.timeline?.map((ev, i) => (
                                                             <div key={i} style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
                                                                 Min {ev.minute}: {ev.type} (Player ID: {ev.playerId})
                                                             </div>
@@ -1860,17 +1871,17 @@ export default function CommissionerDashboard({
                                                 </div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '8px', marginTop: '4px' }}>
                                                     <span style={{ color: 'var(--text-muted)' }}>Pitch / Weather:</span>
-                                                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{selectedMatch.refereeReport?.pitchCondition} / {selectedMatch.refereeReport?.weatherCondition}</span>
+                                                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{activeSelectedMatch.refereeReport?.pitchCondition} / {activeSelectedMatch.refereeReport?.weatherCondition}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>Referee Summary:</span>
                                                     <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-primary)', fontStyle: 'italic' }}>
-                                                        "{selectedMatch.refereeReport?.refereeSummary}"
+                                                        "{activeSelectedMatch.refereeReport?.refereeSummary}"
                                                     </p>
                                                 </div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '6px' }}>
                                                     <span style={{ color: 'var(--text-muted)' }}>Referee Signature:</span>
-                                                    <span style={{ fontWeight: '700', color: 'var(--primary-light)' }}>{selectedMatch.refereeReport?.refereeSignature}</span>
+                                                    <span style={{ fontWeight: '700', color: 'var(--primary-light)' }}>{activeSelectedMatch.refereeReport?.refereeSignature}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -2618,7 +2629,7 @@ export default function CommissionerDashboard({
             )}
 
             {/* Fullscreen Expanded Verification Modal */}
-            {isExpanded && selectedMatch && (
+            {isExpanded && activeSelectedMatch && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     background: 'rgba(3, 7, 18, 0.85)', backdropFilter: 'blur(8px)',
@@ -2637,7 +2648,7 @@ export default function CommissionerDashboard({
                                         Match Verification &amp; Authorization Console
                                     </h2>
                                     <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                        {getSchoolName(selectedMatch.homeTeamId)} vs {getSchoolName(selectedMatch.awayTeamId)} · {selectedMatch.matchday}
+                                        {getSchoolName(activeSelectedMatch.homeTeamId)} vs {getSchoolName(activeSelectedMatch.awayTeamId)} · {activeSelectedMatch.matchday}
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -2728,9 +2739,9 @@ export default function CommissionerDashboard({
                 </div>
             )}
             {/* Official Team Sheet Modal (Lineups & Rosters) */}
-            {activeCountdownMatch && (
+            {currentActiveCountdownMatch && (
                 <CountdownSheetModal
-                    match={activeCountdownMatch}
+                    match={currentActiveCountdownMatch}
                     allPlayers={allStudents}
                     schools={schools}
                     userRole="commissioner"
@@ -2742,10 +2753,10 @@ export default function CommissionerDashboard({
                     onApplyCorrection={(matchId, correctionData) => {
                         const squadKey = correctionData.teamSide === 'home' ? 'homeSquadSelection' : 'awaySquadSelection';
                         const updatedMatch = {
-                            ...activeCountdownMatch,
-                            [squadKey]: correctionData.updatedSquad || activeCountdownMatch[squadKey],
+                            ...currentActiveCountdownMatch,
+                            [squadKey]: correctionData.updatedSquad || currentActiveCountdownMatch[squadKey],
                             preKickoffCorrections: [
-                                ...(activeCountdownMatch.preKickoffCorrections || []),
+                                ...(currentActiveCountdownMatch.preKickoffCorrections || []),
                                 correctionData
                             ]
                         };

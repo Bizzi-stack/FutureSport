@@ -10,7 +10,7 @@ import SettingsPanel, { useSettings } from './components/SettingsPanel';
 import StudentProfileDrawer from './components/StudentProfileDrawer';
 import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOLS, getTeamStudents } from './data/mockData';
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
-import { UCL_CLUBS, UCL_TEAMS, UCL_PLAYERS, UCL_INITIAL_MATCHES, UCL_YEARS } from './data/uclData';
+import { UCL_CLUBS, UCL_TEAMS, UCL_PLAYERS, UCL_INITIAL_MATCHES, UCL_YEARS, ensureUclPlayerIdentities } from './data/uclData';
 import { pushMatchesToCloud, broadcastSandboxMatches, subscribeToRealtimeSync, subscribeToSandboxSync, mergeCloudMatches } from './utils/realtimeSync';
 import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament } from './utils/matchEngine';
 import { exportClassReport } from './utils/exportReport';
@@ -485,12 +485,12 @@ function App() {
       const saved = localStorage.getItem('eduvision-ucl-players');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return ensureUclPlayerIdentities(parsed);
       }
     } catch (err) {
       console.error('Error loading UCL players:', err);
     }
-    return UCL_PLAYERS;
+    return ensureUclPlayerIdentities(UCL_PLAYERS);
   });
 
   useEffect(() => {
@@ -946,7 +946,28 @@ function App() {
       }
     } else {
       // UEFA Champions League Testing Sandbox Update (Zero Cloud Overhead)
-      const nextMatches = (displayMatches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      const prevMatch = (uclMatches || []).find(m => m.id === updatedMatch.id);
+      const wasBothReady = !!prevMatch?.homeSquadSelection && !!prevMatch?.awaySquadSelection;
+      const isNowBothReady = !!updatedMatch?.homeSquadSelection && !!updatedMatch?.awaySquadSelection;
+
+      if (!wasBothReady && isNowBothReady) {
+        const schoolsList = displaySchools || UCL_CLUBS || [];
+        const homeSc = schoolsList.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
+        const awaySc = schoolsList.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
+        const homeName = homeSc?.name || updatedMatch.homeTeam || 'Home Team';
+        const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
+        try {
+          sendRefereeSquadNotification(updatedMatch, homeName, awayName, displayStudents || uclPlayers);
+          sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, displayStudents || uclPlayers);
+        } catch (err) {
+          console.warn('Sandbox match ready notifications warning:', err);
+        }
+      }
+
+      const exists = (uclMatches || []).some(m => m.id === updatedMatch.id);
+      const nextMatches = exists
+        ? (uclMatches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m)
+        : [...(uclMatches || []), updatedMatch];
       setUclMatches(nextMatches);
       setMatches(nextMatches);
       broadcastSandboxMatches(nextMatches);

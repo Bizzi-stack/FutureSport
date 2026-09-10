@@ -250,27 +250,53 @@ export default function LiveMatch({
     // Fallback if players are missing from global state
     const homePlayers = useMemo(() => {
         if (matchData.homePlayers && matchData.homePlayers.length > 0) return matchData.homePlayers;
+        if (homeSquadSelection?.startingXI || homeSquadSelection?.benchPlayers) {
+            const squadIds = [
+                ...(homeSquadSelection.startingXI || []),
+                ...(homeSquadSelection.benchPlayers || [])
+            ].filter(Boolean);
+            if (squadIds.length > 0) return Array.from(new Set(squadIds));
+        }
         const targetTeamName = (matchData.homeTeam || '').toLowerCase();
-        return allStudents.filter(s => 
-            (homeTeamId && s.schoolId === homeTeamId) || 
-            (homeTeamId && s.teamAssignments?.[year] === homeTeamId) ||
-            (homeTeamId && s.teamAssignments?.[year] === `${homeTeamId}-team-PMC`) ||
-            (targetTeamName && s.schoolName?.toLowerCase().includes(targetTeamName)) ||
-            (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
-        ).map(s => s.id);
-    }, [matchData.homePlayers, matchData.homeTeam, homeTeamId, allStudents, year]);
+        const cleanHomeId = (homeTeamId || '').replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
+        return allStudents.filter(s => {
+            const sSchool = (s.schoolId || '').toLowerCase();
+            const sTeam = (s.teamAssignments?.[year] || '').toLowerCase();
+            return (
+                (cleanHomeId && sSchool === cleanHomeId) ||
+                (homeTeamId && sSchool === homeTeamId.toLowerCase()) ||
+                (homeTeamId && sTeam === homeTeamId.toLowerCase()) ||
+                (cleanHomeId && sTeam.includes(cleanHomeId)) ||
+                (targetTeamName && s.schoolName?.toLowerCase().includes(targetTeamName)) ||
+                (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
+            );
+        }).map(s => s.id);
+    }, [matchData.homePlayers, homeSquadSelection, matchData.homeTeam, homeTeamId, allStudents, year]);
 
     const awayPlayers = useMemo(() => {
         if (matchData.awayPlayers && matchData.awayPlayers.length > 0) return matchData.awayPlayers;
+        if (awaySquadSelection?.startingXI || awaySquadSelection?.benchPlayers) {
+            const squadIds = [
+                ...(awaySquadSelection.startingXI || []),
+                ...(awaySquadSelection.benchPlayers || [])
+            ].filter(Boolean);
+            if (squadIds.length > 0) return Array.from(new Set(squadIds));
+        }
         const targetTeamName = (matchData.awayTeam || '').toLowerCase();
-        return allStudents.filter(s => 
-            (awayTeamId && s.schoolId === awayTeamId) || 
-            (awayTeamId && s.teamAssignments?.[year] === awayTeamId) ||
-            (awayTeamId && s.teamAssignments?.[year] === `${awayTeamId}-team-PMC`) ||
-            (targetTeamName && s.schoolName?.toLowerCase().includes(targetTeamName)) ||
-            (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
-        ).map(s => s.id);
-    }, [matchData.awayPlayers, matchData.awayTeam, awayTeamId, allStudents, year]);
+        const cleanAwayId = (awayTeamId || '').replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
+        return allStudents.filter(s => {
+            const sSchool = (s.schoolId || '').toLowerCase();
+            const sTeam = (s.teamAssignments?.[year] || '').toLowerCase();
+            return (
+                (cleanAwayId && sSchool === cleanAwayId) ||
+                (awayTeamId && sSchool === awayTeamId.toLowerCase()) ||
+                (awayTeamId && sTeam === awayTeamId.toLowerCase()) ||
+                (cleanAwayId && sTeam.includes(cleanAwayId)) ||
+                (targetTeamName && s.schoolName?.toLowerCase().includes(targetTeamName)) ||
+                (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
+            );
+        }).map(s => s.id);
+    }, [matchData.awayPlayers, awaySquadSelection, matchData.awayTeam, awayTeamId, allStudents, year]);
 
     // Starters and Bench players from Coach selection (with fallbacks if none submitted)
     const homeStarters = useMemo(() => {
