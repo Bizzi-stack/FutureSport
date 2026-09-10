@@ -444,14 +444,16 @@ export const UCL_INITIAL_MATCHES = [
       benchPlayers: rmSquad.benchPlayers,
       substitutes: rmSquad.benchPlayers,
       formation: '4-3-3',
-      submittedAt: Date.now() - 3600000
+      submittedAt: new Date(Date.now() - 3600000).toISOString(),
+      validationStatus: 'approved'
     },
     awaySquadSelection: {
       startingXI: mcSquad.startingXI,
       benchPlayers: mcSquad.benchPlayers,
       substitutes: mcSquad.benchPlayers,
       formation: '4-2-3-1',
-      submittedAt: Date.now() - 3600000
+      submittedAt: new Date(Date.now() - 3500000).toISOString(),
+      validationStatus: 'approved'
     },
     liveState: {
       period: '1H',
@@ -533,13 +535,15 @@ export const UCL_INITIAL_MATCHES = [
       startingXI: bayernSquad.startingXI,
       benchPlayers: bayernSquad.benchPlayers,
       substitutes: bayernSquad.benchPlayers,
-      formation: '4-2-3-1'
+      formation: '4-2-3-1',
+      validationStatus: 'approved'
     },
     awaySquadSelection: {
       startingXI: arsenalSquad.startingXI,
       benchPlayers: arsenalSquad.benchPlayers,
       substitutes: arsenalSquad.benchPlayers,
-      formation: '4-3-3'
+      formation: '4-3-3',
+      validationStatus: 'approved'
     },
     playerStats: {},
     timeline: [],
@@ -570,13 +574,15 @@ export const UCL_INITIAL_MATCHES = [
       startingXI: psgSquad.startingXI,
       benchPlayers: psgSquad.benchPlayers,
       substitutes: psgSquad.benchPlayers,
-      formation: '4-3-3'
+      formation: '4-3-3',
+      validationStatus: 'approved'
     },
     awaySquadSelection: {
       startingXI: barcaSquad.startingXI,
       benchPlayers: barcaSquad.benchPlayers,
       substitutes: barcaSquad.benchPlayers,
-      formation: '4-3-3'
+      formation: '4-3-3',
+      validationStatus: 'approved'
     },
     playerStats: {},
     timeline: [],
@@ -607,13 +613,15 @@ export const UCL_INITIAL_MATCHES = [
       startingXI: livSquad.startingXI,
       benchPlayers: livSquad.benchPlayers,
       substitutes: livSquad.benchPlayers,
-      formation: '4-3-3'
+      formation: '4-3-3',
+      validationStatus: 'approved'
     },
     awaySquadSelection: {
       startingXI: interSquad.startingXI,
       benchPlayers: interSquad.benchPlayers,
       substitutes: interSquad.benchPlayers,
-      formation: '3-5-2'
+      formation: '3-5-2',
+      validationStatus: 'approved'
     },
     playerStats: {},
     timeline: [],
