@@ -11,10 +11,15 @@ export default function QuickTestFixtureModal({
 }) {
     if (!isOpen) return null;
 
-    const [division, setDivision] = useState('U14');
+    const isUcl = useMemo(() => {
+        return teams.some(t => t.ageGroup === 'UCL' || (t.id && t.id.includes('ucl')));
+    }, [teams]);
+
+    const defaultDiv = isUcl ? 'League Phase' : 'U14';
+    const [division, setDivision] = useState(defaultDiv);
     const [matchday, setMatchday] = useState('Matchday 1');
     const [status, setStatus] = useState('scheduled'); // 'scheduled' | 'live' | 'completed'
-    const [venue, setVenue] = useState('Harrison College Field');
+    const [venue, setVenue] = useState(isUcl ? 'Santiago Bernabéu, Madrid' : 'Harrison College Field');
     const [autoPopulateLineups, setAutoPopulateLineups] = useState(true);
 
     // Available officials
@@ -26,8 +31,9 @@ export default function QuickTestFixtureModal({
 
     // Filter teams matching the selected ageGroup
     const divisionTeams = useMemo(() => {
+        if (isUcl) return teams;
         return teams.filter(t => t.ageGroup === division || (typeof t.name === 'string' && t.name.includes(division)));
-    }, [teams, division]);
+    }, [teams, division, isUcl]);
 
     const [homeTeamId, setHomeTeamId] = useState(divisionTeams[0]?.id || '');
     const [awayTeamId, setAwayTeamId] = useState(divisionTeams[1]?.id || divisionTeams[0]?.id || '');
@@ -35,7 +41,7 @@ export default function QuickTestFixtureModal({
     // Synchronize teams when division changes
     const handleDivisionChange = (newDiv) => {
         setDivision(newDiv);
-        const filtered = teams.filter(t => t.ageGroup === newDiv || (typeof t.name === 'string' && t.name.includes(newDiv)));
+        const filtered = isUcl ? teams : teams.filter(t => t.ageGroup === newDiv || (typeof t.name === 'string' && t.name.includes(newDiv)));
         if (filtered.length >= 2) {
             setHomeTeamId(filtered[0].id);
             setAwayTeamId(filtered[1].id);
@@ -96,11 +102,14 @@ export default function QuickTestFixtureModal({
 
         const newMatch = {
             id: matchId,
+            tournament: isUcl ? 'UEFA Champions League' : 'Schools League',
+            tournamentId: isUcl ? 'UCL' : 'NSSL',
             homeTeamId,
             awayTeamId,
             homeSchoolId,
             awaySchoolId,
-            ageGroup: division,
+            ageGroup: isUcl ? 'UCL' : division,
+            division,
             matchday,
             venue,
             referee,
@@ -115,6 +124,8 @@ export default function QuickTestFixtureModal({
             tombstoneEventIds: [],
             date: new Date().toISOString(),
             isSandboxMatch: true,
+            isUclMatch: isUcl,
+            isPmc: false,
             createdAt: now,
             updatedAt: now,
             version: 1
@@ -164,16 +175,16 @@ export default function QuickTestFixtureModal({
                 <div style={{
                     padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    background: 'rgba(56, 189, 248, 0.05)'
+                    background: isUcl ? 'rgba(56, 189, 248, 0.08)' : 'rgba(56, 189, 248, 0.05)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '20px' }}>🧪</span>
+                        <span style={{ fontSize: '20px' }}>{isUcl ? '⭐' : '🧪'}</span>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#38bdf8' }}>
-                                Create Sandbox Test Match
+                                {isUcl ? 'Create UCL Sandbox Test Match' : 'Create Sandbox Test Match'}
                             </h3>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                Schools League testing fixture — 100% isolated from live PMC production
+                                {isUcl ? 'UEFA Champions League sandbox fixture — 100% isolated from live PMC production' : 'Schools League testing fixture — 100% isolated from live PMC production'}
                             </span>
                         </div>
                     </div>
@@ -193,23 +204,23 @@ export default function QuickTestFixtureModal({
                     {/* Division Selection */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                            Age Group / Division
+                            {isUcl ? 'Tournament Stage' : 'Age Group / Division'}
                         </label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            {['U14', 'U16', 'U19'].map(div => (
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {(isUcl ? ['League Phase', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final'] : ['U14', 'U16', 'U19']).map(div => (
                                 <button
                                     key={div}
                                     type="button"
                                     onClick={() => handleDivisionChange(div)}
                                     style={{
-                                        flex: 1, padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                        flex: 1, minWidth: '80px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
                                         background: division === div ? '#38bdf8' : 'rgba(255, 255, 255, 0.05)',
                                         color: division === div ? '#04101e' : 'var(--text-secondary)',
                                         border: division === div ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
                                         cursor: 'pointer', transition: 'all 0.15s'
                                     }}
                                 >
-                                    {div} Division
+                                    {div}
                                 </button>
                             ))}
                         </div>

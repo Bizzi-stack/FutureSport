@@ -10,6 +10,7 @@ import SettingsPanel, { useSettings } from './components/SettingsPanel';
 import StudentProfileDrawer from './components/StudentProfileDrawer';
 import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOLS, getTeamStudents } from './data/mockData';
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
+import { UCL_CLUBS, UCL_TEAMS, UCL_PLAYERS, UCL_INITIAL_MATCHES, UCL_YEARS } from './data/uclData';
 import { pushMatchesToCloud, broadcastSandboxMatches, subscribeToRealtimeSync, subscribeToSandboxSync, mergeCloudMatches } from './utils/realtimeSync';
 import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament } from './utils/matchEngine';
 import { exportClassReport } from './utils/exportReport';
@@ -466,6 +467,44 @@ function App() {
     } catch { /* ignored */ }
   }, [matches]);
 
+  const [uclMatches, setUclMatches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eduvision-ucl-matches');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return sanitizeMatchState(parsed);
+      }
+    } catch (err) {
+      console.error('Error loading UCL matches:', err);
+    }
+    return sanitizeMatchState(UCL_INITIAL_MATCHES);
+  });
+
+  const [uclPlayers, setUclPlayers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eduvision-ucl-players');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (err) {
+      console.error('Error loading UCL players:', err);
+    }
+    return UCL_PLAYERS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eduvision-ucl-matches', JSON.stringify(uclMatches));
+    } catch {}
+  }, [uclMatches]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eduvision-ucl-players', JSON.stringify(uclPlayers));
+    } catch {}
+  }, [uclPlayers]);
+
   useEffect(() => {
     try {
       localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(pmcMatches));
@@ -497,20 +536,28 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Realtime Cross-Tab Broadcast Synchronization for Schools League Testing Sandbox
+  // Realtime Cross-Tab Broadcast Synchronization for Testing Sandbox
   useEffect(() => {
     const unsubscribe = subscribeToSandboxSync((sandboxMatches) => {
       if (sandboxMatches && Array.isArray(sandboxMatches) && sandboxMatches.length > 0) {
         const sanitized = sanitizeMatchState(sandboxMatches).filter(m => !isPmcMatch(m));
         if (sanitized.length > 0) {
+          setUclMatches(prev => mergeCloudMatches(prev, sanitized));
           setMatches(prev => mergeCloudMatches(prev, sanitized));
         }
 
-        const finishedSchools = sanitized.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
-        if (finishedSchools.length > 0) {
+        const finishedSandbox = sanitized.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
+        if (finishedSandbox.length > 0) {
+          setUclPlayers(prev => {
+            let updated = prev;
+            finishedSandbox.forEach(m => {
+              updated = applyMatchContributions(updated, m);
+            });
+            return updated;
+          });
           setAllStudents(prev => {
             let updated = prev;
-            finishedSchools.forEach(m => {
+            finishedSandbox.forEach(m => {
               updated = applyMatchContributions(updated, m);
             });
             return updated;
@@ -575,6 +622,7 @@ function App() {
         broadcastSandboxMatches(next);
         return next;
       };
+      setUclMatches(addFn);
       setMatches(addFn);
     }
   };
@@ -590,29 +638,34 @@ function App() {
   };
 
   const handleResetSandboxMatches = () => {
-    const sanitized = sanitizeMatchState(DEFAULT_MATCHES);
+    const sanitized = sanitizeMatchState(UCL_INITIAL_MATCHES);
+    setUclMatches(sanitized);
     setMatches(sanitized);
     try {
+      localStorage.setItem('eduvision-ucl-matches', JSON.stringify(sanitized));
       localStorage.setItem('eduvision-matches', JSON.stringify(sanitized));
       broadcastSandboxMatches(sanitized);
     } catch {}
   };
 
   const handleClearSandboxMatches = () => {
+    setUclMatches([]);
     setMatches([]);
     try {
+      localStorage.setItem('eduvision-ucl-matches', JSON.stringify([]));
       localStorage.setItem('eduvision-matches', JSON.stringify([]));
       broadcastSandboxMatches([]);
     } catch {}
   };
 
   // Derive active tournament datasets
-  const displaySchools = useMemo(() => selectedTournament === 'PMC' ? PMC_SCHOOLS : allSchools, [selectedTournament, allSchools]);
-  const displayTeams = useMemo(() => selectedTournament === 'PMC' ? PMC_TEAMS : allTeams, [selectedTournament, allTeams]);
-  const displayStudents = useMemo(() => selectedTournament === 'PMC' ? pmcStudents : allStudents, [selectedTournament, pmcStudents, allStudents]);
-  const combinedAllPlayers = useMemo(() => [...pmcStudents, ...allStudents], [pmcStudents, allStudents]);
-  const displayMatches = useMemo(() => selectedTournament === 'PMC' ? pmcMatches : matches, [selectedTournament, pmcMatches, matches]);
-  const displayYears = useMemo(() => selectedTournament === 'PMC' ? PMC_YEARS : YEARS, [selectedTournament]);
+  const isPmcSelected = selectedTournament === 'PMC';
+  const displaySchools = useMemo(() => isPmcSelected ? PMC_SCHOOLS : UCL_CLUBS, [isPmcSelected]);
+  const displayTeams = useMemo(() => isPmcSelected ? PMC_TEAMS : UCL_TEAMS, [isPmcSelected]);
+  const displayStudents = useMemo(() => isPmcSelected ? pmcStudents : uclPlayers, [isPmcSelected, pmcStudents, uclPlayers]);
+  const combinedAllPlayers = useMemo(() => [...pmcStudents, ...uclPlayers, ...allStudents], [pmcStudents, uclPlayers, allStudents]);
+  const displayMatches = useMemo(() => isPmcSelected ? pmcMatches : uclMatches, [isPmcSelected, pmcMatches, uclMatches]);
+  const displayYears = useMemo(() => isPmcSelected ? PMC_YEARS : UCL_YEARS, [isPmcSelected]);
 
   // Auto-switch active school, classroom, and year when changing tournament mode
   useEffect(() => {
@@ -846,14 +899,17 @@ function App() {
       });
       setPmcStudents(prev => applyMatchContributions(prev, matchResult));
     } else {
-      setMatches(prev => {
+      const updateFn = prev => {
         const exists = prev.some(m => m.id === matchId);
         const next = exists
           ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
           : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
         broadcastSandboxMatches(next);
         return next;
-      });
+      };
+      setUclMatches(updateFn);
+      setMatches(updateFn);
+      setUclPlayers(prev => applyMatchContributions(prev, matchResult));
       setAllStudents(prev => applyMatchContributions(prev, matchResult));
     }
   };
@@ -889,12 +945,14 @@ function App() {
         setPmcStudents(prev => applyMatchContributions(prev, updatedMatch));
       }
     } else {
-      // Schools League Testing Sandbox Update (Zero Cloud Overhead)
-      const nextMatches = (matches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      // UEFA Champions League Testing Sandbox Update (Zero Cloud Overhead)
+      const nextMatches = (displayMatches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      setUclMatches(nextMatches);
       setMatches(nextMatches);
       broadcastSandboxMatches(nextMatches);
 
       if (['approved', 'completed', 'refereed'].includes(updatedMatch.status)) {
+        setUclPlayers(prev => applyMatchContributions(prev, updatedMatch));
         setAllStudents(prev => applyMatchContributions(prev, updatedMatch));
       }
     }
@@ -908,6 +966,8 @@ function App() {
       pmcSchools={PMC_SCHOOLS}
       nsslTeams={TEAMS}
       nsslSchools={SCHOOLS}
+      uclTeams={UCL_TEAMS}
+      uclSchools={UCL_CLUBS}
       selectedTournament={selectedTournament}
       setSelectedTournament={setSelectedTournament}
       onLogin={(role, coachTeamId, officialProfile, deepLinkedMatchId) => {
@@ -985,79 +1045,104 @@ function App() {
       }}>
         {/* Logo + Brand / Locked Tournament Session Indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: selectedTournament === 'PMC' ? 'rgba(0, 38, 127, 0.45)' : 'rgba(16, 185, 129, 0.12)',
-            border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(56, 189, 248, 0.45)',
-            padding: '6px 14px', borderRadius: '12px'
-          }}>
-            <span style={{
-              fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px',
-              color: selectedTournament === 'PMC' ? '#FFC726' : '#38bdf8'
-            }} title={selectedTournament === 'PMC' ? "Official Live Production tournament connected to cloud database and API" : "Safe testing sandbox isolated from PMC production database"}>
-              <span>{selectedTournament === 'PMC' ? '🏆' : '🧪'}</span>
-              <span>{selectedTournament === 'PMC' ? "Prime Minister's Cup · LIVE PRODUCTION" : "Schools League · TESTING SANDBOX"}</span>
-            </span>
+          {selectedTournament === 'PMC' ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: 'rgba(0, 38, 127, 0.55)',
+              border: '1px solid rgba(255, 199, 38, 0.65)',
+              padding: '6px 16px', borderRadius: '12px'
+            }}>
+              <span style={{
+                fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px',
+                color: '#FFC726'
+              }} title="Official Live Production tournament connected to Supabase cloud database and API">
+                <span>🏆</span>
+                <span>Prime Minister's Cup · PRODUCTION VAULT</span>
+              </span>
+              <span style={{
+                fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px',
+                background: 'rgba(255, 199, 38, 0.15)', color: '#FFC726', border: '1px solid rgba(255, 199, 38, 0.3)'
+              }}>
+                🔒 Live API Active
+              </span>
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              background: 'rgba(10, 25, 55, 0.75)',
+              border: '1px solid rgba(56, 189, 248, 0.6)',
+              padding: '6px 16px', borderRadius: '12px'
+            }}>
+              <span style={{
+                fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px',
+                color: '#38bdf8'
+              }} title="UEFA Champions League Testing Sandbox: 100% firewalled from PMC production database">
+                <span>⭐</span>
+                <span>UEFA Champions League · TESTING SANDBOX</span>
+              </span>
+              <span style={{
+                fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px',
+                background: 'rgba(244, 63, 94, 0.15)', color: '#fb7185', border: '1px solid rgba(244, 63, 94, 0.35)'
+              }}>
+                🔒 Firewalled Local
+              </span>
 
-            {/* Sandbox Quick Actions */}
-            {selectedTournament === 'NSSL' && !isReadOnly && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowQuickTestModal(true)}
-                  style={{
-                    fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px',
-                    background: 'rgba(56, 189, 248, 0.25)', color: '#38bdf8',
-                    border: '1px solid rgba(56, 189, 248, 0.5)', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '4px'
-                  }}
-                  title="Create a quick test fixture for testing live capture or referee reports"
-                >
-                  <span>+</span> Add Test Fixture
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm("Reset Schools League sandbox fixtures back to default test schedule?")) {
-                      handleResetSandboxMatches();
-                    }
-                  }}
-                  style={{
-                    fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px',
-                    background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)',
-                    border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer'
-                  }}
-                  title="Reset sandbox fixtures to fresh defaults"
-                >
-                  ↻ Reset Test Matches
-                </button>
-              </div>
-            )}
+              {/* Sandbox Quick Actions */}
+              {!isReadOnly && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickTestModal(true)}
+                    style={{
+                      fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px',
+                      background: 'rgba(56, 189, 248, 0.25)', color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.5)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '4px'
+                    }}
+                    title="Create a quick UCL test fixture"
+                  >
+                    <span>+</span> Add UCL Match
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Reset UCL sandbox fixtures back to default UCL test schedule?")) {
+                        handleResetSandboxMatches();
+                      }
+                    }}
+                    style={{
+                      fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)',
+                      border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer'
+                    }}
+                    title="Reset UCL sandbox fixtures to default test schedule"
+                  >
+                    ↻ Reset UCL
+                  </button>
+                </div>
+              )}
 
-            {['referee', 'fourth_official', 'statistician', 'super_admin'].includes(userRole) ? (
+              {/* Strict Session Isolation: Exit Sandbox Button */}
               <button
                 type="button"
-                onClick={() => setSelectedTournament(prev => prev === 'PMC' ? 'NSSL' : 'PMC')}
-                style={{
-                  fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '8px',
-                  background: selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.25)' : 'rgba(56, 189, 248, 0.15)',
-                  color: selectedTournament === 'PMC' ? '#FFC726' : '#38bdf8',
-                  border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(56, 189, 248, 0.35)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+                onClick={() => {
+                  if (window.confirm("Exit UEFA Champions League Sandbox and return to login?")) {
+                    setIsAuthenticated(false);
+                    sessionStorage.clear();
+                  }
                 }}
-                title={selectedTournament === 'PMC' ? "Switch to Schools League Testing Sandbox" : "Switch to Prime Minister's Cup Production"}
+                style={{
+                  fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px',
+                  background: 'rgba(255, 255, 255, 0.08)', color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px'
+                }}
+                title="Exit Sandbox and return to authentication gateway"
               >
-                {selectedTournament === 'PMC' ? 'Switch to Testing Sandbox 🧪' : 'Switch to Production 🏆'}
+                <span>Exit Sandbox ⎋</span>
               </button>
-            ) : (
-              <span style={{
-                fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px',
-                background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
-                display: 'flex', alignItems: 'center', gap: '4px'
-              }} title="Tournament mode is locked during session. Log out to switch tournaments.">
-                Active Session
-              </span>
-            )}
+            </div>
+          )}
 
             {isSupervisor && (
               <span style={{
@@ -1087,7 +1172,6 @@ function App() {
                 Reset PMC Schedule
               </button>
             )}
-          </div>
         </div>
 
         {/* Centre — Search */}
