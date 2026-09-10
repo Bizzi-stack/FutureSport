@@ -72,6 +72,13 @@ import {
 import { getAnalystAccounts, findAnalystByEmailOrId } from '../src/data/analystAccounts.js';
 import { DEFAULT_OFFICIALS, findOfficial, getOfficialsByRole } from '../src/data/matchOfficialAccounts.js';
 import { DEFAULT_COUNTDOWN_PROTOCOL, PMC_STUDENTS, PMC_MATCHES } from '../src/utils/pmcDataLoader.js';
+import {
+    isSandboxMatchForNotifications,
+    sendRefereeSquadNotification,
+    sendCoachSquadReminderNotification,
+    sendDataLoggerMatchReadyNotification,
+    sendSuperAdminSquadSubmissionAlert
+} from '../src/services/refereeNotificationService.js';
 
 // Summary tracking for clean category reporting
 const results = {
@@ -2370,6 +2377,51 @@ async function runAllTests() {
         assert.strictEqual(tab2Merged[0].matchTime, '35:00', 'Tab 2 received Tab 1 match time');
 
         recordPass('categoryI', 'I6: Multi-tab broadcast synchronization seamlessly propagates UCL live updates');
+    }
+
+    // I7: Sandbox Email Notification Firewall Tests (Bypass FormSubmit for Sandbox, Active for PMC)
+    {
+        const uclFixture = { ...UCL_INITIAL_MATCHES[0] };
+        assert.strictEqual(isSandboxMatchForNotifications(uclFixture), true, 'UCL fixture identified as sandbox for notifications');
+
+        const pmcFixture = {
+            id: 'pmc-match-001',
+            tournament: "Prime Minister's Cup 2026",
+            tournamentId: 'PMC',
+            isPmc: true,
+            isSandboxMatch: false,
+            isUclMatch: false,
+            homeTeamId: 'pmc-club-1',
+            awayTeamId: 'pmc-club-2',
+            homeSquadSelection: { startingXI: ['p1', 'p2'], formation: '4-3-3' },
+            awaySquadSelection: { startingXI: ['p3', 'p4'], formation: '4-3-3' }
+        };
+        assert.strictEqual(isSandboxMatchForNotifications(pmcFixture), false, 'PMC fixture identified as production (not sandbox)');
+
+        // Test 1: Referee squad notification for UCL sandbox fixture
+        const refRes = await sendRefereeSquadNotification(uclFixture, 'Real Madrid CF', 'Manchester City FC', UCL_PLAYERS);
+        assert.strictEqual(refRes.success, true);
+        assert.strictEqual(refRes.bypassed, true, 'Referee email bypassed in sandbox');
+        assert.strictEqual(refRes.logEntry.status, 'silenced_sandbox_mode', 'Audit status logged as silenced_sandbox_mode');
+
+        // Test 2: Coach reminder notification for UCL sandbox fixture
+        const coachRes = await sendCoachSquadReminderNotification(uclFixture, 'Real Madrid CF', 'coach@realmadrid.com', 'Carlo Ancelotti', 'Manchester City FC');
+        assert.strictEqual(coachRes.success, true);
+        assert.strictEqual(coachRes.bypassed, true, 'Coach reminder bypassed in sandbox');
+        assert.strictEqual(coachRes.logEntry.status, 'silenced_sandbox_mode');
+
+        // Test 3: Data Logger match ready alert for UCL sandbox fixture
+        const loggerRes = await sendDataLoggerMatchReadyNotification(uclFixture, 'Real Madrid CF', 'Manchester City FC', UCL_PLAYERS);
+        assert.strictEqual(loggerRes.success, true);
+        assert.strictEqual(loggerRes.bypassed, true, 'Data logger alert bypassed in sandbox');
+        assert.strictEqual(loggerRes.logEntry.status, 'silenced_sandbox_mode');
+
+        // Test 4: Super Admin squad submission alert for UCL sandbox fixture
+        const adminRes = await sendSuperAdminSquadSubmissionAlert(uclFixture, 'Real Madrid CF', 'Manchester City FC');
+        assert.strictEqual(adminRes.success, true);
+        assert.strictEqual(adminRes.bypassed, true, 'Super admin alert bypassed in sandbox');
+
+        recordPass('categoryI', 'I7: Sandbox notification firewall cleanly silences Gmail/FormSubmit email dispatches for UCL fixtures while preserving PMC delivery eligibility');
     }
 
     console.log(`\nCategory I Summary: ${results.categoryI.passed}/${results.categoryI.total} passed.\n`);

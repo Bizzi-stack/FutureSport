@@ -1,4 +1,23 @@
-import { getAssignedAnalystForMatch, getAnalystAccounts } from '../data/analystAccounts';
+import { getAssignedAnalystForMatch, getAnalystAccounts } from '../data/analystAccounts.js';
+import { isPmcMatch } from '../utils/matchEngine.js';
+
+/**
+ * Determines whether a match is in the isolated testing sandbox (e.g. UEFA Champions League)
+ * where external Gmail / FormSubmit HTTP dispatches should be silenced to prevent test spam.
+ */
+export function isSandboxMatchForNotifications(match) {
+    if (!match) return false;
+    if (match.isSandboxMatch === true || match.isUclMatch === true) return true;
+    const tournament = String(match.tournament || '').toLowerCase();
+    const tournamentId = String(match.tournamentId || '').toLowerCase();
+    const matchId = String(match.id || '').toLowerCase();
+    if (tournament.includes('champions league') || tournament.includes('ucl') ||
+        tournamentId === 'ucl' || matchId.includes('ucl') || matchId.includes('sandbox')) {
+        return true;
+    }
+    if (match.isPmc === false) return true;
+    return !isPmcMatch(match);
+}
 
 const SETTINGS_STORAGE_KEY = 'eduvision-referee-contact-settings';
 const LOGS_STORAGE_KEY = 'eduvision-referee-notification-logs';
@@ -15,6 +34,7 @@ const DEFAULT_SETTINGS = {
 // ── Web Audio API Whistle Sound Synthesizer (Referee) ──────────────────
 export function playRefereeWhistleSound() {
     try {
+        if (typeof window === 'undefined') return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
@@ -68,6 +88,7 @@ function createWhistleBurst(ctx, startTime, duration) {
 // ── Web Audio API Chime Synthesizer (General Alert) ────────────────────
 export function playChimeSound() {
     try {
+        if (typeof window === 'undefined') return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
@@ -155,7 +176,7 @@ export function appendNotificationLog(logEntry) {
 
 // ── Native Browser / OS Push Notification Permission ─────────────────
 export async function requestRefereeNotificationPermission() {
-    if (!('Notification' in window)) {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
         return { supported: false, status: 'unsupported' };
     }
 
@@ -172,7 +193,7 @@ export async function requestRefereeNotificationPermission() {
 }
 
 export function triggerDeviceNotification(title, options = {}) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') {
+    if (typeof window === 'undefined' || !('Notification' in window) || typeof Notification === 'undefined' || Notification.permission !== 'granted') {
         return false;
     }
 
@@ -246,24 +267,25 @@ export async function sendFormSubmitEmail(primaryEmail, ccList = [], payload = {
 
 // ── Dispatch Squad Notification to Referee ───────────────────────────
 export async function sendRefereeSquadNotification(match, homeName, awayName, allPlayers = []) {
+    const isSandbox = isSandboxMatchForNotifications(match);
     const settings = getRefereeContactSettings();
     const recipientEmail = settings.refereeEmail || 'ralphjamesjr00@gmail.com';
     const timestamp = new Date().toLocaleString();
 
-    const homeXI = match.homeSquadSelection?.startingXI || [];
-    const awayXI = match.awaySquadSelection?.startingXI || [];
-    const homeFormation = match.homeSquadSelection?.formation || '4-3-3';
-    const awayFormation = match.awaySquadSelection?.formation || '4-3-3';
+    const homeXI = match?.homeSquadSelection?.startingXI || [];
+    const awayXI = match?.awaySquadSelection?.startingXI || [];
+    const homeFormation = match?.homeSquadSelection?.formation || '4-3-3';
+    const awayFormation = match?.awaySquadSelection?.formation || '4-3-3';
 
     const subject = `[KICK-OFF READY] ${homeName} vs ${awayName} · Team Sheets Submitted`;
     const bodyText = `
 OFFICIAL MATCHDAY SQUAD SUBMISSION NOTIFICATION
 ==================================================
 Match: ${homeName} vs ${awayName}
-Tournament: Prime Minister's Cup 2026
-Venue: ${match.venue || 'National Stadium'}
-Matchday: ${match.matchday || match.round || 'Group Stage'}
-Time: ${match.time || '18:00'}
+Tournament: ${match?.tournament || "Prime Minister's Cup 2026"}
+Venue: ${match?.venue || 'National Stadium'}
+Matchday: ${match?.matchday || match?.round || 'Group Stage'}
+Time: ${match?.time || '18:00'}
 Status: BOTH SQUADS SUBMITTED · READY FOR KICK-OFF
 
 --------------------------------------------------
@@ -293,52 +315,57 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
     if (settings.enableDevicePush) {
         triggerDeviceNotification(`Match Ready: ${homeName} vs ${awayName}`, {
             body: `Both squads submitted (${homeFormation} vs ${awayFormation}). Tap to blow whistle and begin kick-off!`,
-            tag: `match-kickoff-${match.id}`
+            tag: `match-kickoff-${match?.id || 'match'}`
         });
     }
 
-    // 3. Dispatch Real Email via FormSubmit.co Multi-Recipient Engine
+    // 3. Dispatch Real Email via FormSubmit.co Multi-Recipient Engine (Bypassed in Sandbox)
     let emailStatus = 'dispatched';
-    try {
-        const response = await sendFormSubmitEmail(
-            recipientEmail,
-            ['noah@futurebarbados.bb'],
-            {
-                _subject: subject,
-                Subject: subject,
-                Role: 'Official Match Referee',
-                Match: `${homeName} vs ${awayName}`,
-                Tournament: "Prime Minister's Cup 2026",
-                Venue: match.venue || 'National Stadium',
-                Matchday: match.matchday || match.round || 'Group Stage',
-                Status: 'BOTH SQUADS SUBMITTED · READY FOR KICK-OFF',
-                HomeTeam: `${homeName} (Formation: ${homeFormation})`,
-                HomeStartingXI: formatPlayerList(homeXI, allPlayers),
-                AwayTeam: `${awayName} (Formation: ${awayFormation})`,
-                AwayStartingXI: formatPlayerList(awayXI, allPlayers),
-                Time: match.time || '18:00',
-                ActionRequired: 'Open Referee Dashboard to blow whistle for Kick-off.',
-                Timestamp: timestamp,
-                FullDetails: bodyText
-            }
-        );
+    if (isSandbox) {
+        console.log(`[SANDBOX NOTIFICATION SILENCED] Bypassed external referee email dispatch for Sandbox match ${match?.id || ''} (${homeName} vs ${awayName}). Prime Minister's Cup live emails remain 100% active.`);
+        emailStatus = 'silenced_sandbox_mode';
+    } else {
+        try {
+            const response = await sendFormSubmitEmail(
+                recipientEmail,
+                ['noah@futurebarbados.bb'],
+                {
+                    _subject: subject,
+                    Subject: subject,
+                    Role: 'Official Match Referee',
+                    Match: `${homeName} vs ${awayName}`,
+                    Tournament: match?.tournament || "Prime Minister's Cup 2026",
+                    Venue: match?.venue || 'National Stadium',
+                    Matchday: match?.matchday || match?.round || 'Group Stage',
+                    Status: 'BOTH SQUADS SUBMITTED · READY FOR KICK-OFF',
+                    HomeTeam: `${homeName} (Formation: ${homeFormation})`,
+                    HomeStartingXI: formatPlayerList(homeXI, allPlayers),
+                    AwayTeam: `${awayName} (Formation: ${awayFormation})`,
+                    AwayStartingXI: formatPlayerList(awayXI, allPlayers),
+                    Time: match?.time || '18:00',
+                    ActionRequired: 'Open Referee Dashboard to blow whistle for Kick-off.',
+                    Timestamp: timestamp,
+                    FullDetails: bodyText
+                }
+            );
 
-        if (response.ok) {
-            console.log(`[REFEREE EMAIL DISPATCHER] Delivered via FormSubmit.co to ${recipientEmail}`);
-            emailStatus = 'delivered_to_gmail';
-        } else {
-            console.warn('FormSubmit returned non-200 status:', response.status);
-            emailStatus = `sent_status_${response.status}`;
+            if (response.ok) {
+                console.log(`[REFEREE EMAIL DISPATCHER] Delivered via FormSubmit.co to ${recipientEmail}`);
+                emailStatus = 'delivered_to_gmail';
+            } else {
+                console.warn('FormSubmit returned non-200 status:', response.status);
+                emailStatus = `sent_status_${response.status}`;
+            }
+        } catch (err) {
+            console.warn('FormSubmit email dispatch notice:', err);
+            emailStatus = 'queued_for_referee';
         }
-    } catch (err) {
-        console.warn('FormSubmit email dispatch notice:', err);
-        emailStatus = 'queued_for_referee';
     }
 
     // 4. Log to Audit History
     const logEntry = {
         id: `notif-${Date.now()}`,
-        matchId: match.id,
+        matchId: match?.id,
         matchTitle: `${homeName} vs ${awayName}`,
         recipientEmail,
         status: emailStatus,
@@ -351,6 +378,8 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
 
     return {
         success: true,
+        bypassed: isSandbox,
+        reason: isSandbox ? 'sandbox_match' : undefined,
         recipientEmail,
         logEntry
     };
@@ -358,6 +387,7 @@ Referee Assigned: ${settings.refereeName} (${recipientEmail})
 
 // ── Coach Squad Submission Reminder Dispatcher ────────────────────────
 export async function sendCoachSquadReminderNotification(match, teamName, coachEmail = '', coachName = 'Coach', opponentName = 'Opponent') {
+    const isSandbox = isSandboxMatchForNotifications(match);
     const timestamp = new Date().toLocaleString();
     const primaryEmail = coachEmail || 'ralphjamesjr00@gmail.com';
     const subject = `[SQUAD SUBMISSION REMINDER] ${teamName} vs ${opponentName} · Matchday Ready`;
@@ -368,37 +398,42 @@ export async function sendCoachSquadReminderNotification(match, teamName, coachE
     // 2. Browser Push Notification
     triggerDeviceNotification(`Squad Reminder: ${teamName}`, {
         body: `Your match against ${opponentName} is scheduled. Please lock in your Starting XI and bench roster!`,
-        tag: `coach-reminder-${match.id}`
+        tag: `coach-reminder-${match?.id || 'match'}`
     });
 
-    // 3. Dispatch Email via FormSubmit.co
+    // 3. Dispatch Email via FormSubmit.co (Bypassed in Sandbox)
     let emailStatus = 'dispatched';
-    try {
-        const response = await sendFormSubmitEmail(primaryEmail, ['ralphjamesjr00@gmail.com'], {
-            _subject: subject,
-            Subject: subject,
-            Role: `Team Coach (${teamName})`,
-            CoachName: coachName,
-            Match: `${teamName} vs ${opponentName}`,
-            Venue: match.venue || 'National Stadium',
-            Time: match.time || '18:00',
-            ActionRequired: 'Log into Coach Portal to submit your Starting XI and Formation.',
-            Timestamp: timestamp
-        });
+    if (isSandbox) {
+        console.log(`[SANDBOX NOTIFICATION SILENCED] Bypassed external coach reminder email for Sandbox match ${match?.id || ''} (${teamName} vs ${opponentName}).`);
+        emailStatus = 'silenced_sandbox_mode';
+    } else {
+        try {
+            const response = await sendFormSubmitEmail(primaryEmail, ['ralphjamesjr00@gmail.com'], {
+                _subject: subject,
+                Subject: subject,
+                Role: `Team Coach (${teamName})`,
+                CoachName: coachName,
+                Match: `${teamName} vs ${opponentName}`,
+                Venue: match?.venue || 'National Stadium',
+                Time: match?.time || '18:00',
+                ActionRequired: 'Log into Coach Portal to submit your Starting XI and Formation.',
+                Timestamp: timestamp
+            });
 
-        if (response.ok) {
-            emailStatus = 'delivered_to_coach';
-        } else {
-            emailStatus = `sent_status_${response.status}`;
+            if (response.ok) {
+                emailStatus = 'delivered_to_coach';
+            } else {
+                emailStatus = `sent_status_${response.status}`;
+            }
+        } catch (err) {
+            console.warn('Coach reminder email dispatch notice:', err);
+            emailStatus = 'queued_for_coach';
         }
-    } catch (err) {
-        console.warn('Coach reminder email dispatch notice:', err);
-        emailStatus = 'queued_for_coach';
     }
 
     const logEntry = {
         id: `notif-coach-${Date.now()}`,
-        matchId: match.id,
+        matchId: match?.id,
         matchTitle: `${teamName} vs ${opponentName} (Coach Reminder)`,
         recipientEmail: primaryEmail,
         status: emailStatus,
@@ -409,6 +444,8 @@ export async function sendCoachSquadReminderNotification(match, teamName, coachE
 
     return {
         success: true,
+        bypassed: isSandbox,
+        reason: isSandbox ? 'sandbox_match' : undefined,
         primaryEmail,
         logEntry
     };
@@ -416,20 +453,21 @@ export async function sendCoachSquadReminderNotification(match, teamName, coachE
 
 // ── Data Logger Match Ready Alert Dispatcher ──────────────────────────
 export async function sendDataLoggerMatchReadyNotification(match, homeName, awayName, allPlayers = [], customLoggerEmail = null) {
+    const isSandbox = isSandboxMatchForNotifications(match);
     const assignedAnalyst = getAssignedAnalystForMatch(match);
     const recipientEmail = customLoggerEmail || 'noah@futurebarbados.bb';
     const analystName = assignedAnalyst?.name || 'Field Data Analyst';
     const analystId = assignedAnalyst?.id || 'analyst_noah';
     const timestamp = new Date().toLocaleString();
 
-    const homeXI = match.homeSquadSelection?.startingXI || [];
-    const awayXI = match.awaySquadSelection?.startingXI || [];
-    const homeFormation = match.homeSquadSelection?.formation || '4-3-3';
-    const awayFormation = match.awaySquadSelection?.formation || '4-3-3';
+    const homeXI = match?.homeSquadSelection?.startingXI || [];
+    const awayXI = match?.awaySquadSelection?.startingXI || [];
+    const homeFormation = match?.homeSquadSelection?.formation || '4-3-3';
+    const awayFormation = match?.awaySquadSelection?.formation || '4-3-3';
 
     // Generate Direct Deep Link
     const baseUrl = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://edudata-pmcup-app.surge.sh';
-    const deepLink = `${baseUrl}/?role=statistician&matchId=${match.id}&analystId=${analystId}&analystEmail=${encodeURIComponent(recipientEmail)}`;
+    const deepLink = `${baseUrl}/?role=statistician&matchId=${match?.id}&analystId=${analystId}&analystEmail=${encodeURIComponent(recipientEmail)}`;
 
     const subject = `[START LOGGING · KICK-OFF IMMINENT] Lineups Submitted: ${homeName} vs ${awayName}`;
 
@@ -438,50 +476,55 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
 
     // 2. Trigger Device / Phone Push Notification
     triggerDeviceNotification(`Data Capture Ready: ${homeName} vs ${awayName}`, {
-        body: `Starting XIs confirmed (${homeFormation} vs ${awayFormation}). Tap to open live logger for ${match.venue || 'venue'}!`,
-        tag: `logger-ready-${match.id}`
+        body: `Starting XIs confirmed (${homeFormation} vs ${awayFormation}). Tap to open live logger for ${match?.venue || 'venue'}!`,
+        tag: `logger-ready-${match?.id || 'match'}`
     });
 
-    // 3. Dispatch Real Multi-Recipient Email via FormSubmit.co
+    // 3. Dispatch Real Multi-Recipient Email via FormSubmit.co (Bypassed in Sandbox)
     let emailStatus = 'dispatched';
-    try {
-        const response = await sendFormSubmitEmail(
-            recipientEmail,
-            ['johnathan.cumberbatch@gmail.com', 'noah@futurebarbados.bb'],
-            {
-                _subject: subject,
-                Subject: subject,
-                Role: `Field Data Analyst (${analystName})`,
-                AnalystId: analystId,
-                Match: `${homeName} vs ${awayName}`,
-                Tournament: "Prime Minister's Cup 2026",
-                Venue: match.venue || 'National Stadium',
-                Matchday: match.matchday || match.round || 'Group Stage',
-                Status: 'STARTING XIs LOCKED · LIVE CAPTURING READY',
-                HomeTeam: `${homeName} (Formation: ${homeFormation})`,
-                HomeStartingXI: formatPlayerList(homeXI, allPlayers),
-                AwayTeam: `${awayName} (Formation: ${awayFormation})`,
-                AwayStartingXI: formatPlayerList(awayXI, allPlayers),
-                DirectDeepLink: deepLink,
-                ActionRequired: `Click the link to open live match logger: ${deepLink}`,
-                Timestamp: timestamp
-            }
-        );
+    if (isSandbox) {
+        console.log(`[SANDBOX NOTIFICATION SILENCED] Bypassed external data logger email for Sandbox match ${match?.id || ''} (${homeName} vs ${awayName}).`);
+        emailStatus = 'silenced_sandbox_mode';
+    } else {
+        try {
+            const response = await sendFormSubmitEmail(
+                recipientEmail,
+                ['johnathan.cumberbatch@gmail.com', 'noah@futurebarbados.bb'],
+                {
+                    _subject: subject,
+                    Subject: subject,
+                    Role: `Field Data Analyst (${analystName})`,
+                    AnalystId: analystId,
+                    Match: `${homeName} vs ${awayName}`,
+                    Tournament: match?.tournament || "Prime Minister's Cup 2026",
+                    Venue: match?.venue || 'National Stadium',
+                    Matchday: match?.matchday || match?.round || 'Group Stage',
+                    Status: 'STARTING XIs LOCKED · LIVE CAPTURING READY',
+                    HomeTeam: `${homeName} (Formation: ${homeFormation})`,
+                    HomeStartingXI: formatPlayerList(homeXI, allPlayers),
+                    AwayTeam: `${awayName} (Formation: ${awayFormation})`,
+                    AwayStartingXI: formatPlayerList(awayXI, allPlayers),
+                    DirectDeepLink: deepLink,
+                    ActionRequired: `Click the link to open live match logger: ${deepLink}`,
+                    Timestamp: timestamp
+                }
+            );
 
-        if (response.ok) {
-            console.log(`[DATA LOGGER DISPATCHER] Delivered via FormSubmit.co to ${recipientEmail} and team:`, { subject, deepLink });
-            emailStatus = 'delivered_to_statistician';
-        } else {
-            emailStatus = `sent_status_${response.status}`;
+            if (response.ok) {
+                console.log(`[DATA LOGGER DISPATCHER] Delivered via FormSubmit.co to ${recipientEmail} and team:`, { subject, deepLink });
+                emailStatus = 'delivered_to_statistician';
+            } else {
+                emailStatus = `sent_status_${response.status}`;
+            }
+        } catch (err) {
+            console.warn('Data logger email dispatch notice:', err);
+            emailStatus = 'queued_for_statistician';
         }
-    } catch (err) {
-        console.warn('Data logger email dispatch notice:', err);
-        emailStatus = 'queued_for_statistician';
     }
 
     const logEntry = {
         id: `notif-logger-${Date.now()}`,
-        matchId: match.id,
+        matchId: match?.id,
         matchTitle: `${homeName} vs ${awayName} (Data Logger Alert)`,
         recipientEmail,
         status: emailStatus,
@@ -494,6 +537,8 @@ export async function sendDataLoggerMatchReadyNotification(match, homeName, away
 
     return {
         success: true,
+        bypassed: isSandbox,
+        reason: isSandbox ? 'sandbox_match' : undefined,
         recipientEmail,
         deepLink,
         logEntry
@@ -562,43 +607,50 @@ export async function sendTestRefereeNotification(targetEmail) {
 
 // ── Super-Admin Squad Submission Alert ─────────────────────────────────
 export async function sendSuperAdminSquadSubmissionAlert(match, teamName, opponentName) {
+    const isSandbox = isSandboxMatchForNotifications(match);
     const adminEmail = 'noah@futurebarbados.bb';
     const timestamp = new Date().toLocaleString();
     const subject = `[SQUAD SUBMITTED · ACTION REQUIRED] ${teamName} submitted squad vs ${opponentName}`;
     const baseUrl = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://edudata-pmcup-app.surge.sh';
-    const validationUrl = `${baseUrl}/?role=super_admin&tab=competitions&subTab=squadValidation&matchId=${match.id}`;
+    const validationUrl = `${baseUrl}/?role=super_admin&tab=competitions&subTab=squadValidation&matchId=${match?.id}`;
 
     triggerDeviceNotification(`Squad Submitted: ${teamName}`, {
         body: `${teamName} has locked in their starting XI vs ${opponentName}. Ready for Super-Administrator verification.`,
-        tag: `admin-squad-${match.id}`
+        tag: `admin-squad-${match?.id || 'match'}`
     });
 
     let emailStatus = 'dispatched';
-    try {
-        const response = await sendFormSubmitEmail(
-            adminEmail,
-            ['ralphjamesjr00@gmail.com'],
-            subject,
-            {
-                "Event Type": "MATCHDAY SQUAD SUBMITTED BY MANAGER",
-                "Match Fixture": `${teamName} vs ${opponentName}`,
-                "Venue": match.venue || "National Stadium",
-                "Submitted Team": teamName,
-                "Submission Time": timestamp,
-                "Operational Note": "Match kick-off is NOT delayed by pending validation, but Super-Administrator approval is required to certify official records.",
-                "Direct Validation Hub URL": validationUrl
+    if (isSandbox) {
+        console.log(`[SANDBOX NOTIFICATION SILENCED] Bypassed external super admin squad submission email for Sandbox match ${match?.id || ''} (${teamName} vs ${opponentName}).`);
+        emailStatus = 'silenced_sandbox_mode';
+    } else {
+        try {
+            const response = await sendFormSubmitEmail(
+                adminEmail,
+                ['ralphjamesjr00@gmail.com'],
+                {
+                    _subject: subject,
+                    Subject: subject,
+                    "Event Type": "MATCHDAY SQUAD SUBMITTED BY MANAGER",
+                    "Match Fixture": `${teamName} vs ${opponentName}`,
+                    "Venue": match?.venue || "National Stadium",
+                    "Submitted Team": teamName,
+                    "Submission Time": timestamp,
+                    "Operational Note": "Match kick-off is NOT delayed by pending validation, but Super-Administrator approval is required to certify official records.",
+                    "Direct Validation Hub URL": validationUrl
+                }
+            );
+            if (response.ok) {
+                emailStatus = 'delivered_to_super_admin';
             }
-        );
-        if (response.ok) {
-            emailStatus = 'delivered_to_super_admin';
+        } catch (err) {
+            console.warn('Super admin squad notification notice:', err);
         }
-    } catch (err) {
-        console.warn('Super admin squad notification notice:', err);
     }
 
     const logEntry = {
         id: `notif-admin-${Date.now()}`,
-        matchId: match.id,
+        matchId: match?.id,
         matchTitle: `${teamName} vs ${opponentName} (Admin Validation Alert)`,
         recipientEmail: adminEmail,
         status: emailStatus,
@@ -607,5 +659,11 @@ export async function sendSuperAdminSquadSubmissionAlert(match, teamName, oppone
     };
     appendNotificationLog(logEntry);
 
-    return { success: true, adminEmail, validationUrl };
+    return { 
+        success: true, 
+        bypassed: isSandbox, 
+        reason: isSandbox ? 'sandbox_match' : undefined,
+        adminEmail, 
+        validationUrl 
+    };
 }

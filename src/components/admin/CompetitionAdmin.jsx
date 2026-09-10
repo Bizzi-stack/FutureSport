@@ -291,8 +291,8 @@ export default function CompetitionAdmin({ schools, teams, matches = [], allStud
                                                                 type="button"
                                                                 onClick={async () => {
                                                                     try {
-                                                                        await sendCoachSquadReminderNotification(m, homeName, '', `Coach (${homeName})`, awayName);
-                                                                        setAdminAlertToast(`Squad reminder dispatched to ${homeName} Coach!`);
+                                                                        const res = await sendCoachSquadReminderNotification(m, homeName, '', `Coach (${homeName})`, awayName);
+                                                                        setAdminAlertToast(res?.bypassed ? `Squad reminder simulated (Gmail silenced in Sandbox mode).` : `Squad reminder dispatched to ${homeName} Coach!`);
                                                                         setTimeout(() => setAdminAlertToast(null), 4000);
                                                                     } catch (e) {
                                                                         console.warn(e);
@@ -318,8 +318,8 @@ export default function CompetitionAdmin({ schools, teams, matches = [], allStud
                                                                 type="button"
                                                                 onClick={async () => {
                                                                     try {
-                                                                        await sendCoachSquadReminderNotification(m, awayName, '', `Coach (${awayName})`, homeName);
-                                                                        setAdminAlertToast(`Squad reminder dispatched to ${awayName} Coach!`);
+                                                                        const res = await sendCoachSquadReminderNotification(m, awayName, '', `Coach (${awayName})`, homeName);
+                                                                        setAdminAlertToast(res?.bypassed ? `Squad reminder simulated (Gmail silenced in Sandbox mode).` : `Squad reminder dispatched to ${awayName} Coach!`);
                                                                         setTimeout(() => setAdminAlertToast(null), 4000);
                                                                     } catch (e) {
                                                                         console.warn(e);
@@ -345,9 +345,9 @@ export default function CompetitionAdmin({ schools, teams, matches = [], allStud
                                                                 type="button"
                                                                 onClick={async () => {
                                                                     try {
-                                                                        await sendRefereeSquadNotification(m, homeName, awayName, allStudents);
+                                                                        const res = await sendRefereeSquadNotification(m, homeName, awayName, allStudents);
                                                                         await sendDataLoggerMatchReadyNotification(m, homeName, awayName, allStudents);
-                                                                        setAdminAlertToast(`Official alerts & team sheets delivered to Referee and Data Loggers!`);
+                                                                        setAdminAlertToast(res?.bypassed ? `Sandbox alerts simulated (Gmail alerts silenced in Sandbox mode).` : `Official alerts & team sheets delivered to Referee and Data Loggers!`);
                                                                         setTimeout(() => setAdminAlertToast(null), 4000);
                                                                     } catch (e) {
                                                                         console.warn(e);
