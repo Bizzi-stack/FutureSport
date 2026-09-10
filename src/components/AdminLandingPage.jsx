@@ -238,35 +238,53 @@ const AdminLandingPage = ({
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
                 {/* Tournament Selector */}
-                <div className="login-form-group" style={{ marginBottom: '4px' }}>
+                <div className="login-form-group" style={{ marginBottom: '6px' }}>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                    Tournament Competition
+                    Environment & Competition Domain
                   </label>
                   <div style={{ display: 'flex', gap: '8px', background: 'rgba(3, 7, 18, 0.65)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
                     <button
                       type="button"
                       onClick={() => setSelectedTournament('PMC')}
                       style={{
-                        flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '800',
+                        flex: 1, padding: '9px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
                         background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
                         color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255, 255, 255, 0.7)',
-                        border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                        border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
                       }}
                     >
-                      Prime Minister's Cup
+                      <span>🏆 Prime Minister's Cup</span>
+                      <span style={{ fontSize: '9.5px', opacity: 0.85, fontWeight: '700' }}>Live Production API</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedTournament('NSSL')}
                       style={{
-                        flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '800',
-                        background: selectedTournament === 'NSSL' ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                        color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
-                        border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                        flex: 1, padding: '9px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
+                        background: selectedTournament === 'NSSL' ? '#38bdf8' : 'transparent',
+                        color: selectedTournament === 'NSSL' ? '#04101e' : 'rgba(255, 255, 255, 0.7)',
+                        border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
                       }}
                     >
-                      National League
+                      <span>🧪 Schools League</span>
+                      <span style={{ fontSize: '9.5px', opacity: 0.9, fontWeight: '700' }}>Testing Sandbox</span>
                     </button>
+                  </div>
+                  <div style={{
+                    marginTop: '6px', padding: '6px 10px', borderRadius: '6px', fontSize: '11px',
+                    background: selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.08)' : 'rgba(56, 189, 248, 0.08)',
+                    border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.2)' : '1px solid rgba(56, 189, 248, 0.2)',
+                    color: selectedTournament === 'PMC' ? '#fbbf24' : '#38bdf8',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    <span>{selectedTournament === 'PMC' ? '●' : '🧪'}</span>
+                    <span>
+                      {selectedTournament === 'PMC'
+                        ? 'Live Production: Real-time data capture synchronized with official API feeds.'
+                        : 'Testing Sandbox: 100% isolated testing area. Zero interference with live PMC data.'}
+                    </span>
                   </div>
                 </div>
 

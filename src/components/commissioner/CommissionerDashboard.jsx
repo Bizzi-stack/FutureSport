@@ -37,6 +37,7 @@ export default function CommissionerDashboard({
     currentOfficial = null,
     selectedYear = '2026-2027',
     onSelectSchool,
+    onOpenQuickTest,
     onLogout
 }) {
     const isPMC = selectedTournament === 'PMC';
@@ -547,27 +548,72 @@ export default function CommissionerDashboard({
                             <span style={{
                                 fontSize: '10px', fontWeight: '800', letterSpacing: '0.08em',
                                 textTransform: 'uppercase', padding: '2px 8px', borderRadius: '4px',
-                                background: isPMC ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-                                color: isPMC ? '#fca5a5' : '#93c5fd',
-                                border: isPMC ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)'
+                                background: isPMC ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                                color: isPMC ? '#fca5a5' : '#38bdf8',
+                                border: isPMC ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)'
                             }}>
-                                {isPMC ? "Prime Minister's Cup · Official Match Control" : "National Schools League · Commissioner"}
+                                {isPMC ? "Prime Minister's Cup · Official Match Control" : "National Schools League · Testing Sandbox"}
                             </span>
                             <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                fontSize: '11px', fontWeight: '700', color: '#4ade80'
+                                fontSize: '11px', fontWeight: '700', color: isPMC ? '#4ade80' : '#38bdf8'
                             }}>
-                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
-                                Real-Time Cloud Sync Active
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isPMC ? '#22c55e' : '#38bdf8', boxShadow: isPMC ? '0 0 6px #22c55e' : '0 0 6px #38bdf8' }} />
+                                {isPMC ? 'Real-Time Cloud Sync Active (Production)' : '🧪 Testing Sandbox (Firewalled from Cloud API)'}
                             </span>
                         </div>
                         <h2 style={{ margin: '3px 0 0 0', fontSize: '18px', fontWeight: '800', color: '#ffffff' }}>
-                            {isPMC ? 'Match Coordinator & Operator Desk' : 'Match Commissioner Operations'}
+                            {isPMC ? 'Match Coordinator & Operator Desk' : 'Match Commissioner Sandbox Operations'}
                         </h2>
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                    {onSelectTournament && (
+                        <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.35)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <button
+                                type="button"
+                                onClick={() => onSelectTournament('PMC')}
+                                style={{
+                                    padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
+                                    background: isPMC ? '#FFC726' : 'transparent',
+                                    color: isPMC ? '#00267F' : 'rgba(255,255,255,0.6)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                🏆 PMC Cup
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onSelectTournament('NSSL')}
+                                style={{
+                                    padding: '6px 12px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
+                                    background: !isPMC ? 'rgba(56,189,248,0.2)' : 'transparent',
+                                    color: !isPMC ? '#38bdf8' : 'rgba(255,255,255,0.6)',
+                                    border: !isPMC ? '1px solid rgba(56,189,248,0.4)' : 'none',
+                                    cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                🧪 Schools League
+                            </button>
+                        </div>
+                    )}
+
+                    {!isPMC && onOpenQuickTest && (
+                        <button
+                            type="button"
+                            onClick={onOpenQuickTest}
+                            style={{
+                                padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: '#ffffff',
+                                border: '1px solid rgba(56,189,248,0.4)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                boxShadow: '0 2px 8px rgba(2,132,199,0.3)'
+                            }}
+                        >
+                            + Add Test Fixture
+                        </button>
+                    )}
+
                     {currentOfficial && (
                         <div style={{
                             padding: '6px 14px', borderRadius: '8px',

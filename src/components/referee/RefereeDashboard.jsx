@@ -26,6 +26,7 @@ export default function RefereeDashboard({
     selectedTournament = 'PMC',
     onSelectTournament,
     onUpdateMatch, 
+    onOpenQuickTest,
     onLogout 
 }) {
     const [selectedMatch, setSelectedMatch] = useState(null);
@@ -469,31 +470,55 @@ export default function RefereeDashboard({
 
                     {/* Tournament Switcher for Referee */}
                     {onSelectTournament && (
-                        <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                            <button
-                                type="button"
-                                onClick={() => onSelectTournament('PMC')}
-                                style={{
-                                    flex: 1, padding: '5px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
-                                    background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
-                                    color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255,255,255,0.6)',
-                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
-                                }}
-                            >
-                                🏆 PMC Cup
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onSelectTournament('NSSL')}
-                                style={{
-                                    flex: 1, padding: '5px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
-                                    background: selectedTournament === 'NSSL' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                                    color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
-                                }}
-                            >
-                                🏫 Schools League
-                            </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectTournament('PMC')}
+                                    style={{
+                                        flex: 1, padding: '5px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
+                                        background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
+                                        color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255,255,255,0.6)',
+                                        border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                    }}
+                                >
+                                    🏆 PMC Cup
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectTournament('NSSL')}
+                                    style={{
+                                        flex: 1, padding: '5px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
+                                        background: selectedTournament === 'NSSL' ? 'rgba(56,189,248,0.2)' : 'transparent',
+                                        color: selectedTournament === 'NSSL' ? '#38bdf8' : 'rgba(255,255,255,0.6)',
+                                        border: selectedTournament === 'NSSL' ? '1px solid rgba(56,189,248,0.4)' : 'none',
+                                        cursor: 'pointer', transition: 'all 0.15s'
+                                    }}
+                                >
+                                    🧪 Schools League
+                                </button>
+                            </div>
+
+                            {selectedTournament === 'NSSL' && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px' }}>
+                                    <span style={{ fontSize: '10.5px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.12)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.25)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8' }}></span>
+                                        Testing Sandbox
+                                    </span>
+                                    {onOpenQuickTest && (
+                                        <button
+                                            type="button"
+                                            onClick={onOpenQuickTest}
+                                            style={{
+                                                padding: '2px 8px', borderRadius: '6px', fontSize: '10.5px', fontWeight: '800',
+                                                background: '#0284c7', color: '#ffffff', border: 'none', cursor: 'pointer'
+                                            }}
+                                        >
+                                            + Test Fixture
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

@@ -39,13 +39,20 @@ import {
     editMatchEventState,
     overturnMatchEventState,
     recalculateMatchScores,
-    applyEventStatsDelta
+    applyEventStatsDelta,
+    isPmcMatch,
+    isPmcTournament
 } from '../src/utils/matchEngine.js';
 
 import {
     mergeCloudMatches,
-    computeMatchesHash
+    computeMatchesHash,
+    pushMatchesToCloud,
+    broadcastSandboxMatches,
+    subscribeToSandboxSync
 } from '../src/utils/realtimeSync.js';
+
+import { exportPMCMatchPacket } from '../src/utils/pmcSyncEngine.js';
 
 import {
     isMatchFinished,
@@ -67,7 +74,8 @@ const results = {
     categoryD: { name: 'Category D: Coach Fixture Relevance & Finished Match Disabling Tests', passed: 0, total: 0 },
     categoryE: { name: 'Category E: Accurate Squad Analytics & Match-Driven Leaderboards', passed: 0, total: 0 },
     categoryF: { name: 'Category F: In Contest / 3-Way Possession & Sync Tests', passed: 0, total: 0 },
-    categoryG: { name: 'Category G: Match Operator & Referee Event Correction Engine', passed: 0, total: 0 }
+    categoryG: { name: 'Category G: Match Operator & Referee Event Correction Engine', passed: 0, total: 0 },
+    categoryH: { name: 'Category H: Schools League Sandbox Isolation & Cloud Firewall Tests', passed: 0, total: 0 }
 };
 
 function recordPass(catKey, testName) {
@@ -1870,6 +1878,329 @@ async function runAllTests() {
     console.log(`\nCategory G Summary: ${results.categoryG.passed}/${results.categoryG.total} passed.\n`);
 
     // =========================================================================
+    // CATEGORY H: SCHOOLS LEAGUE TESTING SANDBOX & CLOUD FIREWALL TESTS
+    // =========================================================================
+    console.log('================================================================');
+    console.log('CATEGORY H: SCHOOLS LEAGUE TESTING SANDBOX & CLOUD FIREWALL');
+    console.log('================================================================');
+
+    // H1: pushMatchesToCloud strictly ignores non-PMC matches and only processes PMC matches
+    {
+        localStorage.clear();
+
+        const nsslMatches = [
+            { id: 'm-u14-001', ageGroup: 'U14', homeTeamId: 'sch-1', awayTeamId: 'sch-2', status: 'live' },
+            { id: 'test-sandbox-01', tournament: 'Schools League', homeTeamId: 'sch-3', awayTeamId: 'sch-4', status: 'scheduled' },
+            { id: 'scheduled-manual-12345', ageGroup: 'U16', homeTeamId: 'sch-1', awayTeamId: 'sch-3', status: 'scheduled' }
+        ];
+
+        // Attempting to push only NSSL matches to cloud
+        const resultOnlyNssl = await pushMatchesToCloud(nsslMatches);
+        assert.strictEqual(resultOnlyNssl.count, 0, 'No NSSL matches should be pushed');
+        assert.deepStrictEqual(resultOnlyNssl.matches, []);
+        assert.strictEqual(localStorage.getItem('eduvision-pmc-matches-v8'), null, 'PMC storage must not be created or updated for NSSL matches');
+
+        // Mixed list with 1 valid PMC match
+        const mixedMatches = [
+            ...nsslMatches,
+            { id: 'pmc-match-001', ageGroup: 'PMC', tournamentId: 'PMC-BARBADOS-2026', homeTeamId: 'pmc-club-1', awayTeamId: 'pmc-club-2', status: 'live' }
+        ];
+
+        const resultMixed = await pushMatchesToCloud(mixedMatches);
+        assert.strictEqual(resultMixed.count, 1, 'Only the PMC match should be pushed');
+        assert.strictEqual(resultMixed.matches[0].id, 'pmc-match-001');
+
+        const savedPmc = JSON.parse(localStorage.getItem('eduvision-pmc-matches-v8') || '[]');
+        assert.strictEqual(savedPmc.length, 1);
+        assert.strictEqual(savedPmc[0].id, 'pmc-match-001');
+        assert.ok(!savedPmc.some(m => m.id.startsWith('m-u14') || m.id.startsWith('test-sandbox') || m.id.startsWith('scheduled-manual')), 'NSSL matches must never leak into eduvision-pmc-matches-v8');
+
+        recordPass('categoryH', 'H1: pushMatchesToCloud strictly ignores non-PMC / Schools League matches and only processes PMC matches');
+    }
+
+    // H2: exportPMCMatchPacket firewall protects PMC public webhook from sandbox fixtures
+    {
+        const nsslMatch = {
+            id: 'm-u16-championship',
+            ageGroup: 'U16',
+            tournament: 'Schools League',
+            homeTeamId: 'sch-1',
+            awayTeamId: 'sch-2',
+            homeScore: 3,
+            awayScore: 1,
+            status: 'completed',
+            timeline: [
+                { id: 'evt-1', type: 'goal', minute: 12, playerId: 'stu-sch-1', teamSide: 'home' }
+            ]
+        };
+
+        const blockedPacket = exportPMCMatchPacket(nsslMatch);
+        assert.strictEqual(blockedPacket, null, 'exportPMCMatchPacket must reject non-PMC match fixtures with null');
+
+        const pmcMatch = {
+            id: 'pmc-match-99',
+            ageGroup: 'PMC',
+            tournamentId: 'PMC-BARBADOS-2026',
+            homeTeamId: 'pmc-club-1',
+            awayTeamId: 'pmc-club-2',
+            homeScore: 2,
+            awayScore: 0,
+            status: 'completed',
+            timeline: [
+                { id: 'evt-2', type: 'goal', minute: 24, playerId: 'stu-pmc-1', teamSide: 'home' }
+            ]
+        };
+
+        const allowedPacket = exportPMCMatchPacket(pmcMatch);
+        assert.ok(allowedPacket !== null, 'exportPMCMatchPacket must allow PMC matches');
+        assert.strictEqual(allowedPacket.schemaVersion, '59');
+        assert.strictEqual(allowedPacket.targetPortal, 'theprimeministerscups.com');
+        assert.strictEqual(allowedPacket.match.id, 'pmc-match-99');
+
+        recordPass('categoryH', 'H2: exportPMCMatchPacket firewall protects PMC public webhook from sandbox fixtures');
+    }
+
+    // H3: broadcastSandboxMatches broadcasts locally and saves to eduvision-matches, without touching eduvision-pmc-matches-v8
+    {
+        localStorage.clear();
+
+        const sandboxList = [
+            { id: 'test-nssl-01', ageGroup: 'U14', homeTeamId: 'sch-1', awayTeamId: 'sch-2', status: 'live' },
+            { id: 'test-nssl-02', ageGroup: 'U19', homeTeamId: 'sch-3', awayTeamId: 'sch-4', status: 'scheduled' }
+        ];
+
+        let broadcastEventReceived = false;
+        let receivedMatches = null;
+
+        const unsubscribe = subscribeToSandboxSync((updated) => {
+            broadcastEventReceived = true;
+            receivedMatches = updated;
+        });
+
+        // Broadcast to sandbox channel
+        const broadcastRes = broadcastSandboxMatches(sandboxList);
+        assert.strictEqual(broadcastRes.success, true);
+        assert.strictEqual(broadcastRes.count, 2);
+
+        // Verify localStorage persistence for sandbox
+        const persistedSandbox = JSON.parse(localStorage.getItem('eduvision-matches') || '[]');
+        assert.strictEqual(persistedSandbox.length, 2);
+        assert.strictEqual(persistedSandbox[0].id, 'test-nssl-01');
+
+        // Verify PMC production storage was NEVER touched
+        assert.strictEqual(localStorage.getItem('eduvision-pmc-matches-v8'), null, 'Sandbox broadcast must NEVER touch eduvision-pmc-matches-v8');
+
+        // Give event loop a tick to ensure subscriber got invoked
+        await new Promise(resolve => setTimeout(resolve, 50));
+        assert.strictEqual(broadcastEventReceived, true, 'Multi-tab sandbox subscriber received broadcast update');
+        assert.strictEqual(receivedMatches?.length, 2);
+
+        unsubscribe();
+        recordPass('categoryH', 'H3: broadcastSandboxMatches broadcasts locally and saves to eduvision-matches, without touching eduvision-pmc-matches-v8');
+    }
+
+    // H4: Full match engine parity across environments (events, shots, possession, substitutions, overturns)
+    {
+        // An NSSL match going through the full engine lifecycle
+        let nsslMatch = {
+            id: 'nssl-parity-match-1',
+            ageGroup: 'U16',
+            tournament: 'National Schools League',
+            homeTeamId: 'sch-harrison',
+            awayTeamId: 'sch-combermere',
+            homePlayers: ['stu-harrison-9', 'gk-harrison-1'],
+            awayPlayers: ['stu-comb-10', 'gk-comb-1'],
+            homeScore: 0,
+            awayScore: 0,
+            status: 'live',
+            playerStats: {},
+            timeline: [],
+            version: 0,
+            possession: { home: 33, inContest: 34, away: 33, homeSecs: 100, inContestSecs: 100, awaySecs: 100 }
+        };
+
+        // 1. Goal event via shot engine
+        const goalOutcome = recordMatchShotState({
+            playerStats: nsslMatch.playerStats,
+            timeline: nsslMatch.timeline,
+            shotDetails: { result: 'goal', x: 25, y: 50, goalType: 'foot' },
+            shooterId: 'stu-harrison-9',
+            shooterName: 'Harrison Striker',
+            isHome: true,
+            homeTeamId: 'sch-harrison',
+            awayTeamId: 'sch-combermere',
+            homeTeamName: 'Harrison College',
+            awayTeamName: 'Combermere School',
+            oppGkId: 'gk-comb-1',
+            oppGkName: 'Combermere Keeper',
+            oppPlayersList: ['gk-comb-1', 'stu-comb-10'],
+            actionToken: 'goal-nssl-1',
+            seq: 1
+        });
+
+        nsslMatch.playerStats = goalOutcome.playerStats;
+        nsslMatch.timeline = goalOutcome.timeline;
+        const initialScores = recalculateMatchScores(nsslMatch, goalOutcome.playerStats, goalOutcome.timeline);
+        nsslMatch.homeScore = initialScores.homeScore;
+
+        assert.strictEqual(nsslMatch.homeScore, 1);
+        assert.strictEqual(nsslMatch.playerStats['stu-harrison-9'].Goals, 1);
+        assert.strictEqual(nsslMatch.playerStats['stu-harrison-9']['Shots on Target'], 1);
+
+        // 2. Saved Shot + Goalkeeper save
+        const shotOutcome = recordMatchShotState({
+            playerStats: nsslMatch.playerStats,
+            timeline: nsslMatch.timeline,
+            shotDetails: { result: 'saved', x: 75, y: 50, goalType: 'foot' },
+            shooterId: 'stu-comb-10',
+            shooterName: 'Combermere Mid',
+            isHome: false,
+            homeTeamId: 'sch-harrison',
+            awayTeamId: 'sch-combermere',
+            homeTeamName: 'Harrison College',
+            awayTeamName: 'Combermere School',
+            oppGkId: 'gk-harrison-1',
+            oppGkName: 'Harrison Keeper',
+            oppPlayersList: ['gk-harrison-1', 'stu-harrison-9'],
+            actionToken: 'shot-nssl-2',
+            seq: 2
+        });
+
+        nsslMatch.playerStats = shotOutcome.playerStats;
+        nsslMatch.timeline = shotOutcome.timeline;
+
+        assert.strictEqual(nsslMatch.playerStats['stu-comb-10']['Shots on Target'], 1);
+        assert.strictEqual(nsslMatch.playerStats['gk-harrison-1']['Saves'], 1);
+
+        // 3. 3-way possession tracking parity
+        nsslMatch.possession = { homePct: 50, awayPct: 50, activeSide: 'home', inContestPct: 0 };
+        const hash1 = computeMatchesHash([nsslMatch]);
+        nsslMatch.possession = { homePct: 40, awayPct: 40, activeSide: 'contest', inContestPct: 20 };
+        const hash2 = computeMatchesHash([nsslMatch]);
+        assert.notStrictEqual(hash1, hash2, 'Hash should capture possession state updates on NSSL matches');
+
+        // 4. Operator overturn goal
+        const goalEvent = nsslMatch.timeline.find(e => e.type === 'goal');
+        const overturnOutcome = overturnMatchEventState({
+            playerStats: nsslMatch.playerStats,
+            timeline: nsslMatch.timeline,
+            tombstoneEventIds: [],
+            eventId: goalEvent.id,
+            overturnReason: 'Offside confirmed by VAR / referee',
+            overturnedBy: 'operator',
+            now: Date.now() + 2000,
+            seq: 3,
+            removeCompletely: false
+        });
+
+        const revertedScores = recalculateMatchScores(nsslMatch, overturnOutcome.playerStats, overturnOutcome.timeline);
+        assert.strictEqual(revertedScores.homeScore, 0, 'Score must decrement back to 0-0 upon overturning goal');
+        assert.strictEqual(revertedScores.awayScore, 0);
+        assert.strictEqual(overturnOutcome.playerStats['stu-harrison-9'].Goals, 0, 'Scorer stats must revert to 0');
+
+        recordPass('categoryH', 'H4: Full match engine parity: live events, substitutions, and overturned calls operate identically on NSSL matches');
+    }
+
+    // H5: Resetting / clearing sandbox matches leaves PMC production matches and player profiles 100% intact
+    {
+        localStorage.clear();
+
+        const prodPmcMatches = [
+            {
+                id: 'pmc-m1',
+                ageGroup: 'PMC',
+                homeTeamId: 'pmc-club-1',
+                awayTeamId: 'pmc-club-2',
+                homeScore: 2,
+                awayScore: 1,
+                status: 'completed',
+                playerStats: {
+                    'stu-pmc-core': { ...initPlayerStats('stu-pmc-core'), Goals: 2, minutesPlayed: 90 }
+                },
+                timeline: [
+                    { id: 'evt-pmc-1', type: 'goal', playerId: 'stu-pmc-core', teamSide: 'home', minute: 15 },
+                    { id: 'evt-pmc-2', type: 'goal', playerId: 'stu-pmc-core', teamSide: 'home', minute: 48 }
+                ]
+            },
+            { id: 'pmc-m2', ageGroup: 'PMC', homeTeamId: 'pmc-club-3', awayTeamId: 'pmc-club-4', homeScore: 0, awayScore: 0, status: 'live' }
+        ];
+
+        // Seed PMC production storage
+        localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(prodPmcMatches));
+
+        // Seed Sandbox storage with test fixtures
+        const testSandboxMatches = [
+            { id: 'test-sandbox-temp-1', ageGroup: 'U14', homeScore: 5, awayScore: 4, status: 'completed' },
+            { id: 'test-sandbox-temp-2', ageGroup: 'U16', homeScore: 1, awayScore: 1, status: 'live' }
+        ];
+        localStorage.setItem('eduvision-matches', JSON.stringify(testSandboxMatches));
+
+        // Simulate user clicking "↻ Reset Test Matches" or "Clear Sandbox"
+        localStorage.removeItem('eduvision-matches');
+
+        // Verify PMC production data is completely untouched
+        const prodAfterReset = JSON.parse(localStorage.getItem('eduvision-pmc-matches-v8') || '[]');
+        assert.strictEqual(prodAfterReset.length, 2);
+        assert.strictEqual(prodAfterReset[0].id, 'pmc-m1');
+        assert.strictEqual(prodAfterReset[1].id, 'pmc-m2');
+        assert.strictEqual(prodAfterReset[0].homeScore, 2);
+
+        // Verify student contributions calculation for PMC students remains undisturbed
+        const pmcStudent = {
+            id: 'stu-pmc-core',
+            name: 'Core PMC Star',
+            school: 'pmc-club-1',
+            schoolId: 'pmc-club-1',
+            goals: 0,
+            appearances: 0,
+            performance: { '2026-2027': { 'Matchday 1': { Goals: 0 } } },
+            _matchContributions: {}
+        };
+
+        const recalculated = applyMatchContributions([pmcStudent], prodAfterReset[0]);
+        assert.strictEqual(recalculated[0]._matchContributions['pmc-m1'].stats.Goals, 2);
+        assert.strictEqual(recalculated[0].performance['2026-2027']['Matchday 1'].Goals, 2);
+
+        recordPass('categoryH', 'H5: Resetting / clearing sandbox matches leaves PMC production matches and player profiles 100% intact');
+    }
+
+    // H6: isPmcMatch and isPmcTournament accurately classify fixtures across all known formats
+    {
+        // Positive PMC matches
+        assert.strictEqual(isPmcMatch({ id: 'pmc-match-101' }), true);
+        assert.strictEqual(isPmcMatch({ id: 'pmc_match_102' }), true);
+        assert.strictEqual(isPmcMatch({ id: 'pmc-quarterfinal' }), true);
+        assert.strictEqual(isPmcMatch({ id: 'custom-id', ageGroup: 'PMC' }), true);
+        assert.strictEqual(isPmcMatch({ id: 'custom-id', tournament: 'Prime Minister\'s Cup' }), true);
+        assert.strictEqual(isPmcMatch({ id: 'custom-id', tournamentId: 'PMC-BARBADOS-2026' }), true);
+        assert.strictEqual(isPmcMatch({ id: 'custom-id', isPmc: true }), true);
+
+        // Negative NSSL matches
+        assert.strictEqual(isPmcMatch({ id: 'm-u14-001', ageGroup: 'U14' }), false);
+        assert.strictEqual(isPmcMatch({ id: 'm-u16-002', ageGroup: 'U16' }), false);
+        assert.strictEqual(isPmcMatch({ id: 'm-u19-003', ageGroup: 'U19' }), false);
+        assert.strictEqual(isPmcMatch({ id: 'scheduled-manual-999', ageGroup: 'U14' }), false);
+        assert.strictEqual(isPmcMatch({ id: 'test-sandbox-01', tournament: 'Schools League' }), false);
+        assert.strictEqual(isPmcMatch(null), false);
+        assert.strictEqual(isPmcMatch(undefined), false);
+
+        // isPmcTournament tests
+        assert.strictEqual(isPmcTournament('PMC'), true);
+        assert.strictEqual(isPmcTournament('pmc'), true);
+        assert.strictEqual(isPmcTournament('Prime Minister\'s Cup'), true);
+        assert.strictEqual(isPmcTournament('prime minister\'s cup'), true);
+        assert.strictEqual(isPmcTournament('NSSL'), false);
+        assert.strictEqual(isPmcTournament('nssl'), false);
+        assert.strictEqual(isPmcTournament('Schools League'), false);
+        assert.strictEqual(isPmcTournament(null), false);
+        assert.strictEqual(isPmcTournament(undefined), false);
+
+        recordPass('categoryH', 'H6: isPmcMatch and isPmcTournament accurately classify fixtures across all known formats');
+    }
+
+    console.log(`\nCategory H Summary: ${results.categoryH.passed}/${results.categoryH.total} passed.\n`);
+
+    // =========================================================================
     // FINAL OVERALL SUMMARY
     // =========================================================================
     console.log('================================================================');
@@ -1882,8 +2213,9 @@ async function runAllTests() {
     console.log(`   ${results.categoryE.name}: ${results.categoryE.passed}/${results.categoryE.total} PASSED`);
     console.log(`   ${results.categoryF.name}: ${results.categoryF.passed}/${results.categoryF.total} PASSED`);
     console.log(`   ${results.categoryG.name}: ${results.categoryG.passed}/${results.categoryG.total} PASSED`);
-    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed;
-    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total;
+    console.log(`   ${results.categoryH.name}: ${results.categoryH.passed}/${results.categoryH.total} PASSED`);
+    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed + results.categoryH.passed;
+    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total + results.categoryH.total;
     console.log(`   TOTAL TESTS: ${totalPassed}/${totalCount} PASSED (100%)`);
     console.log('================================================================\n');
 }

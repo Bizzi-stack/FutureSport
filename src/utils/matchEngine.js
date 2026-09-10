@@ -451,6 +451,30 @@ export function matchesStudentId(studentId, student) {
 }
 
 /**
+ * Detects whether a match belongs to the Prime Minister's Cup (PMC) competition
+ * versus the National Schools League (NSSL) testing sandbox.
+ */
+export function isPmcMatch(match) {
+    if (!match) return false;
+    return match.isPmc === true ||
+        match.ageGroup === 'PMC' ||
+        String(match.id || '').toLowerCase().includes('pmc') ||
+        String(match.tournament || '').toLowerCase().includes('prime minister') ||
+        String(match.tournament || '').toLowerCase().includes('pmc') ||
+        String(match.tournamentId || '').toLowerCase().includes('pmc') ||
+        String(match.homeTeamId || '').toLowerCase().includes('pmc-club') ||
+        String(match.awayTeamId || '').toLowerCase().includes('pmc-club') ||
+        String(match.homeTeam || '').toLowerCase().includes('pmc') ||
+        String(match.awayTeam || '').toLowerCase().includes('pmc');
+}
+
+export function isPmcTournament(tourn) {
+    if (!tourn) return false;
+    const t = String(tourn).toLowerCase();
+    return t === 'pmc' || t.includes('prime minister');
+}
+
+/**
  * Applies match approval idempotently using replaceable contributions and explicit provenance.
  * 
  * Rules:
@@ -463,12 +487,8 @@ export function matchesStudentId(studentId, student) {
 export function applyMatchContributions(students = [], updatedMatch, options = {}) {
     if (!Array.isArray(students) || !updatedMatch) return students;
 
-    const isPmcMatch = updatedMatch.ageGroup === 'PMC' ||
-        String(updatedMatch.id || '').startsWith('pmc-') ||
-        String(updatedMatch.homeTeamId || '').startsWith('pmc-') ||
-        String(updatedMatch.awayTeamId || '').startsWith('pmc-');
-
-    const defaultYear = isPmcMatch ? '2026-2027' : '2026';
+    const isPmc = isPmcMatch(updatedMatch);
+    const defaultYear = isPmc ? '2026-2027' : '2026';
     const rawMatchYear = updatedMatch.year ? String(updatedMatch.year) : defaultYear;
     const matchTerm = String(updatedMatch.matchday || updatedMatch.term || 'Matchday 1');
     const legacyCountedMatchIds = new Set([

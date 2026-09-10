@@ -10,9 +10,10 @@ import SettingsPanel, { useSettings } from './components/SettingsPanel';
 import StudentProfileDrawer from './components/StudentProfileDrawer';
 import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOLS, getTeamStudents } from './data/mockData';
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
-import { pushMatchesToCloud, subscribeToRealtimeSync, mergeCloudMatches } from './utils/realtimeSync';
-import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays } from './utils/matchEngine';
+import { pushMatchesToCloud, broadcastSandboxMatches, subscribeToRealtimeSync, subscribeToSandboxSync, mergeCloudMatches } from './utils/realtimeSync';
+import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament } from './utils/matchEngine';
 import { exportClassReport } from './utils/exportReport';
+import QuickTestFixtureModal from './components/admin/QuickTestFixtureModal';
 import NationalHub from './components/NationalHub';
 import MatchCentre from './components/MatchCentre';
 import AdminLandingPage from './components/AdminLandingPage';
@@ -471,44 +472,21 @@ function App() {
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
-  // Realtime Cross-Device Synchronization
+  // Realtime Cross-Device Synchronization for Production Prime Minister's Cup (PMC)
   useEffect(() => {
     const unsubscribe = subscribeToRealtimeSync((cloudMatches) => {
       if (cloudMatches && Array.isArray(cloudMatches) && cloudMatches.length > 0) {
-        const sanitizedCloud = sanitizeMatchState(cloudMatches);
-
-        // Partition incoming matches cleanly between PMC and NSSL
-        const pmcOnly = sanitizedCloud.filter(m => 
-          String(m.homeTeamId || '').includes('pmc-club') || 
-          String(m.id || '').includes('pmc') ||
-          m.ageGroup === 'PMC'
-        );
-        const nsslOnly = sanitizedCloud.filter(m => 
-          !(String(m.homeTeamId || '').includes('pmc-club') || 
-            String(m.id || '').includes('pmc') ||
-            m.ageGroup === 'PMC')
-        );
-
+        const pmcOnly = sanitizeMatchState(cloudMatches).filter(isPmcMatch);
         if (pmcOnly.length > 0) {
           setPmcMatches(prev => mergeCloudMatches(prev, pmcOnly));
         }
-        if (nsslOnly.length > 0) {
-          setMatches(prev => mergeCloudMatches(prev, nsslOnly));
-        }
 
-        // Reconstruct student statistics deterministically when completed/approved/refereed matches arrive remotely
-        const finishedMatches = sanitizedCloud.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
-        if (finishedMatches.length > 0) {
-          setAllStudents(prev => {
-            let updated = prev;
-            finishedMatches.forEach(m => {
-              updated = applyMatchContributions(updated, m);
-            });
-            return updated;
-          });
+        // Reconstruct PMC student statistics deterministically when completed/approved/refereed matches arrive remotely
+        const finishedPmc = pmcOnly.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
+        if (finishedPmc.length > 0) {
           setPmcStudents(prev => {
             let updated = prev;
-            finishedMatches.forEach(m => {
+            finishedPmc.forEach(m => {
               updated = applyMatchContributions(updated, m);
             });
             return updated;
@@ -517,13 +495,36 @@ function App() {
       }
     });
     return unsubscribe;
-  }, [selectedTournament]);
+  }, []);
 
+  // Realtime Cross-Tab Broadcast Synchronization for Schools League Testing Sandbox
+  useEffect(() => {
+    const unsubscribe = subscribeToSandboxSync((sandboxMatches) => {
+      if (sandboxMatches && Array.isArray(sandboxMatches) && sandboxMatches.length > 0) {
+        const sanitized = sanitizeMatchState(sandboxMatches).filter(m => !isPmcMatch(m));
+        if (sanitized.length > 0) {
+          setMatches(prev => mergeCloudMatches(prev, sanitized));
+        }
 
+        const finishedSchools = sanitized.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
+        if (finishedSchools.length > 0) {
+          setAllStudents(prev => {
+            let updated = prev;
+            finishedSchools.forEach(m => {
+              updated = applyMatchContributions(updated, m);
+            });
+            return updated;
+          });
+        }
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const { settings, updateSettings, resetSettings } = useSettings();
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [logShotTarget, setLogShotTarget] = useState(null); // { student, year, term }
+  const [showQuickTestModal, setShowQuickTestModal] = useState(false);
   const [adminTab, setAdminTab] = useState(() => selectedTournament === 'PMC' ? 'club_rosters' : 'registrations');
 
   const isSupervisor = userRole === 'supervisor';
@@ -559,14 +560,21 @@ function App() {
   }, [selectedTournament, adminTab, userRole]);
 
   const handleAddMatches = (newMatches) => {
-    const addFn = prev => {
-      const next = [...prev, ...newMatches];
-      pushMatchesToCloud(next);
-      return next;
-    };
-    if (selectedTournament === 'PMC') {
+    const isPmc = selectedTournament === 'PMC' || newMatches.some(isPmcMatch);
+    if (isPmc) {
+      const pmcToAdd = newMatches.filter(isPmcMatch);
+      const addFn = prev => {
+        const next = [...prev, ...(pmcToAdd.length ? pmcToAdd : newMatches)];
+        pushMatchesToCloud(next);
+        return next;
+      };
       setPmcMatches(addFn);
     } else {
+      const addFn = prev => {
+        const next = [...prev, ...newMatches];
+        broadcastSandboxMatches(next);
+        return next;
+      };
       setMatches(addFn);
     }
   };
@@ -578,6 +586,23 @@ function App() {
       localStorage.removeItem('eduvision-pmc-matches-v7');
       localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
+    } catch {}
+  };
+
+  const handleResetSandboxMatches = () => {
+    const sanitized = sanitizeMatchState(DEFAULT_MATCHES);
+    setMatches(sanitized);
+    try {
+      localStorage.setItem('eduvision-matches', JSON.stringify(sanitized));
+      broadcastSandboxMatches(sanitized);
+    } catch {}
+  };
+
+  const handleClearSandboxMatches = () => {
+    setMatches([]);
+    try {
+      localStorage.setItem('eduvision-matches', JSON.stringify([]));
+      broadcastSandboxMatches([]);
     } catch {}
   };
 
@@ -808,67 +833,70 @@ function App() {
   // ── Match Centre: End Match handler ──────────────────────────────
   const handleEndMatch = (matchResult) => {
     const matchId = matchResult.id || `match-${Date.now()}`;
-    const endFn = prev => {
-      const exists = prev.some(m => m.id === matchId);
-      const next = exists
-        ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
-        : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
-      pushMatchesToCloud(next);
-      return next;
-    };
-    const isPmc = selectedTournament === 'PMC' ||
-      String(matchId).includes('pmc') ||
-      String(matchResult.homeTeamId || '').includes('pmc') ||
-      matchResult.ageGroup === 'PMC' ||
-      (pmcMatches || []).some(m => m.id === matchId);
+    const isPmc = selectedTournament === 'PMC' || isPmcMatch(matchResult) || (pmcMatches || []).some(m => m.id === matchId);
 
     if (isPmc) {
-      setPmcMatches(endFn);
+      setPmcMatches(prev => {
+        const exists = prev.some(m => m.id === matchId);
+        const next = exists
+          ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
+          : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
+        pushMatchesToCloud(next);
+        return next;
+      });
+      setPmcStudents(prev => applyMatchContributions(prev, matchResult));
     } else {
-      setMatches(endFn);
+      setMatches(prev => {
+        const exists = prev.some(m => m.id === matchId);
+        const next = exists
+          ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
+          : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
+        broadcastSandboxMatches(next);
+        return next;
+      });
+      setAllStudents(prev => applyMatchContributions(prev, matchResult));
     }
   };
 
   // ── Dynamic Match Update & Standings Propagation ───────────────────
   const handleUpdateMatch = (updatedMatch) => {
-    const prevMatch = (pmcMatches || []).find(m => m.id === updatedMatch.id);
-    const wasBothReady = !!prevMatch?.homeSquadSelection && !!prevMatch?.awaySquadSelection;
-    const isNowBothReady = !!updatedMatch?.homeSquadSelection && !!updatedMatch?.awaySquadSelection;
+    const isPmc = selectedTournament === 'PMC' || isPmcMatch(updatedMatch) || (pmcMatches || []).some(m => m.id === updatedMatch.id);
 
-    if (!wasBothReady && isNowBothReady) {
-      const schoolsList = displaySchools || allSchools || [];
-      const homeSc = schoolsList.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
-      const awaySc = schoolsList.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
-      const homeName = homeSc?.name || updatedMatch.homeTeam || 'Home Team';
-      const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
-      try {
-        sendRefereeSquadNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
-        sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
-      } catch (err) {
-        console.warn('Match ready notifications warning:', err);
-      }
-    }
-
-    const isPmc = selectedTournament === 'PMC' ||
-      String(updatedMatch.id || '').includes('pmc') ||
-      String(updatedMatch.homeTeamId || '').includes('pmc') ||
-      updatedMatch.ageGroup === 'PMC' ||
-      (pmcMatches || []).some(m => m.id === updatedMatch.id);
-
-    // Update matches state immutably and push to cloud OUTSIDE the React state updater
-    const currentList = isPmc ? pmcMatches : matches;
-    const nextMatches = (currentList || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
     if (isPmc) {
-      setPmcMatches(nextMatches);
-    } else {
-      setMatches(nextMatches);
-    }
-    pushMatchesToCloud(nextMatches);
+      const prevMatch = (pmcMatches || []).find(m => m.id === updatedMatch.id);
+      const wasBothReady = !!prevMatch?.homeSquadSelection && !!prevMatch?.awaySquadSelection;
+      const isNowBothReady = !!updatedMatch?.homeSquadSelection && !!updatedMatch?.awaySquadSelection;
 
-    // Propagate statistics if the match transitions to finished state
-    if (['approved', 'completed', 'refereed'].includes(updatedMatch.status)) {
-      setAllStudents(prev => applyMatchContributions(prev, updatedMatch));
-      setPmcStudents(prev => applyMatchContributions(prev, updatedMatch));
+      if (!wasBothReady && isNowBothReady) {
+        const schoolsList = displaySchools || allSchools || [];
+        const homeSc = schoolsList.find(s => s.id === updatedMatch.homeTeamId || s.rawId === updatedMatch.homeTeamId);
+        const awaySc = schoolsList.find(s => s.id === updatedMatch.awayTeamId || s.rawId === updatedMatch.awayTeamId);
+        const homeName = homeSc?.name || updatedMatch.homeTeam || 'Home Team';
+        const awayName = awaySc?.name || updatedMatch.awayTeam || 'Away Team';
+        try {
+          sendRefereeSquadNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
+          sendDataLoggerMatchReadyNotification(updatedMatch, homeName, awayName, displayStudents || allStudents);
+        } catch (err) {
+          console.warn('Match ready notifications warning:', err);
+        }
+      }
+
+      const nextMatches = (pmcMatches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      setPmcMatches(nextMatches);
+      pushMatchesToCloud(nextMatches);
+
+      if (['approved', 'completed', 'refereed'].includes(updatedMatch.status)) {
+        setPmcStudents(prev => applyMatchContributions(prev, updatedMatch));
+      }
+    } else {
+      // Schools League Testing Sandbox Update (Zero Cloud Overhead)
+      const nextMatches = (matches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      setMatches(nextMatches);
+      broadcastSandboxMatches(nextMatches);
+
+      if (['approved', 'completed', 'refereed'].includes(updatedMatch.status)) {
+        setAllStudents(prev => applyMatchContributions(prev, updatedMatch));
+      }
     }
   };
 
@@ -959,30 +987,67 @@ function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: selectedTournament === 'PMC' ? 'rgba(0, 38, 127, 0.45)' : 'rgba(37, 99, 235, 0.15)',
-            border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(37, 99, 235, 0.4)',
+            background: selectedTournament === 'PMC' ? 'rgba(0, 38, 127, 0.45)' : 'rgba(16, 185, 129, 0.12)',
+            border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(56, 189, 248, 0.45)',
             padding: '6px 14px', borderRadius: '12px'
           }}>
             <span style={{
-              fontSize: '13px', fontWeight: '800',
-              color: selectedTournament === 'PMC' ? '#FFC726' : 'var(--primary-light)'
-            }}>
-              {selectedTournament === 'PMC' ? "Prime Minister's Cup" : "National Schools League"}
+              fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px',
+              color: selectedTournament === 'PMC' ? '#FFC726' : '#38bdf8'
+            }} title={selectedTournament === 'PMC' ? "Official Live Production tournament connected to cloud database and API" : "Safe testing sandbox isolated from PMC production database"}>
+              <span>{selectedTournament === 'PMC' ? '🏆' : '🧪'}</span>
+              <span>{selectedTournament === 'PMC' ? "Prime Minister's Cup · LIVE PRODUCTION" : "Schools League · TESTING SANDBOX"}</span>
             </span>
+
+            {/* Sandbox Quick Actions */}
+            {selectedTournament === 'NSSL' && !isReadOnly && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickTestModal(true)}
+                  style={{
+                    fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '6px',
+                    background: 'rgba(56, 189, 248, 0.25)', color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.5)', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '4px'
+                  }}
+                  title="Create a quick test fixture for testing live capture or referee reports"
+                >
+                  <span>+</span> Add Test Fixture
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Reset Schools League sandbox fixtures back to default test schedule?")) {
+                      handleResetSandboxMatches();
+                    }
+                  }}
+                  style={{
+                    fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px',
+                    background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)',
+                    border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer'
+                  }}
+                  title="Reset sandbox fixtures to fresh defaults"
+                >
+                  ↻ Reset Test Matches
+                </button>
+              </div>
+            )}
+
             {['referee', 'fourth_official', 'statistician', 'super_admin'].includes(userRole) ? (
               <button
                 type="button"
                 onClick={() => setSelectedTournament(prev => prev === 'PMC' ? 'NSSL' : 'PMC')}
                 style={{
                   fontSize: '11px', fontWeight: '800', padding: '4px 10px', borderRadius: '8px',
-                  background: selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.25)' : 'rgba(255,255,255,0.15)',
-                  color: selectedTournament === 'PMC' ? '#FFC726' : '#ffffff',
-                  border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(255,255,255,0.25)',
+                  background: selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.25)' : 'rgba(56, 189, 248, 0.15)',
+                  color: selectedTournament === 'PMC' ? '#FFC726' : '#38bdf8',
+                  border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.5)' : '1px solid rgba(56, 189, 248, 0.35)',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
                 }}
-                title="Switch between Prime Minister's Cup and National Schools League"
+                title={selectedTournament === 'PMC' ? "Switch to Schools League Testing Sandbox" : "Switch to Prime Minister's Cup Production"}
               >
-                Switch Competition ⇄
+                {selectedTournament === 'PMC' ? 'Switch to Testing Sandbox 🧪' : 'Switch to Production 🏆'}
               </button>
             ) : (
               <span style={{
@@ -993,6 +1058,7 @@ function App() {
                 Active Session
               </span>
             )}
+
             {isSupervisor && (
               <span style={{
                 fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '6px',
@@ -1411,6 +1477,7 @@ function App() {
                   selectedTournament={selectedTournament}
                   onSelectTournament={setSelectedTournament}
                   onUpdateMatch={handleUpdateMatch}
+                  onOpenQuickTest={() => setShowQuickTestModal(true)}
                   onLogout={() => {
                       setUserRole(null);
                       setCurrentReferee(null);
@@ -1447,6 +1514,7 @@ function App() {
                   currentOfficial={currentCommissioner}
                   selectedYear={selectedYear}
                   onSelectSchool={setSelectedSchool}
+                  onOpenQuickTest={() => setShowQuickTestModal(true)}
                   onLogout={() => {
                       setUserRole(null);
                       setCurrentCommissioner(null);
@@ -1468,6 +1536,7 @@ function App() {
                   onSelectTournament={setSelectedTournament}
                   onUpdateMatch={handleUpdateMatch}
                   onEndMatch={handleEndMatch}
+                  onOpenQuickTest={() => setShowQuickTestModal(true)}
                   onLogout={() => {
                       setUserRole(null);
                       setCurrentAnalyst(null);
@@ -1550,6 +1619,20 @@ function App() {
           selectedTerm={selectedTerm}
           selectedClassroom={selectedClassroom}
           existingStudents={allStudents}
+        />
+      )}
+
+      {/* Schools League Sandbox Quick Test Fixture Creator */}
+      {showQuickTestModal && (
+        <QuickTestFixtureModal
+          isOpen={showQuickTestModal}
+          onClose={() => setShowQuickTestModal(false)}
+          schools={displaySchools}
+          teams={displayTeams}
+          allStudents={displayStudents}
+          onAddMatch={(newMatch) => {
+            handleAddMatches([newMatch]);
+          }}
         />
       )}
     </div>
