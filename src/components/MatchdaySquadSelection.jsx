@@ -438,19 +438,23 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
             console.warn('Super-Admin squad notification notice:', adminAlertErr);
         }
 
+        const isSandbox = selectedMatch?.isSandboxMatch === true || selectedMatch?.isUclMatch === true || selectedMatch?.tournamentId === 'UCL' || String(selectedMatch?.tournament || '').includes('Champions League');
+
         if (opponentAlreadySubmitted) {
             setNotificationInfo({
                 bothReady: true,
                 refereeEmail: getRefereeContactSettings().refereeEmail,
                 homeName,
-                awayName
+                awayName,
+                isSandbox
             });
         } else {
             setNotificationInfo({
                 bothReady: false,
                 refereeEmail: getRefereeContactSettings().refereeEmail,
                 homeName,
-                awayName
+                awayName,
+                isSandbox
             });
         }
 
@@ -476,14 +480,18 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         const opponentId = isHome ? selectedMatch.awayTeamId : selectedMatch.homeTeamId;
         const opponentName = getSchoolName(opponentId, selectedMatch);
         try {
-            await sendCoachSquadReminderNotification(
+            const res = await sendCoachSquadReminderNotification(
                 selectedMatch,
                 schoolName,
                 '', // defaults to coach contact
                 `Head Coach (${schoolName})`,
                 opponentName
             );
-            setReminderSentToast(`✓ Squad submission reminder delivered to Coach email!`);
+            if (res?.bypassed) {
+                setReminderSentToast(`✓ Squad submission reminder simulated (Gmail dispatch silenced in Sandbox Mode).`);
+            } else {
+                setReminderSentToast(`✓ Squad submission reminder delivered to Coach email!`);
+            }
             setTimeout(() => setReminderSentToast(null), 5000);
         } catch (e) {
             console.warn('Failed to send coach reminder:', e);
@@ -569,12 +577,18 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                         <div>
                             <div>
                                 {notificationInfo.bothReady
-                                    ? `Both squads submitted! Match is ready for blow-off. Official notification & team sheets dispatched to Referee via Gmail (${notificationInfo.refereeEmail}).`
-                                    : `Your squad is submitted. Waiting for opponent squad submission before referee kick-off alert is dispatched.`
+                                    ? (notificationInfo.isSandbox
+                                        ? `Both squads submitted! Match is ready for kick-off. (⭐ UCL Sandbox: External Gmail alerts silenced · Instant test session active)`
+                                        : `Both squads submitted! Match is ready for blow-off. Official notification & team sheets dispatched to Referee via Gmail (${notificationInfo.refereeEmail}).`)
+                                    : (notificationInfo.isSandbox
+                                        ? `Your squad is submitted. Waiting for opponent squad submission before match is kick-off ready.`
+                                        : `Your squad is submitted. Waiting for opponent squad submission before referee kick-off alert is dispatched.`)
                                 }
                             </div>
                             <div style={{ fontSize: '11px', opacity: 0.8, marginTop: '2px' }}>
-                                {notificationInfo.bothReady ? `Referee assigned can blow the whistle from the Referee Dashboard.` : `Referee will be alerted automatically as soon as the opposing coach submits.`}
+                                {notificationInfo.bothReady 
+                                    ? (notificationInfo.isSandbox ? `Match Commissioner or Referee can start match without generating external email traffic.` : `Referee assigned can blow the whistle from the Referee Dashboard.`)
+                                    : `Referee will be alerted automatically as soon as the opposing coach submits.`}
                             </div>
                         </div>
                     </div>
