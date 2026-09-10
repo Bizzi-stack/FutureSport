@@ -230,8 +230,9 @@ export function broadcastSandboxMatches(matchesList) {
         } catch {}
     }
 
-    // 2. LocalStorage persistence for Schools League Sandbox
+    // 2. LocalStorage persistence for Sandbox across tabs
     try {
+        localStorage.setItem('eduvision-ucl-matches', JSON.stringify(matchesList));
         localStorage.setItem('eduvision-matches', JSON.stringify(matchesList));
         localStorage.setItem('eduvision-sandbox-sync-timestamp', String(Date.now()));
     } catch {}
@@ -240,8 +241,8 @@ export function broadcastSandboxMatches(matchesList) {
 }
 
 /**
- * Subscribes to cross-tab updates for the Schools League testing sandbox.
- * Runs completely locally in browser tabs via BroadcastChannel without contacting any cloud API.
+ * Subscribes to cross-tab updates for the testing sandbox.
+ * Listens to BroadcastChannel and window storage events without contacting any cloud API.
  */
 export function subscribeToSandboxSync(onSandboxMatchesUpdate) {
     if (typeof globalThis === 'undefined' || typeof onSandboxMatchesUpdate !== 'function') return () => {};
@@ -249,29 +250,54 @@ export function subscribeToSandboxSync(onSandboxMatchesUpdate) {
     let localSandboxHash = '';
     let receiverChannel = null;
 
+    const handleUpdate = (matches) => {
+        if (!Array.isArray(matches)) return;
+        const newHash = computeMatchesHash(matches);
+        if (newHash !== localSandboxHash) {
+            localSandboxHash = newHash;
+            onSandboxMatchesUpdate(matches);
+        }
+    };
+
     if (typeof BroadcastChannel !== 'undefined') {
         try {
             receiverChannel = new BroadcastChannel('futuresport_sandbox_channel');
             const handleBroadcast = (e) => {
                 if (e.data?.type === 'SANDBOX_MATCHES_UPDATED' && Array.isArray(e.data?.matches)) {
-                    const newHash = computeMatchesHash(e.data.matches);
-                    if (newHash !== localSandboxHash) {
-                        localSandboxHash = newHash;
-                        onSandboxMatchesUpdate(e.data.matches);
-                    }
+                    handleUpdate(e.data.matches);
                 }
             };
             receiverChannel.addEventListener('message', handleBroadcast);
-            return () => {
-                try {
-                    receiverChannel.removeEventListener('message', handleBroadcast);
-                    receiverChannel.close();
-                } catch {}
-            };
         } catch {}
     }
 
-    return () => {};
+    const handleStorage = (e) => {
+        if (e.key === 'eduvision-ucl-matches' || e.key === 'eduvision-matches') {
+            try {
+                if (e.newValue) {
+                    const parsed = JSON.parse(e.newValue);
+                    if (Array.isArray(parsed)) {
+                        handleUpdate(parsed);
+                    }
+                }
+            } catch {}
+        }
+    };
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('storage', handleStorage);
+    }
+
+    return () => {
+        if (receiverChannel) {
+            try {
+                receiverChannel.close();
+            } catch {}
+        }
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('storage', handleStorage);
+        }
+    };
 }
 
 export async function fetchMatchesFromCloud() {

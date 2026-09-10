@@ -350,28 +350,53 @@ const RAW_UCL_ROSTERS = {
 
 // Process complete list of UCL players
 export const UCL_PLAYERS = [];
+let uclGlobalIndex = 1;
 
 Object.entries(RAW_UCL_ROSTERS).forEach(([clubId, players]) => {
   const teamId = `${clubId}-team-UCL`;
   players.forEach((p, idx) => {
     const playerId = `${clubId}-p${idx + 1}`;
+    const uniquePlayerId = `PID-UCL-${String(uclGlobalIndex++).padStart(5, '0')}`;
     const isGk = p.pos === 'Goalkeeper';
     const teamAssignments = {};
     UCL_YEARS.forEach(y => { teamAssignments[y] = teamId; });
 
     UCL_PLAYERS.push({
       id: playerId,
+      playerId: uniquePlayerId,
       name: p.name,
       schoolId: clubId,
       position: p.pos,
       grade: 'Senior',
       number: p.num,
+      jerseyNumber: p.num,
       isStarter: p.isStarter,
       teamAssignments,
       performance: createUclStatsTemplate(isGk)
     });
   });
 });
+
+/**
+ * Ensures all UCL players have valid squad numbers (jerseyNumber) and system-wide Player IDs.
+ * Automatically heals any cached player data from localStorage that was stored without playerId or jerseyNumber.
+ */
+export function ensureUclPlayerIdentities(players) {
+  if (!Array.isArray(players) || players.length === 0) return UCL_PLAYERS;
+  return players.map((p, idx) => {
+    const fallback = UCL_PLAYERS.find(orig => orig.id === p.id) || UCL_PLAYERS[idx];
+    const num = p.jerseyNumber != null ? Number(p.jerseyNumber) : (p.number != null ? Number(p.number) : (fallback?.jerseyNumber ?? (idx + 1)));
+    const pid = (p.playerId && typeof p.playerId === 'string' && p.playerId.startsWith('PID-UCL-'))
+      ? p.playerId
+      : (fallback?.playerId || `PID-UCL-${String(idx + 1).padStart(5, '0')}`);
+    return {
+      ...p,
+      number: num,
+      jerseyNumber: num,
+      playerId: pid
+    };
+  });
+}
 
 // Helper to get Starting XI and bench player IDs for a club
 export function getUclClubSquad(clubId) {

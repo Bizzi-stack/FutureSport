@@ -7,8 +7,8 @@
 export const normalizeId = (id) => {
     if (!id && id !== 0) return '';
     let s = String(id).trim().toLowerCase();
-    // Strip common team suffix patterns like '-team-pmc', '-team-u19', etc.
-    s = s.replace(/-team-(pmc|u\d+|girls|boys)/g, '');
+    // Strip common team suffix patterns like '-team-pmc', '-team-u19', '-team-ucl', etc.
+    s = s.replace(/-team-(pmc|u\d+|girls|boys|ucl)/gi, '');
     return s;
 };
 

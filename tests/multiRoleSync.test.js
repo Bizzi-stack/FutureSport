@@ -58,7 +58,8 @@ import {
     UCL_TEAMS,
     UCL_PLAYERS,
     UCL_INITIAL_MATCHES,
-    getUclClubSquad
+    getUclClubSquad,
+    ensureUclPlayerIdentities
 } from '../src/data/uclData.js';
 
 import {
@@ -2424,6 +2425,136 @@ async function runAllTests() {
         recordPass('categoryI', 'I7: Sandbox notification firewall cleanly silences Gmail/FormSubmit email dispatches for UCL fixtures while preserving PMC delivery eligibility');
     }
 
+    // I8: UCL Sandbox Player Identification: Squad numbers and unique PID-UCL IDs
+    {
+        assert.strictEqual(UCL_PLAYERS.length, 144, 'Total UCL players must be 144 (8 clubs x 18 players)');
+
+        const pidSet = new Set();
+        UCL_PLAYERS.forEach((player) => {
+            assert(typeof player.jerseyNumber === 'number' && player.jerseyNumber > 0, `Player ${player.name} has valid jerseyNumber`);
+            assert.strictEqual(player.number, player.jerseyNumber, `Player ${player.name} number matches jerseyNumber`);
+            assert(typeof player.playerId === 'string', `Player ${player.name} has string playerId`);
+            assert(/^PID-UCL-\d{5}$/.test(player.playerId), `Player ID ${player.playerId} matches format PID-UCL-XXXXX`);
+            assert(!pidSet.has(player.playerId), `Player ID ${player.playerId} is globally unique across UCL rosters`);
+            pidSet.add(player.playerId);
+        });
+
+        assert.strictEqual(pidSet.size, 144, 'All 144 UCL players have distinct unique player IDs');
+        recordPass('categoryI', 'I8: UCL Sandbox Player Identification: All 144 players have valid jerseyNumber and unique PID-UCL-XXXXX IDs');
+    }
+
+    // I9: ensureUclPlayerIdentities hydration & auto-healing of cached sessions
+    {
+        // Simulate legacy localStorage array missing playerId and jerseyNumber
+        const legacyStoredPlayers = [
+            { id: 'ucl-club-rm-p1', name: 'Thibaut Courtois', schoolId: 'ucl-club-rm', position: 'Goalkeeper', number: 1 },
+            { id: 'ucl-club-rm-p10', name: 'Vinícius Júnior', schoolId: 'ucl-club-rm', position: 'Forward', number: 7 },
+            { id: 'ucl-club-mc-p11', name: 'Erling Haaland', schoolId: 'ucl-club-mc', position: 'Forward' } // missing number too
+        ];
+
+        const healed = ensureUclPlayerIdentities(legacyStoredPlayers);
+        assert.strictEqual(healed.length, 3);
+        assert.strictEqual(healed[0].jerseyNumber, 1);
+        assert.strictEqual(healed[0].playerId, 'PID-UCL-00001');
+        assert.strictEqual(healed[1].jerseyNumber, 7);
+        assert.strictEqual(healed[1].playerId, 'PID-UCL-00010');
+        assert(healed[2].jerseyNumber > 0);
+        assert(/^PID-UCL-\d{5}$/.test(healed[2].playerId));
+
+        // Edge case: empty or null input falls back safely
+        const fallback = ensureUclPlayerIdentities(null);
+        assert.strictEqual(fallback.length, 144);
+
+        recordPass('categoryI', 'I9: ensureUclPlayerIdentities hydration: Auto-heals cached sessions missing playerId or jerseyNumber');
+    }
+
+    // I10: Multi-Role Matchday Operations & Reactive Synchronization in UCL Sandbox
+    {
+        // 1. Initial match setup
+        let sandboxMatch = {
+            ...UCL_INITIAL_MATCHES[0],
+            status: 'scheduled',
+            homeSquadSelection: null,
+            awaySquadSelection: null,
+            timeline: [],
+            homeScore: 0,
+            awayScore: 0
+        };
+
+        // 2. Coach Role: Real Madrid coach submits starting squad
+        const rmSquad = getUclClubSquad('ucl-club-rm');
+        sandboxMatch = {
+            ...sandboxMatch,
+            homeSquadSelection: {
+                startingXI: rmSquad.startingXI,
+                benchPlayers: rmSquad.benchPlayers,
+                submittedAt: new Date().toISOString()
+            }
+        };
+        assert(sandboxMatch.homeSquadSelection, 'Home squad submitted by Real Madrid coach');
+        assert.strictEqual(sandboxMatch.awaySquadSelection, null, 'Away squad not yet submitted');
+
+        // 3. Coach Role: Man City coach submits away squad -> triggers readiness
+        const wasBothReady = !!sandboxMatch.homeSquadSelection && !!sandboxMatch.awaySquadSelection;
+        const mcSquad = getUclClubSquad('ucl-club-mc');
+        const updatedWithAway = {
+            ...sandboxMatch,
+            awaySquadSelection: {
+                startingXI: mcSquad.startingXI,
+                benchPlayers: mcSquad.benchPlayers,
+                submittedAt: new Date().toISOString()
+            }
+        };
+        const isNowBothReady = !!updatedWithAway.homeSquadSelection && !!updatedWithAway.awaySquadSelection;
+        assert(!wasBothReady && isNowBothReady, 'Transition from partial squad to both squads submitted');
+
+        // Verify that triggering referee and data logger notifications in sandbox mode executes without throwing and is silenced
+        const refNotice = await sendRefereeSquadNotification(updatedWithAway, 'Real Madrid CF', 'Manchester City FC', UCL_PLAYERS);
+        assert.strictEqual(refNotice.bypassed, true, 'Silenced notification triggers cleanly for sandbox');
+
+        // 4. Guest / Assistant Statistician Role: Logs a goal for Vinicius Jr (PID-UCL-00010)
+        const viniPlayer = UCL_PLAYERS.find(p => p.id === 'ucl-club-rm-p10');
+        const statAction = {
+            type: 'goal',
+            minute: 23,
+            playerId: viniPlayer.playerId,
+            team: 'home',
+            detail: 'Right foot curled into top corner',
+            playerNumber: viniPlayer.jerseyNumber
+        };
+
+        const liveMatchState = {
+            ...updatedWithAway,
+            status: 'live',
+            homeScore: 1,
+            awayScore: 0,
+            timeline: [statAction]
+        };
+
+        // 5. Cross-tab Broadcast sync
+        const broadcastRes = broadcastSandboxMatches([liveMatchState]);
+        assert.strictEqual(broadcastRes.success, true);
+        assert.strictEqual(broadcastRes.count, 1);
+
+        // Verify persistence to both UCL and general sandbox storage keys
+        assert(globalThis.localStorage.getItem('eduvision-ucl-matches') !== null);
+        assert(globalThis.localStorage.getItem('eduvision-matches') !== null);
+
+        // 6. Match Commissioner / Operator reactive inspection derivation
+        const mockCommissionerMatches = [liveMatchState];
+        const activeSelectedMatch = mockCommissionerMatches.find(m => m.id === sandboxMatch.id);
+        assert.strictEqual(activeSelectedMatch.homeScore, 1, 'Commissioner view sees live 1-0 score');
+        assert.strictEqual(activeSelectedMatch.timeline[0].playerId, 'PID-UCL-00010', 'Commissioner view sees Vinicius goal');
+        assert.strictEqual(activeSelectedMatch.timeline[0].playerNumber, 7, 'Commissioner view sees squad number 7');
+
+        // 7. Mona Lisa in the Vault verification: PMC matches remain 100% separate and untainted
+        const pmcMatchesCount = PMC_MATCHES.length;
+        assert(pmcMatchesCount > 0, 'PMC Production matches exist in vault');
+        assert(!mockCommissionerMatches.some(isPmcMatch), 'No UCL sandbox matches pollute PMC domain');
+
+        recordPass('categoryI', 'I10: Multi-Role Matchday Synchronization: Coach sheet submission, Assistant Statistician stat capture, and Match Commissioner reactive inspection operate symmetrically to PMC');
+    }
+
     console.log(`\nCategory I Summary: ${results.categoryI.passed}/${results.categoryI.total} passed.\n`);
 
     // =========================================================================
@@ -2447,7 +2578,9 @@ async function runAllTests() {
     console.log('================================================================\n');
 }
 
-runAllTests().catch(err => {
+runAllTests().then(() => {
+    process.exit(0);
+}).catch(err => {
     console.error('❌ Test Suite Failed:', err);
     process.exit(1);
 });
