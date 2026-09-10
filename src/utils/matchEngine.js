@@ -276,11 +276,25 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     // Pick latest root fields
     const base = incTime > localTime ? { ...localMatch, ...incomingMatch } : { ...incomingMatch, ...localMatch };
 
-    const { homeScore, awayScore } = calculateScores(
-        base.homePlayers || [],
-        base.awayPlayers || [],
-        mergedPlayerStats
-    );
+    const homePlayersList = (base.homePlayers && base.homePlayers.length > 0)
+        ? base.homePlayers
+        : (base.homeSquadSelection?.startingXI || []);
+    const awayPlayersList = (base.awayPlayers && base.awayPlayers.length > 0)
+        ? base.awayPlayers
+        : (base.awaySquadSelection?.startingXI || []);
+
+    let homeScore = base.homeScore;
+    let awayScore = base.awayScore;
+
+    if (homePlayersList.length > 0 || awayPlayersList.length > 0) {
+        const calculated = calculateScores(homePlayersList, awayPlayersList, mergedPlayerStats);
+        homeScore = calculated.homeScore;
+        awayScore = calculated.awayScore;
+    } else if (mergedTimeline && mergedTimeline.length > 0) {
+        const rec = recalculateMatchScores(mergedTimeline);
+        homeScore = rec.homeScore;
+        awayScore = rec.awayScore;
+    }
 
     const merged = {
         ...base,
@@ -456,6 +470,15 @@ export function matchesStudentId(studentId, student) {
  */
 export function isPmcMatch(match) {
     if (!match) return false;
+    if (match.isSandboxMatch === true || match.isUclMatch === true) return false;
+    if (String(match.tournament || '').toLowerCase().includes('champions league') ||
+        String(match.tournament || '').toLowerCase().includes('ucl') ||
+        String(match.tournamentId || '').toLowerCase() === 'ucl' ||
+        String(match.id || '').toLowerCase().includes('ucl') ||
+        String(match.homeTeamId || '').toLowerCase().includes('ucl-club') ||
+        String(match.awayTeamId || '').toLowerCase().includes('ucl-club')) {
+        return false;
+    }
     return match.isPmc === true ||
         match.ageGroup === 'PMC' ||
         String(match.id || '').toLowerCase().includes('pmc') ||
@@ -471,6 +494,7 @@ export function isPmcMatch(match) {
 export function isPmcTournament(tourn) {
     if (!tourn) return false;
     const t = String(tourn).toLowerCase();
+    if (t === 'ucl' || t.includes('champions league')) return false;
     return t === 'pmc' || t.includes('prime minister');
 }
 

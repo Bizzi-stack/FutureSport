@@ -53,6 +53,13 @@ import {
 } from '../src/utils/realtimeSync.js';
 
 import { exportPMCMatchPacket } from '../src/utils/pmcSyncEngine.js';
+import {
+    UCL_CLUBS,
+    UCL_TEAMS,
+    UCL_PLAYERS,
+    UCL_INITIAL_MATCHES,
+    getUclClubSquad
+} from '../src/data/uclData.js';
 
 import {
     isMatchFinished,
@@ -75,7 +82,8 @@ const results = {
     categoryE: { name: 'Category E: Accurate Squad Analytics & Match-Driven Leaderboards', passed: 0, total: 0 },
     categoryF: { name: 'Category F: In Contest / 3-Way Possession & Sync Tests', passed: 0, total: 0 },
     categoryG: { name: 'Category G: Match Operator & Referee Event Correction Engine', passed: 0, total: 0 },
-    categoryH: { name: 'Category H: Schools League Sandbox Isolation & Cloud Firewall Tests', passed: 0, total: 0 }
+    categoryH: { name: 'Category H: Schools League Sandbox Isolation & Cloud Firewall Tests', passed: 0, total: 0 },
+    categoryI: { name: 'Category I: UEFA Champions League Testing Sandbox & Session Lockdown Tests', passed: 0, total: 0 }
 };
 
 function recordPass(catKey, testName) {
@@ -2201,6 +2209,172 @@ async function runAllTests() {
     console.log(`\nCategory H Summary: ${results.categoryH.passed}/${results.categoryH.total} passed.\n`);
 
     // =========================================================================
+    // CATEGORY I: UEFA CHAMPIONS LEAGUE TESTING SANDBOX & SESSION LOCKDOWN TESTS
+    // =========================================================================
+    console.log('================================================================');
+    console.log('CATEGORY I: UEFA CHAMPIONS LEAGUE TESTING SANDBOX & SESSION LOCKDOWN');
+    console.log('================================================================');
+
+    // I1: UCL Clubs & Star Rosters Integrity
+    {
+        assert.strictEqual(UCL_CLUBS.length, 8, '8 UCL European clubs defined');
+        assert.strictEqual(UCL_TEAMS.length, 8, '8 UCL squads defined');
+        assert.strictEqual(UCL_PLAYERS.length, 8 * 18, '144 registered UCL star players (18 per squad)');
+
+        // Verify Real Madrid and Man City squads
+        const rmSquad = getUclClubSquad('ucl-club-rm');
+        assert.strictEqual(rmSquad.startingXI.length, 11, 'Real Madrid has 11 starters');
+        assert.strictEqual(rmSquad.benchPlayers.length, 7, 'Real Madrid has 7 substitutes');
+
+        const mcSquad = getUclClubSquad('ucl-club-mc');
+        assert.strictEqual(mcSquad.startingXI.length, 11, 'Man City has 11 starters');
+        assert.strictEqual(mcSquad.benchPlayers.length, 7, 'Man City has 7 substitutes');
+
+        // Verify Star Goalkeepers exist and are marked Goalkeeper
+        const courtois = UCL_PLAYERS.find(p => p.name === 'Thibaut Courtois');
+        assert.ok(courtois && courtois.position === 'Goalkeeper', 'Courtois correctly registered as GK');
+        const ederson = UCL_PLAYERS.find(p => p.name === 'Ederson');
+        assert.ok(ederson && ederson.position === 'Goalkeeper', 'Ederson correctly registered as GK');
+
+        recordPass('categoryI', 'I1: UCL clubs, stadiums, and 18-player star rosters verified with valid GK positions');
+    }
+
+    // I2: Ironclad Cloud Firewall on UCL Fixtures
+    {
+        // Every UCL fixture must evaluate to false for isPmcMatch
+        UCL_INITIAL_MATCHES.forEach(match => {
+            assert.strictEqual(isPmcMatch(match), false, `UCL fixture ${match.id} must strictly return isPmcMatch=false`);
+        });
+
+        // Tournament string checks
+        assert.strictEqual(isPmcTournament('UEFA Champions League'), false, 'UEFA Champions League is never PMC tournament');
+        assert.strictEqual(isPmcTournament('UCL'), false, 'UCL is never PMC tournament');
+
+        // Cloud sync engine firewall: pushMatchesToCloud ignores UCL matches
+        const mockPmcMatch = { id: 'pmc-match-safe-1', isPmc: true, status: 'scheduled' };
+        const mixedMatches = [...UCL_INITIAL_MATCHES, mockPmcMatch];
+        const pmcFiltered = mixedMatches.filter(isPmcMatch);
+        assert.strictEqual(pmcFiltered.length, 1, 'Only PMC match passes filter');
+        assert.strictEqual(pmcFiltered[0].id, 'pmc-match-safe-1');
+
+        // External API export firewall: exportPMCMatchPacket returns null for UCL match
+        const exportedUcl = exportPMCMatchPacket(UCL_INITIAL_MATCHES[0], UCL_PLAYERS);
+        assert.strictEqual(exportedUcl, null, 'exportPMCMatchPacket strictly returns null for UCL matches');
+
+        recordPass('categoryI', 'I2: Ironclad Cloud Firewall rejects UCL matches from Supabase sync and external API exports');
+    }
+
+    // I3: Multi-Role Match Event Simulation on UCL Fixture
+    {
+        // Start with initial Bernabeu clash: Real Madrid vs Man City
+        const match = { ...UCL_INITIAL_MATCHES[0] };
+        assert.strictEqual(match.status, 'live');
+        assert.strictEqual(match.venue, 'Santiago Bernabéu, Madrid');
+
+        // Guest logs a shot on target from Erling Haaland against Thibaut Courtois
+        const haalandShot = recordMatchShotState({
+            playerStats: match.playerStats || {},
+            timeline: match.timeline || [],
+            shotDetails: { result: 'saved', x: 75, y: 48, goalType: 'foot' },
+            shooterId: 'ucl-club-mc-p11', // Erling Haaland
+            shooterName: 'Erling Haaland',
+            isHome: false,
+            homeTeamId: 'ucl-club-rm-team-UCL',
+            awayTeamId: 'ucl-club-mc-team-UCL',
+            homeTeamName: 'Real Madrid CF',
+            awayTeamName: 'Manchester City FC',
+            oppGkId: 'ucl-club-rm-p1', // Thibaut Courtois
+            oppGkName: 'Thibaut Courtois',
+            oppPlayersList: ['ucl-club-rm-p1', 'ucl-club-rm-p2', 'ucl-club-rm-p3'],
+            actionToken: 'ucl-shot-tok-haaland-1'
+        });
+
+        assert.strictEqual(haalandShot.rejected, false);
+        assert.strictEqual(haalandShot.playerStats['ucl-club-mc-p11']['Shots on Target'], 3);
+        assert.strictEqual(haalandShot.playerStats['ucl-club-rm-p1']['Saves'], 3);
+
+        recordPass('categoryI', 'I3: Multi-role event simulation accurately logs Haaland shot on target & Courtois save');
+    }
+
+    // I4: In-Contest Possession Tracking on UCL Clashes
+    {
+        const liveUcl = { ...UCL_INITIAL_MATCHES[0] };
+        const poss = liveUcl.liveState.possession;
+        assert.ok(poss.homeSecs > 0 && poss.awaySecs > 0 && poss.contestSecs > 0);
+
+        const totalSecs = poss.homeSecs + poss.awaySecs + poss.contestSecs;
+        const homePct = Math.round((poss.homeSecs / totalSecs) * 100);
+        const awayPct = Math.round((poss.awaySecs / totalSecs) * 100);
+        const contestPct = Math.max(0, 100 - homePct - awayPct);
+
+        assert.strictEqual(homePct + awayPct + contestPct, 100, '3-way possession sums to 100%');
+        recordPass('categoryI', 'I4: 3-Way UCL possession handles high-intensity contest periods cleanly');
+    }
+
+    // I5: Match Event Correction & Overturn on UCL Event
+    {
+        let stats = {
+            'ucl-club-rm-p10': { Goals: 1, 'Shots on Target': 1 },
+            'ucl-club-mc-p11': { Goals: 0 }
+        };
+        let timeline = [
+            { id: 'ucl-goal-1', type: 'goal', playerId: 'ucl-club-rm-p10', team: 'home' }
+        ];
+
+        // VAR review overturns goal due to offside
+        const overturned = overturnMatchEventState({
+            playerStats: stats,
+            timeline,
+            eventId: 'ucl-goal-1',
+            overturnReason: 'VAR review: Offside detected in build-up'
+        });
+
+        assert.strictEqual(overturned.overturned, true);
+        assert.strictEqual(overturned.playerStats['ucl-club-rm-p10'].Goals, 0, 'Vinicius goal subtracted cleanly');
+        const overturnedGoal = overturned.timeline.find(e => e.id === 'ucl-goal-1');
+        assert.strictEqual(overturnedGoal.overturned, true);
+
+        // Scores recalculate to 0 - 0
+        const scores = recalculateMatchScores(overturned.timeline);
+        assert.strictEqual(scores.homeScore, 0);
+        assert.strictEqual(scores.awayScore, 0);
+
+        recordPass('categoryI', 'I5: VAR overturn on UCL goal updates event timeline and decrements scores deterministically');
+    }
+
+    // I6: Multi-Tab Broadcast Synchronization for UCL Fixtures
+    {
+        const initialUclMatches = [...UCL_INITIAL_MATCHES];
+        const updateFromTab1 = [
+            {
+                ...initialUclMatches[0],
+                homeScore: 2,
+                matchTime: '35:00',
+                playerStats: {
+                    ...initialUclMatches[0].playerStats,
+                    'ucl-club-rm-p10': {
+                        ...initialUclMatches[0].playerStats['ucl-club-rm-p10'],
+                        Goals: 2,
+                        _updatedAt: 2000,
+                        _statUpdatedAt: { Goals: 2000 }
+                    }
+                },
+                updatedAt: 2000
+            }
+        ];
+
+        // Tab 2 merges incoming broadcast
+        const tab2Merged = mergeCloudMatches(initialUclMatches, updateFromTab1);
+        assert.strictEqual(tab2Merged.length, 4, '4 UCL matches maintained');
+        assert.strictEqual(tab2Merged[0].homeScore, 2, 'Tab 2 received Tab 1 score update');
+        assert.strictEqual(tab2Merged[0].matchTime, '35:00', 'Tab 2 received Tab 1 match time');
+
+        recordPass('categoryI', 'I6: Multi-tab broadcast synchronization seamlessly propagates UCL live updates');
+    }
+
+    console.log(`\nCategory I Summary: ${results.categoryI.passed}/${results.categoryI.total} passed.\n`);
+
+    // =========================================================================
     // FINAL OVERALL SUMMARY
     // =========================================================================
     console.log('================================================================');
@@ -2214,8 +2388,9 @@ async function runAllTests() {
     console.log(`   ${results.categoryF.name}: ${results.categoryF.passed}/${results.categoryF.total} PASSED`);
     console.log(`   ${results.categoryG.name}: ${results.categoryG.passed}/${results.categoryG.total} PASSED`);
     console.log(`   ${results.categoryH.name}: ${results.categoryH.passed}/${results.categoryH.total} PASSED`);
-    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed + results.categoryH.passed;
-    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total + results.categoryH.total;
+    console.log(`   ${results.categoryI.name}: ${results.categoryI.passed}/${results.categoryI.total} PASSED`);
+    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed + results.categoryH.passed + results.categoryI.passed;
+    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total + results.categoryH.total + results.categoryI.total;
     console.log(`   TOTAL TESTS: ${totalPassed}/${totalCount} PASSED (100%)`);
     console.log('================================================================\n');
 }

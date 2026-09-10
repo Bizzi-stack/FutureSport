@@ -19,6 +19,8 @@ const AdminLandingPage = ({
   pmcSchools = [], 
   nsslTeams = [], 
   nsslSchools = [],
+  uclTeams = [],
+  uclSchools = [],
   selectedTournament = 'PMC',
   setSelectedTournament = () => {}
 }) => {
@@ -37,12 +39,16 @@ const AdminLandingPage = ({
   const [deepLinkedMatchId, setDeepLinkedMatchId] = useState(null);
   
   const activeTeamsList = useMemo(() => {
-    return selectedTournament === 'PMC' ? (pmcTeams.length ? pmcTeams : allTeams) : (nsslTeams.length ? nsslTeams : allTeams);
-  }, [selectedTournament, pmcTeams, nsslTeams, allTeams]);
+    if (selectedTournament === 'PMC') return (pmcTeams.length ? pmcTeams : allTeams);
+    if (uclTeams.length) return uclTeams;
+    return (nsslTeams.length ? nsslTeams : allTeams);
+  }, [selectedTournament, pmcTeams, uclTeams, nsslTeams, allTeams]);
 
   const activeSchoolsList = useMemo(() => {
-    return selectedTournament === 'PMC' ? (pmcSchools.length ? pmcSchools : allSchools) : (nsslSchools.length ? nsslSchools : allSchools);
-  }, [selectedTournament, pmcSchools, nsslSchools, allSchools]);
+    if (selectedTournament === 'PMC') return (pmcSchools.length ? pmcSchools : allSchools);
+    if (uclSchools.length) return uclSchools;
+    return (nsslSchools.length ? nsslSchools : allSchools);
+  }, [selectedTournament, pmcSchools, uclSchools, nsslSchools, allSchools]);
 
   const [selectedTeam, setSelectedTeam] = useState(activeTeamsList[0]?.id || '');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
@@ -255,20 +261,20 @@ const AdminLandingPage = ({
                       }}
                     >
                       <span>🏆 Prime Minister's Cup</span>
-                      <span style={{ fontSize: '9.5px', opacity: 0.85, fontWeight: '700' }}>Live Production API</span>
+                      <span style={{ fontSize: '9.5px', opacity: 0.85, fontWeight: '700' }}>Production Vault</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedTournament('NSSL')}
+                      onClick={() => setSelectedTournament('UCL')}
                       style={{
                         flex: 1, padding: '9px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
-                        background: selectedTournament === 'NSSL' ? '#38bdf8' : 'transparent',
-                        color: selectedTournament === 'NSSL' ? '#04101e' : 'rgba(255, 255, 255, 0.7)',
+                        background: (selectedTournament === 'UCL' || selectedTournament === 'NSSL') ? '#38bdf8' : 'transparent',
+                        color: (selectedTournament === 'UCL' || selectedTournament === 'NSSL') ? '#04101e' : 'rgba(255, 255, 255, 0.7)',
                         border: 'none', cursor: 'pointer', transition: 'all 0.2s',
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
                       }}
                     >
-                      <span>🧪 Schools League</span>
+                      <span>⭐ UEFA Champions League</span>
                       <span style={{ fontSize: '9.5px', opacity: 0.9, fontWeight: '700' }}>Testing Sandbox</span>
                     </button>
                   </div>
@@ -279,11 +285,11 @@ const AdminLandingPage = ({
                     color: selectedTournament === 'PMC' ? '#fbbf24' : '#38bdf8',
                     display: 'flex', alignItems: 'center', gap: '6px'
                   }}>
-                    <span>{selectedTournament === 'PMC' ? '●' : '🧪'}</span>
+                    <span>{selectedTournament === 'PMC' ? '🔒' : '⭐'}</span>
                     <span>
                       {selectedTournament === 'PMC'
-                        ? 'Live Production: Real-time data capture synchronized with official API feeds.'
-                        : 'Testing Sandbox: 100% isolated testing area. Zero interference with live PMC data.'}
+                        ? "Production Vault: Live official tournament connected to Supabase cloud database & API feeds."
+                        : "Testing Sandbox: Real Madrid, Man City, Bayern, PSG & star rosters. 100% firewalled from PMC production."}
                     </span>
                   </div>
                 </div>
@@ -311,17 +317,17 @@ const AdminLandingPage = ({
                     }}
                   >
                     <option value="super_admin">
-                      {selectedTournament === 'PMC' ? "PMC Tournament Director / Super Admin" : "Schools League Super Administrator"}
+                      {selectedTournament === 'PMC' ? "PMC Tournament Director / Super Admin" : "UEFA Champions League Sandbox Administrator"}
                     </option>
                     <option value="supervisor">Executive Supervisor / Observer (Read-Only)</option>
-                    {selectedTournament !== 'PMC' && <option value="league_admin">League Administrator</option>}
-                    {selectedTournament !== 'PMC' && <option value="school_admin">School Administrator</option>}
+                    {selectedTournament !== 'PMC' && <option value="league_admin">Competition Administrator</option>}
+                    {selectedTournament !== 'PMC' && <option value="school_admin">Club / School Administrator</option>}
                     <option value="coach">Coach / Team Manager</option>
                     <option value="referee">Referee (Match Whistle & Official)</option>
                     <option value="fourth_official">Fourth Official (Substitutions & Board)</option>
                     <option value="statistician">Statistician / Live Data Entry</option>
                     <option value="commissioner">
-                      {selectedTournament === 'PMC' ? "Match Coordinator / Match Operator" : "Match Commissioner"}
+                      {selectedTournament === 'PMC' ? "Match Coordinator / Match Operator" : "UEFA Match Delegate / Commissioner"}
                     </option>
                   </select>
                 </div>
@@ -352,7 +358,7 @@ const AdminLandingPage = ({
                           setTeamSearchQuery(e.target.value);
                           setIsTeamDropdownOpen(true);
                         }}
-                        placeholder="Type club name (e.g. UWI, Wotton, Notre Dame...)"
+                        placeholder={selectedTournament === 'PMC' ? "Type club name (e.g. UWI, Wotton, Notre Dame...)" : "Type UCL club (e.g. Real Madrid, Man City, Bayern...)"}
                         style={{
                           width: '100%',
                           height: '42px',
