@@ -422,7 +422,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
         const updatedMatch = {
             ...selectedMatch,
-            [squadKey]: squadPayload
+            [squadKey]: squadPayload,
+            updatedAt: Date.now()
         };
 
         onUpdateMatch(updatedMatch);
@@ -468,7 +469,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
         const updatedMatch = {
             ...selectedMatch,
-            [squadKey]: null
+            [squadKey]: null,
+            updatedAt: Date.now()
         };
         onUpdateMatch(updatedMatch);
         setSubmitSuccess(false);
@@ -526,7 +528,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         const existingAmendments = selectedMatch.warmupAmendments || [];
         const updatedMatch = {
             ...selectedMatch,
-            warmupAmendments: [...existingAmendments, amendment]
+            warmupAmendments: [...existingAmendments, amendment],
+            updatedAt: Date.now()
         };
 
         if (onUpdateMatch) onUpdateMatch(updatedMatch);
@@ -1433,7 +1436,8 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                             preKickoffCorrections: [
                                 ...(activeCountdownMatch.preKickoffCorrections || []),
                                 correctionData
-                            ]
+                            ],
+                            updatedAt: Date.now()
                         };
                         onUpdateMatch(updatedMatch);
                         setActiveCountdownMatch(updatedMatch);
