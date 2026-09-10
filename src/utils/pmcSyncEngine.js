@@ -1,3 +1,5 @@
+import { isPmcMatch } from './matchEngine.js';
+
 /**
  * Prime Minister's Cup (PMC) Synchronization Engine
  * Connects FutureSport Dashboard analytics to theprimeministerscups.com public portal.
@@ -22,7 +24,7 @@ function getTeamName(teamId, teams = [], schools = []) {
  * Serializes a completed/approved match into the exact JSON schema expected by theprimeministerscups.com
  */
 export function exportPMCMatchPacket(match, allStudents = [], teams = [], schools = []) {
-    if (!match) return null;
+    if (!match || !isPmcMatch(match)) return null;
 
     const homeTeamName = getTeamName(match.homeTeamId, teams, schools);
     const awayTeamName = getTeamName(match.awayTeamId, teams, schools);

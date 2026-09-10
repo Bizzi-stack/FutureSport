@@ -29,6 +29,7 @@ export default function StatisticianDashboard({
     onSelectTournament,
     onUpdateMatch,
     onEndMatch,
+    onOpenQuickTest,
     onLogout
 }) {
     const [selectedMatchId, setSelectedMatchId] = useState(() => initialDirectMatchId || null);
@@ -816,31 +817,56 @@ export default function StatisticianDashboard({
                 {/* Filter Tabs & Search Bar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     {onSelectTournament && (
-                        <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <button
-                                type="button"
-                                onClick={() => onSelectTournament('PMC')}
-                                style={{
-                                    padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
-                                    background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
-                                    color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255,255,255,0.7)',
-                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
-                                }}
-                            >
-                                🏆 PMC Cup
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onSelectTournament('NSSL')}
-                                style={{
-                                    padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
-                                    background: selectedTournament === 'NSSL' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                                    color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255,255,255,0.7)',
-                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
-                                }}
-                            >
-                                🏫 Schools League
-                            </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.4)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectTournament('PMC')}
+                                    style={{
+                                        padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                        background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
+                                        color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255,255,255,0.7)',
+                                        border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                    }}
+                                >
+                                    🏆 PMC Cup
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onSelectTournament('NSSL')}
+                                    style={{
+                                        padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '800',
+                                        background: selectedTournament === 'NSSL' ? 'rgba(56,189,248,0.2)' : 'transparent',
+                                        color: selectedTournament === 'NSSL' ? '#38bdf8' : 'rgba(255,255,255,0.7)',
+                                        border: selectedTournament === 'NSSL' ? '1px solid rgba(56,189,248,0.4)' : '1px solid transparent',
+                                        cursor: 'pointer', transition: 'all 0.15s'
+                                    }}
+                                >
+                                    🧪 Schools League
+                                </button>
+                            </div>
+
+                            {selectedTournament === 'NSSL' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#38bdf8', background: 'rgba(56,189,248,0.12)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(56,189,248,0.25)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#38bdf8' }}></span>
+                                        Testing Sandbox · Firewalled
+                                    </span>
+                                    {onOpenQuickTest && (
+                                        <button
+                                            type="button"
+                                            onClick={onOpenQuickTest}
+                                            style={{
+                                                padding: '6px 12px', borderRadius: '8px', fontSize: '11.5px', fontWeight: '800',
+                                                background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: '#ffffff',
+                                                border: '1px solid rgba(56,189,248,0.4)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px'
+                                            }}
+                                        >
+                                            + Add Test Fixture
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
