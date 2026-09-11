@@ -363,6 +363,7 @@ export default function StatisticianDashboard({
                             allPlayers={allPlayers}
                             year={year}
                             currentAnalyst={activeAnalyst}
+                            onCancel={() => setSelectedMatchId(null)}
                             onUpdateMatch={(updated) => {
                                 if (onUpdateMatch) onUpdateMatch(updated);
                             }}

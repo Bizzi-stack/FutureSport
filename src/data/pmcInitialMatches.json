@@ -28959,5 +28959,186 @@
       "pmc-p-11-17",
       "pmc-p-11-18"
     ]
+  },
+  {
+    "id": "pmc-test-fixture-live",
+    "date": "2026-09-11T16:00:00.000Z",
+    "time": "16:00",
+    "year": "2026-2027",
+    "round": "Matchday 2 · PMC Live Pre-Match Test",
+    "matchday": "Matchday 2",
+    "venue": "Friendship, St. Michael (Testing Arena)",
+    "ageGroup": "PMC",
+    "homeTeam": "TECHNIQUE",
+    "awayTeam": "L & R UNITED",
+    "homeTeamId": "pmc-club-19",
+    "awayTeamId": "pmc-club-7",
+    "referee": "Adrian Hunte",
+    "commissioner": "Wren",
+    "operator": "Noah",
+    "status": "scheduled",
+    "homeScore": 0,
+    "awayScore": 0,
+    "events": [],
+    "timeline": [],
+    "playerStats": {},
+    "teamSheetApproved": true,
+    "teamSheetApprovedBy": "Adrian Hunte",
+    "homeSquadSelection": {
+      "captainId": "pmc-p-19-1",
+      "formation": "4-3-3",
+      "startingXI": [
+        "pmc-p-19-1",
+        "pmc-p-19-2",
+        "pmc-p-19-3",
+        "pmc-p-19-4",
+        "pmc-p-19-5",
+        "pmc-p-19-6",
+        "pmc-p-19-7",
+        "pmc-p-19-8",
+        "pmc-p-19-9",
+        "pmc-p-19-10",
+        "pmc-p-19-11"
+      ],
+      "benchPlayers": [
+        "pmc-p-19-12",
+        "pmc-p-19-13",
+        "pmc-p-19-14",
+        "pmc-p-19-15",
+        "pmc-p-19-16",
+        "pmc-p-19-17",
+        "pmc-p-19-18"
+      ],
+      "submittedAt": "2026-09-11T12:00:00.000Z",
+      "submittedBy": "TECHNIQUE Coach"
+    },
+    "awaySquadSelection": {
+      "captainId": "pmc-p-7-1",
+      "formation": "4-3-3",
+      "startingXI": [
+        "pmc-p-7-1",
+        "pmc-p-7-2",
+        "pmc-p-7-3",
+        "pmc-p-7-4",
+        "pmc-p-7-5",
+        "pmc-p-7-6",
+        "pmc-p-7-7",
+        "pmc-p-7-8",
+        "pmc-p-7-9",
+        "pmc-p-7-10",
+        "pmc-p-7-11"
+      ],
+      "benchPlayers": [
+        "pmc-p-7-12",
+        "pmc-p-7-13",
+        "pmc-p-7-14",
+        "pmc-p-7-15",
+        "pmc-p-7-16",
+        "pmc-p-7-17",
+        "pmc-p-7-18"
+      ],
+      "submittedAt": "2026-09-11T12:00:00.000Z",
+      "submittedBy": "L & R UNITED Coach"
+    },
+    "substitutionRequests": [],
+    "tombstoneEventIds": [],
+    "countdownProtocol": [
+      {
+        "id": "cd-1",
+        "action": "Team arrival, pitch inspection, and music choice",
+        "location": "Stadium / Dressing Room",
+        "completed": true,
+        "timeBefore": "T-90 min",
+        "minutesBefore": 90
+      },
+      {
+        "id": "cd-2",
+        "action": "Submit official team sheet to referee / opponents",
+        "location": "Administration",
+        "completed": true,
+        "timeBefore": "T-75 min",
+        "minutesBefore": 75
+      },
+      {
+        "id": "cd-3",
+        "action": "Warm-up begins (dynamic stretching and activation)",
+        "location": "Pitch",
+        "completed": true,
+        "timeBefore": "T-60 min",
+        "minutesBefore": 60
+      },
+      {
+        "id": "cd-4",
+        "action": "Tactical review, final lineup reminder, and hydration",
+        "location": "Dressing Room",
+        "completed": true,
+        "timeBefore": "T-30 min",
+        "minutesBefore": 30
+      },
+      {
+        "id": "cd-5",
+        "action": "Team leaves dressing room for final on-pitch warm-up",
+        "location": "Tunnel / Pitch",
+        "completed": false,
+        "timeBefore": "T-15 min",
+        "minutesBefore": 15
+      },
+      {
+        "id": "cd-6",
+        "action": "Final lineup check, gear check, and team huddle",
+        "location": "Tunnel",
+        "completed": false,
+        "timeBefore": "T-05 min",
+        "minutesBefore": 5
+      },
+      {
+        "id": "cd-7",
+        "action": "Kickoff",
+        "location": "Pitch",
+        "completed": false,
+        "timeBefore": "T-00 min",
+        "minutesBefore": 0
+      }
+    ],
+    "homePlayers": [
+      "pmc-p-19-1",
+      "pmc-p-19-2",
+      "pmc-p-19-3",
+      "pmc-p-19-4",
+      "pmc-p-19-5",
+      "pmc-p-19-6",
+      "pmc-p-19-7",
+      "pmc-p-19-8",
+      "pmc-p-19-9",
+      "pmc-p-19-10",
+      "pmc-p-19-11",
+      "pmc-p-19-12",
+      "pmc-p-19-13",
+      "pmc-p-19-14",
+      "pmc-p-19-15",
+      "pmc-p-19-16",
+      "pmc-p-19-17",
+      "pmc-p-19-18"
+    ],
+    "awayPlayers": [
+      "pmc-p-7-1",
+      "pmc-p-7-2",
+      "pmc-p-7-3",
+      "pmc-p-7-4",
+      "pmc-p-7-5",
+      "pmc-p-7-6",
+      "pmc-p-7-7",
+      "pmc-p-7-8",
+      "pmc-p-7-9",
+      "pmc-p-7-10",
+      "pmc-p-7-11",
+      "pmc-p-7-12",
+      "pmc-p-7-13",
+      "pmc-p-7-14",
+      "pmc-p-7-15",
+      "pmc-p-7-16",
+      "pmc-p-7-17",
+      "pmc-p-7-18"
+    ]
   }
 ]
