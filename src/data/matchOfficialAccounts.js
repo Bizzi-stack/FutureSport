@@ -12,7 +12,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'all',
             isMasterLogger: true,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '👑'
         },
         {
@@ -25,7 +25,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'all',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
             avatar: 'N'
         },
         {
@@ -38,7 +38,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'possession',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '⏱️'
         },
         {
@@ -51,7 +51,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'shots',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '⚽'
         },
         {
@@ -64,7 +64,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'shots',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '⚽'
         },
         {
@@ -77,7 +77,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '📋'
         },
         {
@@ -90,7 +90,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '📋'
         },
         {
@@ -103,7 +103,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '📋'
         },
         {
@@ -116,7 +116,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
             avatar: '📋'
         }
     ],

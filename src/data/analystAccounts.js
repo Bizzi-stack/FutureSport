@@ -11,7 +11,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'all',
         isMasterLogger: true,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '👑',
         badgeColor: '#10b981'
     },
@@ -25,7 +25,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'all',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
         avatar: 'N',
         badgeColor: '#38bdf8'
     },
@@ -39,7 +39,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'possession',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '⏱️',
         badgeColor: '#22c55e'
     },
@@ -53,7 +53,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'shots',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '⚽',
         badgeColor: '#3b82f6'
     },
@@ -67,7 +67,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'shots',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '⚽',
         badgeColor: '#60a5fa'
     },
@@ -81,7 +81,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '📋',
         badgeColor: '#f59e0b'
     },
@@ -95,7 +95,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '📋',
         badgeColor: '#fbbf24'
     },
@@ -109,7 +109,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '📋',
         badgeColor: '#a78bfa'
     },
@@ -123,7 +123,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ['pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
         avatar: '📋',
         badgeColor: '#c084fc'
     }

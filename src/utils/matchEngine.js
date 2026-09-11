@@ -198,11 +198,32 @@ export function syncTimeline(localTimeline = [], incomingTimeline = [], tombston
     const tombstoneSet = new Set((tombstoneEventIds || []).map(String));
     const map = new Map();
 
+    const stableEventValue = (value) => {
+        if (Array.isArray(value)) return value.map(stableEventValue);
+        if (value && typeof value === 'object') {
+            return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableEventValue(value[key])]));
+        }
+        return value;
+    };
+
+    const eventRevision = (event) => Math.max(...['timestamp', 'editedAt', 'overturnedAt'].map(key => Number(event[key]) || 0));
+
+    const chooseEvent = (a, b) => {
+        if (!a) return b;
+        const timeDelta = eventRevision(b) - eventRevision(a);
+        if (timeDelta) return timeDelta > 0 ? b : a;
+        const seqDelta = (Number(b._eventSeq) || 0) - (Number(a._eventSeq) || 0);
+        if (seqDelta) return seqDelta > 0 ? b : a;
+        // At indistinguishable revisions, preserve an overturn; otherwise use a stable tie‑break so both clients converge regardless of delivery order.
+        if (!!a.overturned !== !!b.overturned) return b.overturned ? b : a;
+        return JSON.stringify(stableEventValue(b)) > JSON.stringify(stableEventValue(a)) ? b : a;
+    };
+
     (localTimeline || []).forEach(ev => {
         if (!ev) return;
         const key = String(ev.id || `${ev.minute}-${ev.type}-${ev.playerId || ev.team || ''}`);
         if (!tombstoneSet.has(key) && (!ev.id || !tombstoneSet.has(String(ev.id)))) {
-            map.set(key, ev);
+            map.set(key, chooseEvent(map.get(key), ev));
         }
     });
 
@@ -210,7 +231,7 @@ export function syncTimeline(localTimeline = [], incomingTimeline = [], tombston
         if (!ev) return;
         const key = String(ev.id || `${ev.minute}-${ev.type}-${ev.playerId || ev.team || ''}`);
         if (!tombstoneSet.has(key) && (!ev.id || !tombstoneSet.has(String(ev.id)))) {
-            map.set(key, ev);
+            map.set(key, chooseEvent(map.get(key), ev));
         }
     });
 
@@ -291,7 +312,7 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         homeScore = calculated.homeScore;
         awayScore = calculated.awayScore;
     } else if (mergedTimeline && mergedTimeline.length > 0) {
-        const rec = recalculateMatchScores(mergedTimeline);
+        const rec = recalculateMatchScores(base, mergedPlayerStats, mergedTimeline);
         homeScore = rec.homeScore;
         awayScore = rec.awayScore;
     }
@@ -1303,7 +1324,7 @@ export function undoMatchEventState({
     const nextPlayerStats = { ...playerStats };
 
     const pId = ev.playerId;
-    if (nextPlayerStats[pId]) {
+    if (nextPlayerStats[pId] && !ev.overturned) {
         const s = { ...nextPlayerStats[pId] };
         const statTimes = { ...(s._statUpdatedAt || {}) };
         const statSeq = { ...(s._statSeq || {}) };
@@ -1314,6 +1335,7 @@ export function undoMatchEventState({
             statTimes[field] = now;
             statSeq[field] = seq;
             statOp[field] = 'undo';
+            syncStatAlias(s, field, now, seq, 'undo', statTimes, statSeq, statOp);
         };
 
         if (ev.type === 'goal') {
@@ -1335,6 +1357,7 @@ export function undoMatchEventState({
                     aTimes.Assists = now;
                     aSeq.Assists = seq;
                     aOp.Assists = 'undo';
+                    syncStatAlias(a, 'Assists', now, seq, 'undo', aTimes, aSeq, aOp);
                     a._updatedAt = now;
                     a._statUpdatedAt = aTimes;
                     a._statSeq = aSeq;
@@ -1374,7 +1397,7 @@ export function undoMatchEventState({
     }
 
     // Reverse linked companion event in single pass
-    if (linkedEv && nextPlayerStats[linkedEv.playerId]) {
+    if (linkedEv && !linkedEv.overturned && nextPlayerStats[linkedEv.playerId]) {
         const ls = { ...nextPlayerStats[linkedEv.playerId] };
         const lTimes = { ...(ls._statUpdatedAt || {}) };
         const lSeq = { ...(ls._statSeq || {}) };
@@ -1385,6 +1408,7 @@ export function undoMatchEventState({
             lTimes[field] = now;
             lSeq[field] = seq;
             lOp[field] = 'undo';
+            syncStatAlias(ls, field, now, seq, 'undo', lTimes, lSeq, lOp);
         };
 
         if (linkedEv.type === 'gkSave') {
@@ -1411,6 +1435,22 @@ export function undoMatchEventState({
         tombstoneEventIds: nextTombstones,
         undone: true
     };
+}
+
+/**
+ * State transition for manual detail stat change (e.g. minutes, passes, tackles).
+ */
+function syncStatAlias(stats, field, now, seq, op, times, sequences, operations) {
+    const alias = {
+        Goals: 'goals', Assists: 'assists', Shots: 'shots',
+        'Shots on Target': 'shotsOnTarget', Saves: 'saves',
+        'Fouls Committed': 'fouls', yellowCards: 'Yellow Cards', redCards: 'Red Cards'
+    }[field];
+    if (!alias || !(alias in stats)) return;
+    stats[alias] = stats[field];
+    times[alias] = now;
+    sequences[alias] = seq;
+    operations[alias] = op;
 }
 
 /**
