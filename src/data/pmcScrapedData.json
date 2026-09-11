@@ -2605,8 +2605,8 @@
     {
       "id": 18001,
       "name": "Jevonte Blackett",
-      "number": 1,
-      "position": "Goalkeeper",
+      "number": 10,
+      "position": "Forward",
       "teamId": 18,
       "team": "BAGATELLE",
       "uid": "player_18_jevonte-blackett",
@@ -2623,12 +2623,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18002,
       "name": "Azure Cumberbatch",
-      "number": 2,
+      "number": 4,
       "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2646,12 +2646,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18003,
       "name": "Aarian Sealy",
-      "number": 3,
+      "number": 2,
       "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2669,12 +2669,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18004,
       "name": "Jalen Phillips",
-      "number": 4,
+      "number": 16,
       "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2692,12 +2692,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18005,
       "name": "Terrell Bennett",
-      "number": 5,
+      "number": 19,
       "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2715,12 +2715,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18006,
       "name": "Orlando Trimmingham",
-      "number": 6,
+      "number": "",
       "position": "Midfielder",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2738,13 +2738,13 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18007,
       "name": "Nicholas Gibbs",
-      "number": 7,
-      "position": "Midfielder",
+      "number": 9,
+      "position": "Forward",
       "teamId": 18,
       "team": "BAGATELLE",
       "uid": "player_18_nicholas-gibbs",
@@ -2761,12 +2761,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18008,
       "name": "Mauricio Da Silva",
-      "number": 8,
+      "number": 6,
       "position": "Midfielder",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2784,12 +2784,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18009,
       "name": "Renico Williams",
-      "number": 9,
+      "number": "",
       "position": "Forward",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2807,12 +2807,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18010,
       "name": "Jahreece Springer",
-      "number": 10,
+      "number": 11,
       "position": "Forward",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2830,13 +2830,13 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18011,
       "name": "Nico Blackman",
-      "number": 11,
-      "position": "Forward",
+      "number": 5,
+      "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
       "uid": "player_18_nico-blackman",
@@ -2853,12 +2853,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18012,
       "name": "Tristan Thompson",
-      "number": 12,
+      "number": 21,
       "position": "Goalkeeper",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2876,12 +2876,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18013,
       "name": "Juwon Walcott",
-      "number": 13,
+      "number": 8,
       "position": "Midfielder",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2899,12 +2899,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18014,
       "name": "Sh'cur Bryant",
-      "number": 14,
+      "number": 17,
       "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2922,12 +2922,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18015,
       "name": "Akhem Das",
-      "number": 15,
+      "number": 20,
       "position": "Midfielder",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -2945,13 +2945,13 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18016,
       "name": "Kevon Allsopp",
-      "number": 16,
-      "position": "Forward",
+      "number": 1,
+      "position": "Goalkeeper",
       "teamId": 18,
       "team": "BAGATELLE",
       "uid": "player_18_kevon-allsopp",
@@ -2968,13 +2968,13 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18017,
       "name": "Stefan Cumberbatch",
-      "number": 17,
-      "position": "Midfielder",
+      "number": 3,
+      "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
       "uid": "player_18_stefan-cumberbatch",
@@ -2991,12 +2991,12 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 18018,
       "name": "Romel Griffith",
-      "number": 18,
+      "number": 15,
       "position": "Defender",
       "teamId": 18,
       "team": "BAGATELLE",
@@ -3014,7 +3014,7 @@
       "redCards": 0,
       "cleanSheets": 0,
       "cloudCollection": "players",
-      "cloudUpdatedAt": "2026-09-11T14:00:00.000Z"
+      "cloudUpdatedAt": "2026-09-11T18:50:00.000Z"
     },
     {
       "id": 21001,
