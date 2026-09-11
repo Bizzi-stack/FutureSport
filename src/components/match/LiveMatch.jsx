@@ -16,7 +16,8 @@ import {
     undoMatchEventState,
     editMatchEventState,
     overturnMatchEventState,
-    updateMatchPlayerDetailState
+    updateMatchPlayerDetailState,
+    recalculateMatchScores
 } from '../../utils/matchEngine';
 
 // Formation layouts define rows from back (GK) to front (FWD)
@@ -419,6 +420,7 @@ export default function LiveMatch({
     const [hoveredBtn, setHoveredBtn] = useState(null);  // `${playerId}-${actionKey}`
 
     const matchDataRef = useRef(matchData);
+    const isEndingRef = useRef(false);
     useEffect(() => {
         matchDataRef.current = matchData;
     }, [matchData]);
@@ -557,20 +559,17 @@ export default function LiveMatch({
     const away = useMemo(() => resolveTeamMeta(awayTeamId, matchData.awayTeam), [resolveTeamMeta, awayTeamId, matchData.awayTeam]);
 
     /* derived scores */
-    const homeScore = useMemo(() => {
-        const goals = homePlayers.reduce((t, id) => t + (playerStats[id]?.Goals ?? 0), 0);
-        const ownGoals = awayPlayers.reduce((t, id) => t + (playerStats[id]?.ownGoals ?? 0), 0);
-        return goals + ownGoals;
-    }, [homePlayers, awayPlayers, playerStats]);
-
-    const awayScore = useMemo(() => {
-        const goals = awayPlayers.reduce((t, id) => t + (playerStats[id]?.Goals ?? 0), 0);
-        const ownGoals = homePlayers.reduce((t, id) => t + (playerStats[id]?.ownGoals ?? 0), 0);
-        return goals + ownGoals;
-    }, [homePlayers, awayPlayers, playerStats]);
+    const { homeScore, awayScore } = useMemo(() => {
+        return recalculateMatchScores(
+            { ...matchData, homePlayers, awayPlayers, tombstoneEventIds },
+            playerStats,
+            timeline
+        );
+    }, [matchData, homePlayers, awayPlayers, tombstoneEventIds, playerStats, timeline]);
 
     // Sync state to Match object whenever critical states change
     useEffect(() => {
+        if (isEndingRef.current) return;
         if (onUpdateMatch) {
             const currentUpdatedAt = localUpdatedAtRef.current || Date.now();
             const nextVersion = (matchDataRef.current?.version || 0) + 1;
@@ -914,6 +913,9 @@ export default function LiveMatch({
     /* end match */
     const confirmEnd = () => {
         if (!isMasterLogger) return;
+        isEndingRef.current = true;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
         const targetId = matchData?.id || match?.id;
         const targetHomeId = homeTeamId || matchData?.homeTeamId || match?.homeTeamId;
         const targetAwayId = awayTeamId || matchData?.awayTeamId || match?.awayTeamId;
@@ -931,9 +933,34 @@ export default function LiveMatch({
             timeline,
             possession: livePossession || matchData?.possession || match?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 },
             status: 'completed',
-            startTime: startTimeRef.current || Date.now() - (elapsed * 1000),
-            endTime: Date.now(),
+            isFinished: true,
+            startTime: startTimeRef.current || now - (elapsed * 1000),
+            endTime: now,
+            updatedAt: now,
             date: new Date().toISOString(),
+            liveState: {
+                ...(matchData?.liveState || {}),
+                status: 'completed',
+                isRunning: false,
+                period: 'FT',
+                homeScore,
+                awayScore,
+                playerStats,
+                timeline,
+                possession: livePossession || matchData?.possession || match?.possession || { homePct: 50, awayPct: 50 },
+                updatedAt: now
+            },
+            refereeLiveState: {
+                ...(matchData?.refereeLiveState || {}),
+                status: 'completed',
+                isRunning: false,
+                period: 'FT',
+                homeScore,
+                awayScore,
+                playerStats,
+                timeline,
+                updatedAt: now
+            }
         };
 
         if (onEndMatch) {
@@ -943,6 +970,9 @@ export default function LiveMatch({
             onUpdateMatch(finalMatchPayload);
         }
         setShowConfirm(false);
+        if (onCancel) {
+            onCancel();
+        }
     };
 
     /* Format timeline timer */
@@ -2286,12 +2316,23 @@ export default function LiveMatch({
                 >
                     Cancel Match
                 </button>
-                <button
-                    style={styles.endBtn}
-                    onClick={() => setShowConfirm(true)}
-                >
-                    End Match
-                </button>
+                {isMasterLogger ? (
+                    <button
+                        style={styles.endBtn}
+                        onClick={() => setShowConfirm(true)}
+                    >
+                        End Match
+                    </button>
+                ) : (
+                    <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        padding: '6px 14px', borderRadius: '8px',
+                        background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
+                        fontSize: '11px', fontWeight: '700', color: '#38bdf8'
+                    }}>
+                        <span>🔒</span> Official Match End: Jonathan (Lead Controller)
+                    </div>
+                )}
             </div>
 
             {/* ── Visual Shot Modal ───────────────────────────────────── */}
