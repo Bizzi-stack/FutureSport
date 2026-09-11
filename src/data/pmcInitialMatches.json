@@ -28732,62 +28732,8 @@
     "events": [],
     "timeline": [],
     "playerStats": {},
-    "homeSquadSelection": {
-      "captainId": "pmc-p-18-1",
-      "formation": "4-3-3",
-      "startingXI": [
-        "pmc-p-18-1",
-        "pmc-p-18-2",
-        "pmc-p-18-3",
-        "pmc-p-18-4",
-        "pmc-p-18-5",
-        "pmc-p-18-6",
-        "pmc-p-18-7",
-        "pmc-p-18-8",
-        "pmc-p-18-9",
-        "pmc-p-18-10",
-        "pmc-p-18-11"
-      ],
-      "benchPlayers": [
-        "pmc-p-18-12",
-        "pmc-p-18-13",
-        "pmc-p-18-14",
-        "pmc-p-18-15",
-        "pmc-p-18-16",
-        "pmc-p-18-17",
-        "pmc-p-18-18"
-      ],
-      "submittedAt": "2026-09-11T14:00:00.000Z",
-      "submittedBy": "Bagatelle Coach"
-    },
-    "awaySquadSelection": {
-      "captainId": "pmc-p-26-1",
-      "formation": "4-3-3",
-      "startingXI": [
-        "pmc-p-26-1",
-        "pmc-p-26-2",
-        "pmc-p-26-3",
-        "pmc-p-26-4",
-        "pmc-p-26-5",
-        "pmc-p-26-6",
-        "pmc-p-26-7",
-        "pmc-p-26-8",
-        "pmc-p-26-9",
-        "pmc-p-26-10",
-        "pmc-p-26-11"
-      ],
-      "benchPlayers": [
-        "pmc-p-26-12",
-        "pmc-p-26-13",
-        "pmc-p-26-14",
-        "pmc-p-26-15",
-        "pmc-p-26-16",
-        "pmc-p-26-17",
-        "pmc-p-26-18"
-      ],
-      "submittedAt": "2026-09-11T14:00:00.000Z",
-      "submittedBy": "Cave Hill Coach"
-    },
+    "homeSquadSelection": null,
+    "awaySquadSelection": null,
     "substitutionRequests": [],
     "tombstoneEventIds": [],
     "countdownProtocol": [
@@ -28891,8 +28837,8 @@
     "assistantReferee1": "S. Hill",
     "assistantReferee2": "A. Herbert",
     "fourthOfficial": "N. Moseley",
-    "teamSheetApproved": true,
-    "teamSheetApprovedBy": "J. Griffith"
+    "teamSheetApproved": false,
+    "teamSheetApprovedBy": null
   },
   {
     "id": "pmc-fixture-4",
@@ -28916,69 +28862,8 @@
     "events": [],
     "timeline": [],
     "playerStats": {},
-    "homeSquadSelection": {
-      "captainId": "pmc-p-21-4",
-      "formation": "4-3-3",
-      "startingXI": [
-        "pmc-p-21-1",
-        "pmc-p-21-2",
-        "pmc-p-21-3",
-        "pmc-p-21-4",
-        "pmc-p-21-5",
-        "pmc-p-21-6",
-        "pmc-p-21-7",
-        "pmc-p-21-8",
-        "pmc-p-21-9",
-        "pmc-p-21-10",
-        "pmc-p-21-11"
-      ],
-      "benchPlayers": [
-        "pmc-p-21-12",
-        "pmc-p-21-13",
-        "pmc-p-21-14",
-        "pmc-p-21-15",
-        "pmc-p-21-16",
-        "pmc-p-21-17",
-        "pmc-p-21-18"
-      ],
-      "technicalStaff": [
-        "Alphonso Lewis",
-        "Asquith Howell",
-        "Chantelle Braithwaite",
-        "Andrew Jean",
-        "Shawn Clarke"
-      ],
-      "submittedAt": "2026-09-11T14:00:00.000Z",
-      "submittedBy": "Weymouth Wales Coach"
-    },
-    "awaySquadSelection": {
-      "captainId": "pmc-p-11-6",
-      "formation": "4-3-3",
-      "startingXI": [
-        "pmc-p-11-1",
-        "pmc-p-11-2",
-        "pmc-p-11-3",
-        "pmc-p-11-4",
-        "pmc-p-11-5",
-        "pmc-p-11-6",
-        "pmc-p-11-7",
-        "pmc-p-11-8",
-        "pmc-p-11-9",
-        "pmc-p-11-10",
-        "pmc-p-11-11"
-      ],
-      "benchPlayers": [
-        "pmc-p-11-12",
-        "pmc-p-11-13",
-        "pmc-p-11-14",
-        "pmc-p-11-15",
-        "pmc-p-11-16",
-        "pmc-p-11-17",
-        "pmc-p-11-18"
-      ],
-      "submittedAt": "2026-09-11T14:00:00.000Z",
-      "submittedBy": "Notre Dame Coach"
-    },
+    "homeSquadSelection": null,
+    "awaySquadSelection": null,
     "substitutionRequests": [],
     "tombstoneEventIds": [],
     "countdownProtocol": [
@@ -29082,8 +28967,15 @@
     "assistantReferee1": "E. Williams",
     "assistantReferee2": "L. Crichlow",
     "fourthOfficial": "N. Greaves",
-    "teamSheetApproved": true,
-    "teamSheetApprovedBy": "I. Watkins"
+    "teamSheetApproved": false,
+    "teamSheetApprovedBy": null,
+    "homeTechnicalStaff": [
+      "Alphonso Lewis",
+      "Asquith Howell",
+      "Chantelle Braithwaite",
+      "Andrew Jean",
+      "Shawn Clarke"
+    ]
   },
   {
     "id": "pmc-test-fixture-live",

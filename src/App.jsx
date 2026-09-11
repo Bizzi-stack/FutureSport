@@ -462,9 +462,25 @@ function App() {
           let didUpdate = missingFixtures.length > 0;
           updatedList = updatedList.map(m => {
             const fresh = pmcMap.get(m.id);
-            if (fresh && (m.status === 'scheduled' || !m.status) && fresh.teamSheetApproved && !m.teamSheetApproved) {
-              didUpdate = true;
-              return { ...m, ...fresh };
+            if (fresh && (m.status === 'scheduled' || !m.status)) {
+              // If previously populated with synthetic coach submissions, clear them for coaches to submit
+              if (m.homeSquadSelection?.submittedBy === 'Bagatelle Coach' ||
+                  m.homeSquadSelection?.submittedBy === 'Weymouth Wales Coach' ||
+                  m.teamSheetApprovedBy === 'J. Griffith' ||
+                  m.teamSheetApprovedBy === 'I. Watkins') {
+                didUpdate = true;
+                return {
+                  ...m,
+                  homeSquadSelection: null,
+                  awaySquadSelection: null,
+                  teamSheetApproved: false,
+                  teamSheetApprovedBy: null
+                };
+              }
+              if (fresh.teamSheetApproved && !m.teamSheetApproved) {
+                didUpdate = true;
+                return { ...m, ...fresh };
+              }
             }
             return m;
           });
