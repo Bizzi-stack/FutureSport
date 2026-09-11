@@ -303,10 +303,10 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6'].forEach(k => {
+      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6', 'eduvision-pmc-students-v7', 'eduvision-pmc-students-v8'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
-      const saved = localStorage.getItem('eduvision-pmc-students-v7');
+      const saved = localStorage.getItem('eduvision-pmc-students-v9');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -327,7 +327,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v7', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v9', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -453,12 +453,25 @@ function App() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           const existingIds = new Set(parsed.map(m => m.id));
           const missingFixtures = (PMC_MATCHES || []).filter(m => !existingIds.has(m.id));
+          let updatedList = parsed;
           if (missingFixtures.length > 0) {
-            const merged = [...parsed, ...missingFixtures];
-            localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(merged));
-            return sanitizeMatchState(merged);
+            updatedList = [...parsed, ...missingFixtures];
           }
-          return sanitizeMatchState(parsed);
+          // Ensure any scheduled fixture with updated official team sheets or refs gets refreshed
+          const pmcMap = new Map((PMC_MATCHES || []).map(m => [m.id, m]));
+          let didUpdate = missingFixtures.length > 0;
+          updatedList = updatedList.map(m => {
+            const fresh = pmcMap.get(m.id);
+            if (fresh && (m.status === 'scheduled' || !m.status) && fresh.teamSheetApproved && !m.teamSheetApproved) {
+              didUpdate = true;
+              return { ...m, ...fresh };
+            }
+            return m;
+          });
+          if (didUpdate) {
+            localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(updatedList));
+          }
+          return sanitizeMatchState(updatedList);
         }
       }
     } catch (err) {

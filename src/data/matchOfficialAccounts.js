@@ -175,6 +175,30 @@ export const DEFAULT_OFFICIALS = {
             badge: 'National Referee',
             assignedVenue: 'Combermere Grounds',
             avatar: 'REF'
+        },
+        {
+            id: 'ref_j_griffith',
+            username: 'j.griffith',
+            name: 'J. Griffith',
+            email: 'j.griffith@pmcup.bb',
+            password: 'password',
+            role: 'referee',
+            badge: 'BFA Premier Official',
+            assignedVenue: 'Orange Hill, St. James',
+            assignedMatchIds: ['pmc-fixture-3'],
+            avatar: 'REF'
+        },
+        {
+            id: 'ref_i_watkins',
+            username: 'i.watkins',
+            name: 'I. Watkins',
+            email: 'i.watkins@pmcup.bb',
+            password: 'password',
+            role: 'referee',
+            badge: 'FIFA / BFA National Referee',
+            assignedVenue: 'Orange Hill, St. James',
+            assignedMatchIds: ['pmc-fixture-4'],
+            avatar: 'REF'
         }
     ],
     fourth_official: [
@@ -208,6 +232,28 @@ export const DEFAULT_OFFICIALS = {
             role: 'fourth_official',
             assignedVenue: 'Combermere Grounds',
             avatar: 'FO'
+        },
+        {
+            id: 'fo_n_moseley',
+            username: 'n.moseley',
+            name: 'N. Moseley',
+            email: 'n.moseley@pmcup.bb',
+            password: 'password',
+            role: 'fourth_official',
+            assignedVenue: 'Orange Hill, St. James',
+            assignedMatchIds: ['pmc-fixture-3'],
+            avatar: 'FO'
+        },
+        {
+            id: 'fo_n_greaves',
+            username: 'n.greaves',
+            name: 'N. Greaves',
+            email: 'n.greaves@pmcup.bb',
+            password: 'password',
+            role: 'fourth_official',
+            assignedVenue: 'Orange Hill, St. James',
+            assignedMatchIds: ['pmc-fixture-4'],
+            avatar: 'FO'
         }
     ],
     commissioner: [
@@ -219,7 +265,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4'],
             avatar: 'MC'
         },
         {
@@ -230,21 +276,22 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4'],
             avatar: 'MO'
         }
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v4';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v5';
 
 export function getOfficialsByRole(role) {
     try {
+        localStorage.removeItem('eduvision-match-officials-v4');
         const saved = localStorage.getItem(OFFICIALS_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
             const str = JSON.stringify(parsed);
-            if (!str.includes('guest.possession') || str.includes('analyst_marcus') || !str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb') || str.includes('Sarah Rollins') || str.includes('Charles White') || !str.includes('Wren') || !str.includes('Aundrea')) {
+            if (!str.includes('guest.possession') || !str.includes('j.griffith') || !str.includes('i.watkins') || !str.includes('n.moseley') || !str.includes('n.greaves') || str.includes('analyst_marcus') || !str.includes('johnathan.cumberbatch@gmail.com') || str.includes('tariq@futurebarbados.bb') || str.includes('jakob@futurebarbados.bb') || str.includes('Sarah Rollins') || str.includes('Charles White') || !str.includes('Wren') || !str.includes('Aundrea')) {
                 localStorage.setItem(OFFICIALS_STORAGE_KEY, JSON.stringify(DEFAULT_OFFICIALS));
                 return DEFAULT_OFFICIALS[role] || [];
             }
