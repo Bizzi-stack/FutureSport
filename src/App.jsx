@@ -451,6 +451,13 @@ function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map(m => m.id));
+          const missingFixtures = (PMC_MATCHES || []).filter(m => !existingIds.has(m.id));
+          if (missingFixtures.length > 0) {
+            const merged = [...parsed, ...missingFixtures];
+            localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(merged));
+            return sanitizeMatchState(merged);
+          }
           return sanitizeMatchState(parsed);
         }
       }
