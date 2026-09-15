@@ -29335,5 +29335,182 @@
     "awayPlayers": [],
     "teamSheetApproved": false,
     "teamSheetApprovedBy": null
+  },
+  {
+    "id": "pmc-fixture-7",
+    "date": "2026-09-15T19:00:00.000Z",
+    "time": "19:00",
+    "year": "2026-2027",
+    "round": "Group Stage",
+    "matchday": "Matchday 4 · PMC Group Stage",
+    "venue": "Friendship",
+    "ageGroup": "Senior",
+    "homeTeam": "PINELANDS UNITED",
+    "awayTeam": "IVY ROVERS",
+    "homeTeamId": "pmc-club-27",
+    "awayTeamId": "pmc-club-28",
+    "referee": "N. Greaves",
+    "commissioner": "Wren / Aundrea",
+    "operator": "Jonathan",
+    "status": "scheduled",
+    "homeScore": 0,
+    "awayScore": 0,
+    "events": [],
+    "timeline": [],
+    "playerStats": {},
+    "homeSquadSelection": null,
+    "awaySquadSelection": null,
+    "teamSheetApproved": false,
+    "teamSheetApprovedBy": null,
+    "homeTechnicalStaff": [
+      "Martin Newton (Manager)",
+      "Samuel Murray (Coach)",
+      "Stephen Grant (Asst Coach)",
+      "Reg-Marie Parris (Medic)",
+      "Sherisa Brathwaite (Medic)"
+    ],
+    "awayTechnicalStaff": [
+      "Bryan Neblett (Coach)",
+      "Tarik Boyce (Asst Coach)",
+      "Janelle Stevenson (Manager)",
+      "J'Noire Gittens (MEDIC)"
+    ],
+    "substitutionRequests": [],
+    "tombstoneEventIds": [],
+    "countdownProtocol": [
+      {
+        "id": "cp1",
+        "timeBefore": 90,
+        "action": "Team Arrival & Dressing Room Access",
+        "location": "Dressing Rooms",
+        "completed": false
+      },
+      {
+        "id": "cp2",
+        "timeBefore": 60,
+        "action": "Match Officials Pitch Inspection",
+        "location": "Field of Play",
+        "completed": false
+      },
+      {
+        "id": "cp3",
+        "timeBefore": 50,
+        "action": "Warm-ups Commence",
+        "location": "Field of Play",
+        "completed": false
+      },
+      {
+        "id": "cp4",
+        "timeBefore": 15,
+        "action": "Warm-ups Conclude & Return to Dressing Rooms",
+        "location": "Dressing Rooms",
+        "completed": false
+      },
+      {
+        "id": "cp5",
+        "timeBefore": 10,
+        "action": "Teams & Officials Assemble in Tunnel",
+        "location": "Tunnel",
+        "completed": false
+      },
+      {
+        "id": "cp6",
+        "timeBefore": 5,
+        "action": "Teams Enter Field & Formalities",
+        "location": "Field of Play",
+        "completed": false
+      },
+      {
+        "id": "cp7",
+        "timeBefore": 0,
+        "action": "Kick-Off",
+        "location": "Field of Play",
+        "completed": false
+      }
+    ],
+    "homePlayers": [],
+    "awayPlayers": []
+  },
+  {
+    "id": "pmc-fixture-8",
+    "date": "2026-09-15T21:00:00.000Z",
+    "time": "21:00",
+    "year": "2026-2027",
+    "round": "Group Stage",
+    "matchday": "Matchday 4 · PMC Group Stage",
+    "venue": "Friendship",
+    "ageGroup": "Senior",
+    "homeTeam": "BRITTON'S HILL",
+    "awayTeam": "ST. ANDREW LIONS",
+    "homeTeamId": "pmc-club-5",
+    "awayTeamId": "pmc-club-1",
+    "referee": "S. Thorne",
+    "commissioner": "Wren / Aundrea",
+    "operator": "Jonathan",
+    "status": "scheduled",
+    "homeScore": 0,
+    "awayScore": 0,
+    "events": [],
+    "timeline": [],
+    "playerStats": {},
+    "homeSquadSelection": null,
+    "awaySquadSelection": null,
+    "teamSheetApproved": false,
+    "teamSheetApprovedBy": null,
+    "substitutionRequests": [],
+    "tombstoneEventIds": [],
+    "countdownProtocol": [
+      {
+        "id": "cp1",
+        "timeBefore": 90,
+        "action": "Team Arrival & Dressing Room Access",
+        "location": "Dressing Rooms",
+        "completed": false
+      },
+      {
+        "id": "cp2",
+        "timeBefore": 60,
+        "action": "Match Officials Pitch Inspection",
+        "location": "Field of Play",
+        "completed": false
+      },
+      {
+        "id": "cp3",
+        "timeBefore": 50,
+        "action": "Warm-ups Commence",
+        "location": "Field of Play",
+        "completed": false
+      },
+      {
+        "id": "cp4",
+        "timeBefore": 15,
+        "action": "Warm-ups Conclude & Return to Dressing Rooms",
+        "location": "Dressing Rooms",
+        "completed": false
+      },
+      {
+        "id": "cp5",
+        "timeBefore": 10,
+        "action": "Teams & Officials Assemble in Tunnel",
+        "location": "Tunnel",
+        "completed": false
+      },
+      {
+        "id": "cp6",
+        "timeBefore": 5,
+        "action": "Teams Enter Field & Formalities",
+        "location": "Field of Play",
+        "completed": false
+      },
+      {
+        "id": "cp7",
+        "timeBefore": 0,
+        "action": "Kick-Off",
+        "location": "Field of Play",
+        "completed": false
+      }
+    ],
+    "homePlayers": [],
+    "awayPlayers": []
   }
 ]

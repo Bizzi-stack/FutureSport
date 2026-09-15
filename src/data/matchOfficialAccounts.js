@@ -12,7 +12,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'all',
             isMasterLogger: true,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '👑'
         },
         {
@@ -25,7 +25,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'all',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'N'
         },
         {
@@ -38,7 +38,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'possession',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '⏱️'
         },
         {
@@ -51,7 +51,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'shots',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '⚽'
         },
         {
@@ -64,7 +64,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'shots',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '⚽'
         },
         {
@@ -77,7 +77,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '📋'
         },
         {
@@ -90,7 +90,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '📋'
         },
         {
@@ -103,7 +103,7 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '📋'
         },
         {
@@ -116,11 +116,19 @@ export const DEFAULT_OFFICIALS = {
             captureRole: 'general',
             isMasterLogger: false,
             assignedVenue: 'National Stadium',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: '📋'
         }
     ],
     referee: [
+
+        { id: 'ref_n_greaves', username: 'n.greaves', name: 'Norman Greaves', email: 'n.greaves@pmcup.bb', password: 'password123', role: 'referee', assignedMatchIds: ['pmc-fixture-7', 'pmc-fixture-8'] },
+        { id: 'ref_e_williams', username: 'e.williams', name: 'Elvis Williams', email: 'e.williams@pmcup.bb', password: 'password123', role: 'referee', assignedMatchIds: ['pmc-fixture-7', 'pmc-fixture-8'] },
+        { id: 'ref_m_williams', username: 'm.williams', name: 'Michael Williams', email: 'm.williams@pmcup.bb', password: 'password123', role: 'referee', assignedMatchIds: ['pmc-fixture-7', 'pmc-fixture-8'] },
+        { id: 'ref_s_thorne', username: 's.thorne', name: 'Seth Thorne', email: 's.thorne@pmcup.bb', password: 'password123', role: 'referee', assignedMatchIds: ['pmc-fixture-7', 'pmc-fixture-8'] },
+        { id: 'ref_l_crichlow', username: 'l.crichlow', name: 'Latrall Crichlow', email: 'l.crichlow@pmcup.bb', password: 'password123', role: 'referee', assignedMatchIds: ['pmc-fixture-7', 'pmc-fixture-8'] },
+        { id: 'ref_s_hill', username: 's.hill', name: 'Sadiq Hill', email: 's.hill@pmcup.bb', password: 'password123', role: 'referee', assignedMatchIds: ['pmc-fixture-7', 'pmc-fixture-8'] },
+
         {
             id: 'ref_adrian',
             username: 'adrian.hunte',
@@ -185,7 +193,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'BFA Premier Official',
             assignedVenue: 'Orange Hill, St. James',
-            assignedMatchIds: ['pmc-fixture-3'],
+            assignedMatchIds: ['pmc-fixture-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'REF'
         },
         {
@@ -197,7 +205,7 @@ export const DEFAULT_OFFICIALS = {
             role: 'referee',
             badge: 'FIFA / BFA National Referee',
             assignedVenue: 'Orange Hill, St. James',
-            assignedMatchIds: ['pmc-fixture-4'],
+            assignedMatchIds: ['pmc-fixture-4', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'REF'
         }
     ],
@@ -241,7 +249,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'fourth_official',
             assignedVenue: 'Orange Hill, St. James',
-            assignedMatchIds: ['pmc-fixture-3'],
+            assignedMatchIds: ['pmc-fixture-3', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'FO'
         },
         {
@@ -252,7 +260,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'fourth_official',
             assignedVenue: 'Orange Hill, St. James',
-            assignedMatchIds: ['pmc-fixture-4'],
+            assignedMatchIds: ['pmc-fixture-4', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'FO'
         }
     ],
@@ -265,7 +273,7 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'MC'
         },
         {
@@ -276,13 +284,13 @@ export const DEFAULT_OFFICIALS = {
             password: 'password',
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
-            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4'],
+            assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'pmc-fixture-7', 'pmc-fixture-8'],
             avatar: 'MO'
         }
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v5';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v6';
 
 export function getOfficialsByRole(role) {
     try {
