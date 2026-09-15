@@ -4,10 +4,12 @@
  */
 
 import { mergeMatchStates, isPmcMatch } from './matchEngine.js';
+import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://ayxcbvzeptwplidkwmob.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5eGNidnplcHR3cGxpZGt3bW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxNjgxMjIsImV4cCI6MjA5OTc0NDEyMn0.gLn1Zd-1dXfJFjAD6Jyu66Sn9Hh6qHGnditwKhPfmjk';
 const TABLE_URL = `${SUPABASE_URL}/rest/v1/pmc_matches_state`;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const HEADERS = {
     'apikey': SUPABASE_KEY,
@@ -338,9 +340,8 @@ export function subscribeToRealtimeSync(onMatchesUpdate) {
         broadcastChannel.addEventListener('message', handleBroadcast);
     }
 
-    // Supabase Cloud Polling (every 1.2s) for cross-device sync of PMC production
-    const pollMatches = async () => {
-        const cloudMatches = await fetchMatchesFromCloud();
+    // Initial Fetch
+    fetchMatchesFromCloud().then(cloudMatches => {
         if (cloudMatches && Array.isArray(cloudMatches) && cloudMatches.length > 0) {
             const pmcOnly = cloudMatches.filter(isPmcMatch);
             const newHash = computeMatchesHash(pmcOnly);
@@ -349,12 +350,25 @@ export function subscribeToRealtimeSync(onMatchesUpdate) {
                 onMatchesUpdate(pmcOnly);
             }
         }
-    };
+    });
 
-    pollMatches();
-    const intervalId = setInterval(pollMatches, 1200);
+    // Supabase Realtime WebSockets for Instant Sync
+    const channel = supabase
+        .channel('public:pmc_matches_state')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pmc_matches_state' }, (payload) => {
+            const rawMatches = payload.new?.data?.matches;
+            if (Array.isArray(rawMatches)) {
+                const pmcOnly = rawMatches.filter(isPmcMatch);
+                const newHash = computeMatchesHash(pmcOnly);
+                if (newHash !== localHash) {
+                    localHash = newHash;
+                    onMatchesUpdate(pmcOnly);
+                }
+            }
+        })
+        .subscribe();
 
     return () => {
-        clearInterval(intervalId);
+        supabase.removeChannel(channel);
     };
 }

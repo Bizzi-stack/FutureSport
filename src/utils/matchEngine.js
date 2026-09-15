@@ -318,6 +318,10 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     const homeScore = rec.homeScore;
     const awayScore = rec.awayScore;
 
+    const localLiveTime = Number(localMatch.liveState?.updatedAt || 0);
+    const incLiveTime = Number(incomingMatch.liveState?.updatedAt || 0);
+    const latestLiveState = incLiveTime > localLiveTime ? incomingMatch.liveState : localMatch.liveState;
+
     const merged = {
         ...base,
         status: finalStatus,
@@ -330,16 +334,16 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         tombstoneEventIds: mergedTombstones
     };
 
-    if (merged.liveState) {
+    if (latestLiveState) {
         merged.liveState = {
-            ...merged.liveState,
+            ...latestLiveState,
             status: finalStatus,
-            isRunning: terminalStatuses.includes(finalStatus) ? false : (merged.liveState.isRunning ?? false),
-            period: terminalStatuses.includes(finalStatus) ? 'FT' : (merged.liveState.period || '1H'),
+            isRunning: terminalStatuses.includes(finalStatus) ? false : (latestLiveState.isRunning ?? false),
+            period: terminalStatuses.includes(finalStatus) ? 'FT' : (latestLiveState.period || '1H'),
             homeScore: merged.homeScore,
             awayScore: merged.awayScore,
-            updatedAt: merged.updatedAt,
-            version: merged.version,
+            updatedAt: Math.max(localLiveTime, incLiveTime),
+            version: Math.max(Number(localMatch.liveState?.version || 0), Number(incomingMatch.liveState?.version || 0)) + 1,
             playerStats: mergedPlayerStats,
             timeline: mergedTimeline,
             tombstoneEventIds: mergedTombstones
