@@ -303,10 +303,10 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6', 'eduvision-pmc-students-v7', 'eduvision-pmc-students-v8', 'eduvision-pmc-students-v9', 'eduvision-pmc-students-v10'].forEach(k => {
+      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6', 'eduvision-pmc-students-v7', 'eduvision-pmc-students-v8', 'eduvision-pmc-students-v9', 'eduvision-pmc-students-v10', 'eduvision-pmc-students-v11'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
-      const saved = localStorage.getItem('eduvision-pmc-students-v11');
+      const saved = localStorage.getItem('eduvision-pmc-students-v12');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -327,7 +327,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v11', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v12', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -446,8 +446,8 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      localStorage.removeItem('eduvision-pmc-matches-v8');
-      const saved = localStorage.getItem('eduvision-pmc-matches-v9');
+      localStorage.removeItem('eduvision-pmc-matches-v9');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v10');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -485,7 +485,7 @@ function App() {
             return m;
           });
           if (didUpdate) {
-            localStorage.setItem('eduvision-pmc-matches-v9', JSON.stringify(updatedList));
+            localStorage.setItem('eduvision-pmc-matches-v10', JSON.stringify(updatedList));
           }
           return sanitizeMatchState(updatedList);
         }
@@ -543,7 +543,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v9', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v10', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -667,8 +667,8 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.removeItem('eduvision-pmc-matches-v8');
-      localStorage.setItem('eduvision-pmc-matches-v9', JSON.stringify(sanitized));
+      localStorage.removeItem('eduvision-pmc-matches-v9');
+      localStorage.setItem('eduvision-pmc-matches-v10', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
