@@ -11,6 +11,8 @@
     "test": "node tests/multiRoleSync.test.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "docx": "^9.7.1",
     "plotly.js-dist-min": "^3.5.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
