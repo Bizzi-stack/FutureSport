@@ -1046,6 +1046,17 @@ function App() {
         } else if (role === 'commissioner') {
           const comm = officialProfile || getOfficialsByRole('commissioner')[0];
           setCurrentCommissioner(comm);
+        } else if (role === 'commentator') {
+          const commAccount = officialProfile || getOfficialsByRole('commentator')[0];
+          // Treat commentator as a statistician internally but strictly read-only
+          setCurrentAnalyst({
+            ...commAccount,
+            captureRole: 'readonly',
+            isMasterLogger: false
+          });
+          if (deepLinkedMatchId) {
+            setDirectMatchId(deepLinkedMatchId);
+          }
         }
 
         if (role === 'supervisor') {
@@ -1324,7 +1335,7 @@ function App() {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
 
 
-          {(userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'supervisor') && (
+          {(userRole === 'referee' || userRole === 'statistician' || userRole === 'commentator' || userRole === 'super_admin' || userRole === 'supervisor') && (
             <button
               onClick={() => setShowMatchCentre(true)}
               style={{
@@ -1663,8 +1674,8 @@ function App() {
               />
           )}
 
-          {/* Field Live Data Capturer (Statistician View) */}
-          {userRole === 'statistician' && (
+          {/* Field Live Data Capturer & Commentator View */}
+          {(userRole === 'statistician' || userRole === 'commentator') && (
               <StatisticianDashboard
                   matches={displayMatches}
                   schools={displaySchools}
@@ -1739,7 +1750,7 @@ function App() {
         />
       )}
 
-      {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'supervisor') && (
+      {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'commentator' || userRole === 'super_admin' || userRole === 'supervisor') && (
         <MatchCentre
           allStudents={displayStudents}
           year={selectedYear}

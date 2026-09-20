@@ -285,12 +285,32 @@ export const DEFAULT_OFFICIALS = {
             role: 'commissioner',
             assignedVenue: 'Friendship, St. Michael',
             assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'pmc-fixture-7', 'pmc-fixture-8'],
-            avatar: 'MO'
+                        avatar: 'MO'
+        }
+    ],
+    commentator: [
+        {
+            id: 'comm_1',
+            username: 'commentator1',
+            name: 'Broadcast Commentator 1',
+            email: 'commentator1@pmcup.bb',
+            password: 'password123',
+            role: 'commentator',
+            assignedMatchIds: []
+        },
+        {
+            id: 'comm_2',
+            username: 'commentator2',
+            name: 'Broadcast Commentator 2',
+            email: 'commentator2@pmcup.bb',
+            password: 'password123',
+            role: 'commentator',
+            assignedMatchIds: []
         }
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v6';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v7';
 
 export function getOfficialsByRole(role) {
     try {
