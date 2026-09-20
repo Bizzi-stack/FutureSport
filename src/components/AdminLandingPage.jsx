@@ -26,9 +26,9 @@ const AdminLandingPage = ({
 }) => {
   const [selectedRole, setSelectedRole] = useState('super_admin');
   
-  // Official Accounts for Referee, Fourth Official, Statistician, and Match Coordinator
+  // Official Accounts for Referee, Fourth Official, Statistician, Match Coordinator, and Commentator
   const currentRoleOfficials = useMemo(() => {
-    if (['referee', 'fourth_official', 'statistician', 'commissioner'].includes(selectedRole)) {
+    if (['referee', 'fourth_official', 'statistician', 'commissioner', 'commentator'].includes(selectedRole)) {
       return getOfficialsByRole(selectedRole);
     }
     return [];
@@ -476,9 +476,9 @@ const AdminLandingPage = ({
                       }}
                     >
                       {currentRoleOfficials.map(o => (
-                        <option key={o.id} value={o.username}>
-                          {o.name} ({o.username}) · {o.assignedVenue}
-                        </option>
+                          <option key={o.id} value={o.username}>
+                            {o.name} ({o.username}){o.assignedVenue ? ` · ${o.assignedVenue}` : ''}
+                          </option>
                       ))}
                     </select>
 
