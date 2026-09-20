@@ -290,6 +290,15 @@ export const DEFAULT_OFFICIALS = {
     ],
     commentator: [
         {
+            id: 'comm_pmcup',
+            username: 'pmcupofficial',
+            name: 'PMC Official Commentator',
+            email: 'pmcupofficial@pmcup.bb',
+            password: 'pmcup2026',
+            role: 'commentator',
+            assignedMatchIds: []
+        },
+        {
             id: 'comm_1',
             username: 'commentator1',
             name: 'Broadcast Commentator 1',
@@ -310,7 +319,7 @@ export const DEFAULT_OFFICIALS = {
     ]
 };
 
-const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v7';
+const OFFICIALS_STORAGE_KEY = 'eduvision-match-officials-v10';
 
 export function getOfficialsByRole(role) {
     try {
