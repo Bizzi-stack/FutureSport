@@ -1,0 +1,54 @@
+﻿
+> education-data-platform@0.0.0 test
+> node tests/multiRoleSync.test.js
+
+================================================================
+   FUTURESPORT REALTIME MATCH ENGINE & MULTI-ROLE TEST SUITE    
+================================================================
+
+================================================================
+CATEGORY A: ISOLATED UNIT TESTS
+================================================================
+  ✓ PASS: A1: Untouched fields retain version 0 and cannot overwrite goals with zero
+  ✓ PASS: A2: Newer timestamps persist on unchanged values to protect against stale overwrites
+  ✓ PASS: A3: Equal timestamp conflicts resolve via sequence/undo ordering without Math.max
+  ✓ PASS: A4: Explicit migration provenance protects baselines and prevents double counting
+  ✓ PASS: A5: cleanStudentsForSave preserves _matchContributions null state
+  ✓ PASS: A6: Preserves 0 minutes and increments appearances only for actual participants
+  ✓ PASS: A7: Goalkeeper attribution never infers from -1 suffix and respects outfield positions
+  ✓ PASS: A8: Null coordinates remain null and are never coerced to 50,50 or left-zone
+
+Category A Summary: 8/8 passed.
+
+================================================================
+CATEGORY B: PRODUCTION HANDLER REDUCER TESTS (LiveMatch & Modals)
+================================================================
+  ✓ PASS: B1: Action token deduplication rejects repeat submissions cleanly
+  ✓ PASS: B2: recordMatchShotState logs coordinates and updates shooter & GK stats
+  ✓ PASS: B3: recordMatchGkSaveState logs save and penalties saved
+  ✓ PASS: B4: Rapid successive saves in same second recorded with monotonic sequence
+  ✓ PASS: B5: Repeated undos decrement target player while leaving other goals untouched
+  ✓ PASS: B6: updateMatchPlayerDetailState updates stats with monotonic versioning
+
+Category B Summary: 6/6 passed.
+
+================================================================
+CATEGORY C: TWO CONNECTED CLIENTS & CLOUD SYNCHRONIZATION TESTS
+================================================================
+  ✓ PASS: C1: Concurrent same-player stat updates survive on both clients
+  ✓ PASS: C2: Reversed message arrival rejected and tombstones merge cleanly
+  ✓ PASS: C3: mergeCloudMatches merges by match ID without wiping other competitions or stats
+  ✓ PASS: C4: Remote approved match arrival reconstructs student stats deterministically
+  ✓ PASS: C5: Offline actions on both clients merge cleanly upon reconnection
+
+Category C Summary: 5/5 passed.
+
+================================================================
+   🎉 ALL CATEGORIES EXECUTED AND PASSED SUCCESSFULLY!          
+================================================================
+   Category A: Isolated Unit Tests: 8/8 PASSED
+   Category B: Production Handler Reducer Tests: 6/6 PASSED
+   Category C: Two Connected Clients & Cloud Sync Tests: 5/5 PASSED
+   TOTAL TESTS: 19/19 PASSED (100%)
+================================================================
+

@@ -809,6 +809,8 @@ export default function LiveMatch({
 
     /* Undo/Delete Timeline Event */
     const handleUndoEvent = (eventId) => {
+        if (captureRole === 'readonly') return;
+
         localSeqRef.current += 1;
         const now = Date.now();
         localUpdatedAtRef.current = now;
@@ -831,6 +833,7 @@ export default function LiveMatch({
 
     /* Edit Match Event */
     const handleSaveEditedEvent = (eventId, updatedFields) => {
+        if (captureRole === 'readonly') return;
         localSeqRef.current += 1;
         const now = Date.now();
         localUpdatedAtRef.current = now;
@@ -855,6 +858,7 @@ export default function LiveMatch({
 
     /* Overturn Match Event (Referee Call Change) */
     const handleOverturnEvent = (eventId, overturnReason) => {
+        if (captureRole === 'readonly') return;
         localSeqRef.current += 1;
         const now = Date.now();
         localUpdatedAtRef.current = now;

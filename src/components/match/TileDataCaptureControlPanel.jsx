@@ -401,14 +401,14 @@ export default function TileDataCaptureControlPanel({
                 style={{
                     padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px',
                     background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.8))',
-                    opacity: isPossessionEnabled ? 1 : 0.35,
+                    opacity: (isPossessionEnabled || activeRole === 'readonly') ? 1 : 0.35,
                     pointerEvents: isPossessionEnabled ? 'auto' : 'none',
-                    filter: isPossessionEnabled ? 'none' : 'grayscale(85%)',
+                    filter: (isPossessionEnabled || activeRole === 'readonly') ? 'none' : 'grayscale(85%)',
                     transition: 'all 0.2s ease',
                     position: 'relative'
                 }}
             >
-                {!isPossessionEnabled && (
+                {!isPossessionEnabled && activeRole !== 'readonly' && (
                     <div style={{
                         position: 'absolute', top: '12px', right: '16px',
                         background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)',

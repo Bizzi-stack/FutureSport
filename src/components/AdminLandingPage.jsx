@@ -154,7 +154,7 @@ const AdminLandingPage = ({
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner'].includes(selectedRole);
+    const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner', 'commentator'].includes(selectedRole);
     let officialProfile = null;
 
     if (isOfficialRole) {
@@ -174,7 +174,7 @@ const AdminLandingPage = ({
     }
   };
 
-  const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner'].includes(selectedRole);
+  const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner', 'commentator'].includes(selectedRole);
 
   const getRoleBadgeTitle = () => {
     if (selectedRole === 'referee') return 'Referee Match Official Accounts';
@@ -326,6 +326,7 @@ const AdminLandingPage = ({
                     <option value="referee">Referee (Match Whistle & Official)</option>
                     <option value="fourth_official">Fourth Official (Substitutions & Board)</option>
                     <option value="statistician">Statistician / Live Data Entry</option>
+                    <option value="commentator">Broadcast Commentator (Read-Only Portal)</option>
                     <option value="commissioner">
                       {selectedTournament === 'PMC' ? "Match Coordinator / Match Operator" : "UEFA Match Delegate / Commissioner"}
                     </option>

@@ -1,0 +1,13 @@
+{
+  "baseCommitId": "27260c85d48f1c4b5e259bad67e3ecb8980f9714",
+  "baseCommitTitle": "feat: update Match Coordinator and Operator Desk names to Wren and Aundrea",
+  "branch": "testing",
+  "packageTimestamp": "2026-09-08T17:26:00.000Z",
+  "verificationSummary": {
+    "categoryA_isolatedUnitTests": "PASSED (8/8)",
+    "categoryB_productionHandlerReducerTests": "PASSED (6/6)",
+    "categoryC_twoConnectedClientsAndCloudSyncTests": "PASSED (5/5)",
+    "totalTestsPassed": "19/19 PASSED (100%)",
+    "productionBuild": "PASSED (vite v7.3.1 built in 11.31s)"
+  }
+}
