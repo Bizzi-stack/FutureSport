@@ -1,5 +1,57 @@
 [
   {
+    "id": "pmc-fixture-10",
+    "date": "2026-09-22T01:00:00.000Z",
+    "time": "21:00",
+    "year": "2026-2027",
+    "round": "Matchday 5 · PMC Group Stage",
+    "venue": "Glebe, St. George",
+    "homeTeamId": "pmc-club-2",
+    "awayTeamId": "pmc-club-10",
+    "status": "upcoming",
+    "teamSheetApproved": false,
+    "homeSquadSelection": null,
+    "awaySquadSelection": null,
+    "assignedReferees": [
+      "ref_j_griffith",
+      "ref_n_moseley",
+      "ref_s_thorne"
+    ],
+    "liveState": {
+      "period": "1H",
+      "isRunning": false,
+      "elapsedOffset": 0,
+      "playerStats": {},
+      "timeline": []
+    }
+  },
+  {
+    "id": "pmc-fixture-9",
+    "date": "2026-09-21T23:00:00.000Z",
+    "time": "19:00",
+    "year": "2026-2027",
+    "round": "Matchday 5 · PMC Group Stage",
+    "venue": "Glebe, St. George",
+    "homeTeamId": "pmc-club-29",
+    "awayTeamId": "pmc-club-30",
+    "status": "upcoming",
+    "teamSheetApproved": false,
+    "homeSquadSelection": null,
+    "awaySquadSelection": null,
+    "assignedReferees": [
+      "ref_n_greaves",
+      "ref_i_watkins",
+      "ref_s_thorne"
+    ],
+    "liveState": {
+      "period": "1H",
+      "isRunning": false,
+      "elapsedOffset": 0,
+      "playerStats": {},
+      "timeline": []
+    }
+  },
+  {
     "id": "pmc-fixture-1",
     "date": "2026-09-08T00:59:51.035Z",
     "time": "19:00",
