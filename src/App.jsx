@@ -666,9 +666,11 @@ function App() {
   const handleResetPmcMatches = () => {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
+    setPmcStudents(PMC_STUDENTS);
     try {
       localStorage.removeItem('eduvision-pmc-matches-v9');
       localStorage.setItem('eduvision-pmc-matches-v21', JSON.stringify(sanitized));
+      localStorage.setItem('eduvision-pmc-students-v25', JSON.stringify(PMC_STUDENTS));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
@@ -1231,7 +1233,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm("Reset PMC fixtures back to official default schedule (Bagatelle, Technique, Kickstart, UWI, Wales, Paradise)?")) {
+                  if (window.confirm("WARNING: This will reset all PMC match fixtures AND player rosters back to their official defaults. Continue?")) {
                     handleResetPmcMatches();
                   }
                 }}
@@ -1241,9 +1243,9 @@ function App() {
                   border: '1px solid rgba(255, 199, 38, 0.4)', cursor: 'pointer',
                   marginLeft: '4px'
                 }}
-                title="Restore default Prime Minister's Cup fixture schedule"
+                title="Restore default Prime Minister's Cup fixture schedule and rosters"
               >
-                Reset PMC Schedule
+                Reset PMC Data
               </button>
             )}
         </div>
