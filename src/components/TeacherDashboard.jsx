@@ -348,14 +348,49 @@ export default function TeacherDashboard({
                                     >
                                         <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div style={{
-                                                    width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(37,99,235,0.2)',
-                                                    border: '1px solid rgba(37,99,235,0.4)', color: '#93c5fd',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900'
-                                                }}>
+                                                <div 
+                                                    style={{
+                                                        width: '26px', height: '26px', borderRadius: '50%', background: 'rgba(37,99,235,0.2)',
+                                                        border: '1px solid rgba(37,99,235,0.4)', color: '#93c5fd',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    title="Click to edit jersey number"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const num = prompt(`Enter new jersey number for ${player.name}:`, player.jerseyNumber != null ? player.jerseyNumber : '');
+                                                        if (num !== null) {
+                                                            const newNum = parseInt(num, 10);
+                                                            if (onDataUpdate) {
+                                                                onDataUpdate([{ ...player, jerseyNumber: isNaN(newNum) ? null : newNum }]);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
                                                     #{player.jerseyNumber != null ? player.jerseyNumber : '-'}
                                                 </div>
                                                 {player.name}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const num = prompt(`Enter new jersey number for ${player.name}:`, player.jerseyNumber != null ? player.jerseyNumber : '');
+                                                        if (num !== null) {
+                                                            const newNum = parseInt(num, 10);
+                                                            if (onDataUpdate) {
+                                                                onDataUpdate([{ ...player, jerseyNumber: isNaN(newNum) ? null : newNum }]);
+                                                            }
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', 
+                                                        cursor: 'pointer', padding: '0 4px', fontSize: '14px', display: 'flex', alignItems: 'center'
+                                                    }}
+                                                    title="Edit Jersey Number"
+                                                    onMouseEnter={e => e.currentTarget.style.color = '#60a5fa'}
+                                                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+                                                >
+                                                    ✎
+                                                </button>
                                             </div>
                                         </td>
                                         <td style={{ padding: '14px 16px', fontSize: '12px', fontFamily: 'monospace', fontWeight: '800', color: '#a5b4fc' }}>
