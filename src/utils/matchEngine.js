@@ -318,9 +318,32 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     const homeScore = rec.homeScore;
     const awayScore = rec.awayScore;
 
-    const localLiveTime = Number(localMatch.liveState?.updatedAt || 0);
+        const localLiveTime = Number(localMatch.liveState?.updatedAt || 0);
     const incLiveTime = Number(incomingMatch.liveState?.updatedAt || 0);
     const latestLiveState = incLiveTime > localLiveTime ? incomingMatch.liveState : localMatch.liveState;
+    
+    // CRITICAL FIX: Safe Clock Merging
+    const localClockTime = Number(localMatch.liveState?.clockUpdatedAt || 0);
+    const incClockTime = Number(incomingMatch.liveState?.clockUpdatedAt || 0);
+    let resolvedIsRunning = latestLiveState?.isRunning;
+    let resolvedStartTime = latestLiveState?.startTime;
+    let resolvedElapsedOffset = latestLiveState?.elapsedOffset;
+    let resolvedPeriod = latestLiveState?.period;
+    let resolvedClockUpdatedAt = latestLiveState?.clockUpdatedAt;
+
+    if (incClockTime > localClockTime) {
+        resolvedIsRunning = incomingMatch.liveState.isRunning;
+        resolvedStartTime = incomingMatch.liveState.startTime;
+        resolvedElapsedOffset = incomingMatch.liveState.elapsedOffset;
+        resolvedPeriod = incomingMatch.liveState.period;
+        resolvedClockUpdatedAt = incClockTime;
+    } else if (localClockTime > incClockTime) {
+        resolvedIsRunning = localMatch.liveState.isRunning;
+        resolvedStartTime = localMatch.liveState.startTime;
+        resolvedElapsedOffset = localMatch.liveState.elapsedOffset;
+        resolvedPeriod = localMatch.liveState.period;
+        resolvedClockUpdatedAt = localClockTime;
+    }
 
     const merged = {
         ...base,
@@ -338,7 +361,11 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         merged.liveState = {
             ...latestLiveState,
             status: finalStatus,
-            isRunning: terminalStatuses.includes(finalStatus) ? false : (latestLiveState.isRunning ?? false),
+            isRunning: terminalStatuses.includes(finalStatus) ? false : (resolvedIsRunning ?? false),
+            startTime: resolvedStartTime,
+            elapsedOffset: resolvedElapsedOffset,
+            period: resolvedPeriod,
+            clockUpdatedAt: resolvedClockUpdatedAt,
             period: terminalStatuses.includes(finalStatus) ? 'FT' : (latestLiveState.period || '1H'),
             homeScore: merged.homeScore,
             awayScore: merged.awayScore,
