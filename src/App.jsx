@@ -764,6 +764,7 @@ function App() {
 
   // Merge an updated subset of students back into the master list
   const handleDataUpdate = (updatedSubset) => {
+    const isPmc = selectedTournament === 'PMC';
     if (isPmc) {
       setPmcStudents(prev => prev.map(s => updatedSubset.find(u => String(u.id) === String(s.id)) || s));
     } else {
