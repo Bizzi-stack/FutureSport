@@ -316,7 +316,19 @@ function App() {
             const m1 = perf['Matchday 1'];
             return m1 && ((m1.Goals || 0) > 0 || (m1.Assists || 0) > 0) && !p._matchContributions;
           });
-          if (!hasLegacyMock) return parsed;
+          if (!hasLegacyMock) {
+            // SAFE HOTFIX: Sync jersey numbers from JSON to local storage so manual work is not lost
+            const migrated = parsed.map(p => {
+              if (p.teamId === 30 || p.teamId === 29) {
+                const jsonP = PMC_STUDENTS.find(jp => String(jp.id) === String(p.id));
+                if (jsonP && p.jerseyNumber !== jsonP.jerseyNumber) {
+                  return { ...p, jerseyNumber: jsonP.jerseyNumber };
+                }
+              }
+              return p;
+            });
+            return migrated;
+          }
         }
       }
     } catch (err) {
