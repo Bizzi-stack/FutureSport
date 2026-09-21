@@ -603,6 +603,7 @@ export default function LiveMatch({
                     startTime: isMasterLogger ? startTimeRef.current : (clockState.startTime || startTimeRef.current),
                     elapsedOffset: isMasterLogger ? offsetRef.current : (clockState.elapsedOffset || offsetRef.current),
                     period: isMasterLogger ? period : (clockState.period || period),
+                    clockUpdatedAt: isMasterLogger ? currentUpdatedAt : (clockState.clockUpdatedAt || 0),
                     playerStats,
                     timeline,
                     possession: livePossession,
