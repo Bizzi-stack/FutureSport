@@ -306,7 +306,7 @@ function App() {
       ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6', 'eduvision-pmc-students-v7', 'eduvision-pmc-students-v8', 'eduvision-pmc-students-v9', 'eduvision-pmc-students-v10', 'eduvision-pmc-students-v11', 'eduvision-pmc-students-v12', 'eduvision-pmc-students-v20'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
-      const saved = localStorage.getItem('eduvision-pmc-students-v21');
+      const saved = localStorage.getItem('eduvision-pmc-students-v22');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -327,7 +327,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v21', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v22', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
