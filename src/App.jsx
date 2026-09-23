@@ -317,12 +317,28 @@ function App() {
             return m1 && ((m1.Goals || 0) > 0 || (m1.Assists || 0) > 0) && !p._matchContributions;
           });
           if (!hasLegacyMock) {
-            // SAFE HOTFIX: Sync jersey numbers from JSON to local storage so manual work is not lost
+            // PERMANENT FIX: Sync official registrations, club assignments, and real jersey numbers
+            const pmcStudentMap = new Map();
+            PMC_STUDENTS.forEach(s => {
+              if (s.name) pmcStudentMap.set(s.name.trim().toUpperCase(), s);
+              if (s.id) pmcStudentMap.set(String(s.id), s);
+              (s.aliasIds || []).forEach(a => pmcStudentMap.set(String(a), s));
+            });
+
             const migrated = parsed.map(p => {
-              if (p.teamId === 30 || p.teamId === 29) {
-                const jsonP = PMC_STUDENTS.find(jp => String(jp.id) === String(p.id));
-                if (jsonP && p.jerseyNumber !== jsonP.jerseyNumber) {
-                  return { ...p, jerseyNumber: jsonP.jerseyNumber };
+              const cleanName = (p.name || '').trim().toUpperCase();
+              const official = pmcStudentMap.get(cleanName) || pmcStudentMap.get(String(p.id));
+              if (official) {
+                const teamNeedsFix = p.teamId !== official.teamId || p.schoolId !== official.schoolId;
+                const jerseyNeedsFix = official.jerseyNumber !== p.jerseyNumber;
+                if (teamNeedsFix || jerseyNeedsFix) {
+                  return {
+                    ...p,
+                    teamId: official.teamId,
+                    schoolId: official.schoolId,
+                    teamAssignments: official.teamAssignments || p.teamAssignments,
+                    jerseyNumber: official.jerseyNumber
+                  };
                 }
               }
               return p;
@@ -474,7 +490,12 @@ function App() {
           let didUpdate = missingFixtures.length > 0;
           updatedList = updatedList.map(m => {
             const fresh = pmcMap.get(m.id);
-            if (fresh && (m.status === 'scheduled' || !m.status)) {
+            if (fresh) {
+              if (!m.homeTeam || !m.awayTeam) {
+                m = { ...m, homeTeam: fresh.homeTeam, awayTeam: fresh.awayTeam };
+                didUpdate = true;
+              }
+              if (m.status === 'scheduled' || !m.status) {
               // If previously populated with synthetic coach submissions, clear them for coaches to submit
               if (m.homeSquadSelection?.submittedBy === 'Bagatelle Coach' ||
                   m.homeSquadSelection?.submittedBy === 'Weymouth Wales Coach' ||
@@ -493,6 +514,7 @@ function App() {
                 didUpdate = true;
                 return { ...m, ...fresh };
               }
+            }
             }
             return m;
           });

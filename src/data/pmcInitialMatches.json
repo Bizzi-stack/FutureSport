@@ -4,7 +4,7 @@
     "date": "2026-09-22T01:00:00.000Z",
     "time": "21:00",
     "year": "2026-2027",
-    "round": "Matchday 5 · PMC Group Stage",
+    "round": "Matchday 5 \u00b7 PMC Group Stage",
     "venue": "Glebe, St. George",
     "homeTeamId": "pmc-club-2",
     "awayTeamId": "pmc-club-10",
@@ -23,14 +23,16 @@
       "elapsedOffset": 0,
       "playerStats": {},
       "timeline": []
-    }
+    },
+    "homeTeam": "ELLERTON",
+    "awayTeam": "WOTTON"
   },
   {
     "id": "pmc-fixture-9",
     "date": "2026-09-21T23:00:00.000Z",
     "time": "19:00",
     "year": "2026-2027",
-    "round": "Matchday 5 · PMC Group Stage",
+    "round": "Matchday 5 \u00b7 PMC Group Stage",
     "venue": "Glebe, St. George",
     "homeTeamId": "pmc-club-29",
     "awayTeamId": "pmc-club-30",
@@ -49,14 +51,16 @@
       "elapsedOffset": 0,
       "playerStats": {},
       "timeline": []
-    }
+    },
+    "homeTeam": "DEACONS FC",
+    "awayTeam": "CHICKMONT FC"
   },
   {
     "id": "pmc-fixture-1",
     "date": "2026-09-08T00:59:51.035Z",
     "time": "19:00",
     "year": "2026-2027",
-    "round": "Matchday 1 · PMC Group Stage",
+    "round": "Matchday 1 \u00b7 PMC Group Stage",
     "venue": "Friendship, St. Michael",
     "events": [
       {
@@ -15403,7 +15407,7 @@
     "date": "2026-09-08T03:04:20.862Z",
     "time": "21:00",
     "year": "2026-2027",
-    "round": "Matchday 1 · PMC Group Stage",
+    "round": "Matchday 1 \u00b7 PMC Group Stage",
     "venue": "Friendship, St. Michael",
     "events": [
       {
@@ -28767,7 +28771,7 @@
     "date": "2026-09-11T19:00:00.000Z",
     "time": "19:00",
     "year": "2026-2027",
-    "round": "Matchday 2 · PMC Group Stage",
+    "round": "Matchday 2 \u00b7 PMC Group Stage",
     "matchday": "Matchday 2",
     "venue": "Orange Hill, St. James",
     "ageGroup": "PMC",
@@ -28897,7 +28901,7 @@
     "date": "2026-09-11T21:00:00.000Z",
     "time": "21:00",
     "year": "2026-2027",
-    "round": "Matchday 2 · PMC Group Stage",
+    "round": "Matchday 2 \u00b7 PMC Group Stage",
     "matchday": "Matchday 2",
     "venue": "Orange Hill, St. James",
     "ageGroup": "PMC",
@@ -29034,7 +29038,7 @@
     "date": "2026-09-11T16:00:00.000Z",
     "time": "16:00",
     "year": "2026-2027",
-    "round": "Matchday 2 · PMC Live Pre-Match Test",
+    "round": "Matchday 2 \u00b7 PMC Live Pre-Match Test",
     "matchday": "Matchday 2",
     "venue": "Friendship, St. Michael (Testing Arena)",
     "ageGroup": "PMC",
@@ -29215,7 +29219,7 @@
     "date": "2026-09-14T19:00:00.000Z",
     "time": "19:00",
     "year": "2026-2027",
-    "round": "Matchday 3 · PMC Group Stage",
+    "round": "Matchday 3 \u00b7 PMC Group Stage",
     "matchday": "Matchday 3",
     "venue": "Friendship, St. Michael",
     "ageGroup": "PMC",
@@ -29304,7 +29308,7 @@
     "date": "2026-09-14T21:00:00.000Z",
     "time": "21:00",
     "year": "2026-2027",
-    "round": "Matchday 3 · PMC Group Stage",
+    "round": "Matchday 3 \u00b7 PMC Group Stage",
     "matchday": "Matchday 3",
     "venue": "Friendship, St. Michael",
     "ageGroup": "PMC",
@@ -29394,7 +29398,7 @@
     "time": "19:00",
     "year": "2026-2027",
     "round": "Group Stage",
-    "matchday": "Matchday 4 · PMC Group Stage",
+    "matchday": "Matchday 4 \u00b7 PMC Group Stage",
     "venue": "Friendship",
     "ageGroup": "Senior",
     "homeTeam": "PINELANDS UNITED",
@@ -29489,7 +29493,7 @@
     "time": "21:00",
     "year": "2026-2027",
     "round": "Group Stage",
-    "matchday": "Matchday 4 · PMC Group Stage",
+    "matchday": "Matchday 4 \u00b7 PMC Group Stage",
     "venue": "Friendship",
     "ageGroup": "Senior",
     "homeTeam": "BRITTON'S HILL",
