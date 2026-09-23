@@ -343,7 +343,15 @@ function App() {
               }
               return p;
             });
-            return migrated;
+
+            const existingIds = new Set(parsed.map(p => String(p.id)));
+            const existingNames = new Set(parsed.map(p => (p.name || '').trim().toUpperCase()).filter(Boolean));
+            const missingOfficial = PMC_STUDENTS.filter(s => 
+              !existingIds.has(String(s.id)) && 
+              !existingNames.has((s.name || '').trim().toUpperCase())
+            );
+
+            return [...migrated, ...missingOfficial];
           }
         }
       }
