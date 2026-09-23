@@ -239,13 +239,39 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const eligiblePlayers = useMemo(() => {
         if (!selectedMatch) return [];
+        
+        const targetSideId = isHome ? (selectedMatch.homeSchoolId || selectedMatch.homeTeamId) : (selectedMatch.awaySchoolId || selectedMatch.awayTeamId);
+        const opponentSideId = isHome ? (selectedMatch.awaySchoolId || selectedMatch.awayTeamId) : (selectedMatch.homeSchoolId || selectedMatch.homeTeamId);
+
+        const cleanTarget = normalizeId(targetSideId);
+        const cleanOpponent = normalizeId(opponentSideId);
+        const cleanCoachSchool = normalizeId(schoolId);
+
         return (allPlayers || []).filter(p => {
-            if (p.schoolId === schoolId) return true;
+            const pSchool = normalizeId(p.schoolId);
+            const pTeam = normalizeId(p.teamId);
+            
+            // 1. Hard guard: Never allow opponent players to bleed over
+            if (cleanOpponent && (pSchool === cleanOpponent || pTeam === cleanOpponent)) {
+                return false;
+            }
+
+            // 2. Direct match on target side club ID or team ID
+            if (cleanTarget && (pSchool === cleanTarget || pTeam === cleanTarget)) {
+                return true;
+            }
+
+            // 3. Match on coach authorized school ID
+            if (cleanCoachSchool && (pSchool === cleanCoachSchool || pTeam === cleanCoachSchool)) {
+                return true;
+            }
+
             const assignments = p.teamAssignments || {};
-            const teamIds = (allTeams || []).filter(t => t.schoolId === schoolId).map(t => t.id);
-            return teamIds.some(tId => Object.values(assignments).includes(tId)) || Object.values(assignments).includes(schoolId);
+            const assignedVals = Object.values(assignments).map(normalizeId);
+            return (cleanTarget && assignedVals.includes(cleanTarget)) || 
+                   (cleanCoachSchool && assignedVals.includes(cleanCoachSchool));
         });
-    }, [allPlayers, selectedMatch, schoolId, allTeams]);
+    }, [allPlayers, selectedMatch, schoolId, isHome, allTeams]);
 
     // Flat list of selected player IDs in starting XI (no nulls)
     const selectedStartingXIIds = useMemo(() => {
