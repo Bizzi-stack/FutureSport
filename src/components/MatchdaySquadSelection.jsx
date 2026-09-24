@@ -13,7 +13,7 @@ import {
     getRefereeContactSettings 
 } from '../services/refereeNotificationService';
 import { PMC_MATCHES } from '../utils/pmcDataLoader';
-import { isMatchForTeam } from '../utils/fixtureUtils';
+import { isMatchForTeam, normalizeId } from '../utils/fixtureUtils';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 // Each row has: y position (% from top), count of players, role, and position labels
