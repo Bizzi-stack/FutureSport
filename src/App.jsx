@@ -499,6 +499,10 @@ function App() {
           updatedList = updatedList.map(m => {
             const fresh = pmcMap.get(m.id);
             if (fresh) {
+              if (m.id === 'pmc-test-fixture-live' && (m.homeTeam !== fresh.homeTeam || m.awayTeam !== fresh.awayTeam)) {
+                didUpdate = true;
+                return { ...fresh };
+              }
               if (!m.homeTeam || !m.awayTeam) {
                 m = { ...m, homeTeam: fresh.homeTeam, awayTeam: fresh.awayTeam };
                 didUpdate = true;
