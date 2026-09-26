@@ -251,16 +251,9 @@ export default function LiveMatch({
     // Fallback if players are missing from global state
     const homePlayers = useMemo(() => {
         if (matchData.homePlayers && matchData.homePlayers.length > 0) return matchData.homePlayers;
-        if (homeSquadSelection?.startingXI || homeSquadSelection?.benchPlayers) {
-            const squadIds = [
-                ...(homeSquadSelection.startingXI || []),
-                ...(homeSquadSelection.benchPlayers || [])
-            ].filter(Boolean);
-            if (squadIds.length > 0) return Array.from(new Set(squadIds));
-        }
         const targetTeamName = (matchData.homeTeam || '').toLowerCase();
         const cleanHomeId = (homeTeamId || '').replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
-        return allStudents.filter(s => {
+        const fullRoster = allStudents.filter(s => {
             const sSchool = (s.schoolId || '').toLowerCase();
             const sTeam = (s.teamAssignments?.[year] || '').toLowerCase();
             return (
@@ -272,20 +265,22 @@ export default function LiveMatch({
                 (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
             );
         }).map(s => s.id);
+
+        if (homeSquadSelection?.startingXI || homeSquadSelection?.benchPlayers) {
+            const squadIds = [
+                ...(homeSquadSelection.startingXI || []),
+                ...(homeSquadSelection.benchPlayers || [])
+            ].filter(Boolean);
+            if (squadIds.length > 0) return Array.from(new Set([...squadIds, ...fullRoster]));
+        }
+        return fullRoster;
     }, [matchData.homePlayers, homeSquadSelection, matchData.homeTeam, homeTeamId, allStudents, year]);
 
     const awayPlayers = useMemo(() => {
         if (matchData.awayPlayers && matchData.awayPlayers.length > 0) return matchData.awayPlayers;
-        if (awaySquadSelection?.startingXI || awaySquadSelection?.benchPlayers) {
-            const squadIds = [
-                ...(awaySquadSelection.startingXI || []),
-                ...(awaySquadSelection.benchPlayers || [])
-            ].filter(Boolean);
-            if (squadIds.length > 0) return Array.from(new Set(squadIds));
-        }
         const targetTeamName = (matchData.awayTeam || '').toLowerCase();
         const cleanAwayId = (awayTeamId || '').replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
-        return allStudents.filter(s => {
+        const fullRoster = allStudents.filter(s => {
             const sSchool = (s.schoolId || '').toLowerCase();
             const sTeam = (s.teamAssignments?.[year] || '').toLowerCase();
             return (
@@ -297,6 +292,15 @@ export default function LiveMatch({
                 (targetTeamName && s.clubName?.toLowerCase().includes(targetTeamName))
             );
         }).map(s => s.id);
+
+        if (awaySquadSelection?.startingXI || awaySquadSelection?.benchPlayers) {
+            const squadIds = [
+                ...(awaySquadSelection.startingXI || []),
+                ...(awaySquadSelection.benchPlayers || [])
+            ].filter(Boolean);
+            if (squadIds.length > 0) return Array.from(new Set([...squadIds, ...fullRoster]));
+        }
+        return fullRoster;
     }, [matchData.awayPlayers, awaySquadSelection, matchData.awayTeam, awayTeamId, allStudents, year]);
 
     // Starters and Bench players from Coach selection (with fallbacks if none submitted)
@@ -527,8 +531,8 @@ export default function LiveMatch({
 
     /* lookup helper */
     const studentsById = useMemo(() => {
-        return createPlayerLookupMap(allStudents);
-    }, [allStudents]);
+        return createPlayerLookupMap(allStudents, matchData);
+    }, [allStudents, matchData]);
 
     const resolveTeamMeta = useCallback((teamId, fallbackName) => {
         if (!teamId && !fallbackName) return { name: 'Unknown Team', school: null };
@@ -636,12 +640,14 @@ export default function LiveMatch({
         if (captureRole === 'shots' && !isShotAction) return; // Shot specialist cannot log general events
         if (captureRole === 'general' && isShotAction) return; // General events specialist cannot log shots
 
-        const student = resolvePlayer(playerId, allStudents, studentsById);
-        const name = resolvePlayerName(playerId, allStudents, studentsById);
         const isHome = homePlayers.includes(playerId);
+        const targetSideId = isHome ? (matchData.homeTeamId || matchData.homeSchoolId) : (matchData.awayTeamId || matchData.awaySchoolId);
+        const student = resolvePlayer(playerId, allStudents, studentsById, targetSideId);
+        const name = resolvePlayerName(playerId, allStudents, studentsById, '', targetSideId);
+        const effectivePlayerId = student?.id || playerId;
         const teammates = isHome 
-            ? homePlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean)
-            : awayPlayers.map(id => resolvePlayer(id, allStudents, studentsById)).filter(Boolean);
+            ? homePlayers.map(id => resolvePlayer(id, allStudents, studentsById, matchData.homeTeamId)).filter(Boolean)
+            : awayPlayers.map(id => resolvePlayer(id, allStudents, studentsById, matchData.awayTeamId)).filter(Boolean);
 
         if (isShotAction) {
             let defaultGoalType = 'foot';
@@ -658,7 +664,7 @@ export default function LiveMatch({
 
             // Open LiveShotModal to place shot on goalmouth map
             setShotModalData({
-                player: { id: playerId, name },
+                player: { id: effectivePlayerId, name },
                 defaultOutcome: defaultOutcome,
                 defaultGoalType: defaultGoalType,
                 teammates
@@ -669,12 +675,12 @@ export default function LiveMatch({
             const now = Date.now();
             localUpdatedAtRef.current = now;
 
-            const actionToken = `act-${playerId}-${now}-${localSeqRef.current}`;
+            const actionToken = `act-${effectivePlayerId}-${now}-${localSeqRef.current}`;
             const outcome = recordMatchActionState({
                 playerStats,
                 timeline,
                 actionKey,
-                playerId,
+                playerId: effectivePlayerId,
                 playerName: name,
                 team: isHome ? 'home' : 'away',
                 teamId: isHome ? matchData.homeTeamId : matchData.awayTeamId,
@@ -904,7 +910,9 @@ export default function LiveMatch({
 
     /* quick-action badge count */
     const badgeCount = useCallback((playerId, actionKey) => {
-        const s = playerStats[playerId];
+        const student = studentsById[playerId] || resolvePlayer(playerId, allStudents, studentsById);
+        const resolvedId = student?.id || playerId;
+        const s = playerStats[resolvedId] || playerStats[playerId];
         if (!s) return 0;
         switch (actionKey) {
             case 'goal':         return s.Goals + s.ownGoals; // Combined indicator
@@ -1038,14 +1046,15 @@ export default function LiveMatch({
                 {/* Player slots on Pitch */}
                 {slots.map((slot, idx) => {
                     const playerId = starters[idx];
-                    const student = studentsById[playerId];
+                    const targetSideId = side === 'home' ? (matchData.homeTeamId || matchData.homeSchoolId) : (matchData.awayTeamId || matchData.awaySchoolId);
+                    const student = studentsById[playerId] || resolvePlayer(playerId, allStudents, studentsById, targetSideId);
                     if (!student) return null;
 
                     const roleColor = ROLE_COLORS[slot.role] || '#6366f1';
                     const jersey = student.jerseyNumber;
                     const nameParts = student.name.trim().split(/\s+/);
                     const lastName = nameParts[nameParts.length - 1] || student.name;
-                    const stats = playerStats[student.id] || {};
+                    const stats = playerStats[student.id] || playerStats[playerId] || {};
 
                     return (
                         <div 
@@ -1175,8 +1184,10 @@ export default function LiveMatch({
 
     /* ─── render helpers ───────────────────────────────────────────── */
     const renderPlayerRow = (playerId) => {
-        const student = resolvePlayer(playerId, allStudents, studentsById);
-        const name = resolvePlayerName(playerId, allStudents, studentsById);
+        const isHome = homePlayers.includes(playerId);
+        const targetSideId = isHome ? (matchData.homeTeamId || matchData.homeSchoolId) : (matchData.awayTeamId || matchData.awaySchoolId);
+        const student = resolvePlayer(playerId, allStudents, studentsById, targetSideId);
+        const name = resolvePlayerName(playerId, allStudents, studentsById, '', targetSideId);
         const rawNum = parseInt(String(playerId).replace(/\D/g, ''), 10);
         const jersey = student?.jerseyNumber != null ? student.jerseyNumber : (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : 10);
         const isExpanded = expandedPlayer === playerId;

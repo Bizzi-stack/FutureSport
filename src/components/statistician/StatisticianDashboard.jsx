@@ -10,7 +10,7 @@ import {
 } from '../../services/refereeNotificationService';
 import { getAnalystAccounts } from '../../data/analystAccounts';
 import { PMC_MATCHES } from '../../utils/pmcDataLoader';
-import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
+import { resolvePlayer, resolvePlayerName, createPlayerLookupMap } from '../../utils/playerResolver';
 import {
     editMatchEventState,
     overturnMatchEventState,
@@ -100,6 +100,10 @@ export default function StatisticianDashboard({
         if (!selectedMatchId) return null;
         return activeMatchPool.find(m => m.id === selectedMatchId) || null;
     }, [activeMatchPool, selectedMatchId]);
+
+    const playerLookupMap = useMemo(() => {
+        return createPlayerLookupMap(allPlayers, selectedMatch);
+    }, [allPlayers, selectedMatch]);
 
     const handleSendTestLoggerAlert = async () => {
         try {
@@ -542,8 +546,8 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
                                     ) : (
                                         homeXI.map((pId, idx) => {
-                                            const p = resolvePlayer(pId, allPlayers);
-                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.homeTeamId);
+                                            const name = resolvePlayerName(p || pId, allPlayers, playerLookupMap, '', selectedMatch?.homeTeamId);
                                             const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
                                             const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
@@ -578,8 +582,8 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
                                     ) : (
                                         awayXI.map((pId, idx) => {
-                                            const p = resolvePlayer(pId, allPlayers);
-                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.awayTeamId);
+                                            const name = resolvePlayerName(p || pId, allPlayers, playerLookupMap, '', selectedMatch?.awayTeamId);
                                             const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
                                             const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
@@ -692,8 +696,8 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup yet.</div>
                                     ) : (
                                         homeXI.map((pId, idx) => {
-                                            const p = resolvePlayer(pId, allPlayers);
-                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.homeTeamId);
+                                            const name = resolvePlayerName(p || pId, allPlayers, playerLookupMap, '', selectedMatch?.homeTeamId);
                                             const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
                                             const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (
@@ -728,8 +732,8 @@ export default function StatisticianDashboard({
                                         <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup yet.</div>
                                     ) : (
                                         awayXI.map((pId, idx) => {
-                                            const p = resolvePlayer(pId, allPlayers);
-                                            const name = resolvePlayerName(p || pId, allPlayers);
+                                            const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.awayTeamId);
+                                            const name = resolvePlayerName(p || pId, allPlayers, playerLookupMap, '', selectedMatch?.awayTeamId);
                                             const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
                                             const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 1 : idx + 1);
                                             return (

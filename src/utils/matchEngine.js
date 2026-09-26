@@ -528,13 +528,36 @@ export function resolveActiveGoalkeeper({ side, matchData, allStudents = [] }) {
 /**
  * Validates whether a player ID or alias matches a student record.
  */
-export function matchesStudentId(studentId, student) {
+export function matchesStudentId(studentId, student, matchContext = null) {
     if (!student || studentId == null) return false;
     const targetStr = String(studentId).trim();
     if (String(student.id).trim() === targetStr) return true;
     if (student.aliasIds && Array.isArray(student.aliasIds)) {
         if (student.aliasIds.some(alias => String(alias).trim() === targetStr)) return true;
     }
+
+    // Support short index or raw club-index matching (e.g. 1 -> pmc-p-19-1 when student is club 19)
+    if (/^\d+$/.test(targetStr)) {
+        const num = Number(targetStr);
+        if (matchContext) {
+            const homeId = (matchContext.homeTeamId || matchContext.homeSchoolId || '').toLowerCase();
+            const awayId = (matchContext.awayTeamId || matchContext.awaySchoolId || '').toLowerCase();
+            const sSchool = (student.schoolId || '').toLowerCase();
+            if (homeId && awayId && sSchool !== homeId && sSchool !== awayId) {
+                return false;
+            }
+        }
+        if (typeof student.id === 'string' && (student.id.endsWith(`-${num}`) || student.id.endsWith(`_${num}`))) {
+            return true;
+        }
+        if (Array.isArray(student.aliasIds) && student.aliasIds.some(a => String(a).endsWith(`-${num}`))) {
+            return true;
+        }
+        if (student.jerseyNumber === num) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -657,7 +680,7 @@ export function applyMatchContributions(students = [], updatedMatch, options = {
 
         let stats = null;
         if (effectivePlayerStats) {
-            const matchedKey = Object.keys(effectivePlayerStats).find(k => matchesStudentId(k, student));
+            const matchedKey = Object.keys(effectivePlayerStats).find(k => matchesStudentId(k, student, updatedMatch));
             if (matchedKey) stats = effectivePlayerStats[matchedKey];
         }
 
@@ -791,7 +814,7 @@ export function applyMatchContributions(students = [], updatedMatch, options = {
 
         // Shot logs persistence with stable IDs
         const playerShotEvents = (updatedMatch.timeline || []).filter(event =>
-            matchesStudentId(event.playerId, student) &&
+            matchesStudentId(event.playerId, student, updatedMatch) &&
             (event.type === 'goal' || event.type === 'shotOnTarget' || event.type === 'shotBlocked' || event.type === 'shotMissed')
         );
         const matchShots = playerShotEvents.map((event, index) => {
@@ -817,7 +840,7 @@ export function applyMatchContributions(students = [], updatedMatch, options = {
 
         // Save logs persistence with stable IDs
         const playerSaveEvents = (updatedMatch.timeline || []).filter(event =>
-            matchesStudentId(event.playerId, student) && event.type === 'gkSave'
+            matchesStudentId(event.playerId, student, updatedMatch) && event.type === 'gkSave'
         );
         const matchSaves = playerSaveEvents.map((event, index) => ({
             id: `${updatedMatch.id}-${event.id || index}`,
