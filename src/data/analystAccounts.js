@@ -1,5 +1,10 @@
 // ── Dedicated Analyst & Field Data Logger Accounts ─────────────────────
 
+export const ALL_PMC_FIXTURE_IDS = [
+    'pmc-test-fixture-live',
+    ...Array.from({ length: 36 }, (_, i) => `pmc-fixture-${i + 1}`)
+];
+
 export const DEFAULT_ANALYSTS = [
     {
         id: 'analyst_johnathan',
@@ -11,7 +16,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'all',
         isMasterLogger: true,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '👑',
         badgeColor: '#10b981'
     },
@@ -25,7 +30,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'all',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3', 'scheduled-seed-4', 'scheduled-seed-5'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: 'N',
         badgeColor: '#38bdf8'
     },
@@ -39,7 +44,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'possession',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '⏱️',
         badgeColor: '#22c55e'
     },
@@ -53,7 +58,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'shots',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '⚽',
         badgeColor: '#3b82f6'
     },
@@ -67,7 +72,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'shots',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '⚽',
         badgeColor: '#60a5fa'
     },
@@ -81,7 +86,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '📋',
         badgeColor: '#f59e0b'
     },
@@ -95,7 +100,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '📋',
         badgeColor: '#fbbf24'
     },
@@ -109,7 +114,7 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '📋',
         badgeColor: '#a78bfa'
     },
@@ -123,13 +128,13 @@ export const DEFAULT_ANALYSTS = [
         captureRole: 'general',
         isMasterLogger: false,
         venue: 'Friendship, St. Michael',
-        assignedMatchIds: ['pmc-test-fixture-live', 'pmc-fixture-1', 'pmc-fixture-2', 'pmc-fixture-3', 'pmc-fixture-4', 'match-pmc-1', 'match-pmc-2', 'match-pmc-3', 'match-pmc-4', 'match-pmc-5', 'scheduled-seed-1', 'scheduled-seed-2', 'scheduled-seed-3'],
+        assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: '📋',
         badgeColor: '#c084fc'
     }
 ];
 
-const ANALYST_STORAGE_KEY = 'eduvision-analyst-accounts-v3';
+const ANALYST_STORAGE_KEY = 'eduvision-analyst-accounts-v4';
 
 export function getAnalystAccounts() {
     try {
