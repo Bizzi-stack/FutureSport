@@ -66,34 +66,6 @@
     }
   },
   {
-    "id": "pmc-fixture-12",
-    "date": "2026-09-24T01:00:00.000Z",
-    "time": "21:00",
-    "year": "2026-2027",
-    "round": "Matchday 6 · PMC Group Stage",
-    "venue": "Glebe, St. George",
-    "homeTeamId": "pmc-club-17",
-    "awayTeamId": "pmc-club-8",
-    "homeTeam": "UWI BLACKBIRDS",
-    "awayTeam": "ATLAS UNITED",
-    "status": "upcoming",
-    "teamSheetApproved": false,
-    "homeSquadSelection": null,
-    "awaySquadSelection": null,
-    "assignedReferees": [
-      "ref_j_griffith",
-      "ref_n_moseley",
-      "ref_s_thorne"
-    ],
-    "liveState": {
-      "period": "1H",
-      "isRunning": false,
-      "elapsedOffset": 0,
-      "playerStats": {},
-      "timeline": []
-    }
-  },
-  {
     "id": "pmc-fixture-10",
     "date": "2026-09-22T01:00:00.000Z",
     "time": "21:00",

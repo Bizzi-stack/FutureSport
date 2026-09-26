@@ -121,7 +121,7 @@ export function mergeCloudMatches(existingMatches = [], incomingMatches = []) {
         }
     });
 
-    return Array.from(matchMap.values());
+    return Array.from(matchMap.values()).filter(m => m && m.id !== 'pmc-fixture-12');
 }
 
 async function drainCloudPushQueue() {
