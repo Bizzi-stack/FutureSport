@@ -121,7 +121,7 @@ export function mergeCloudMatches(existingMatches = [], incomingMatches = []) {
         }
     });
 
-    return Array.from(matchMap.values()).filter(m => m && m.id !== 'pmc-fixture-11' && m.id !== 'pmc-fixture-12');
+    return Array.from(matchMap.values()).filter(m => m && m.id !== 'pmc-fixture-11' && m.id !== 'pmc-fixture-12' && m.id !== 'pmc-match-001');
 }
 
 async function drainCloudPushQueue() {
