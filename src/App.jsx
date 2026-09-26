@@ -567,10 +567,11 @@ function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const purged = parsed.filter(m => m.id !== 'pmc-fixture-12');
+          const REMOVED_FIXTURE_IDS = new Set(['pmc-fixture-11', 'pmc-fixture-12']);
+          const purged = parsed.filter(m => !REMOVED_FIXTURE_IDS.has(m.id));
           let didUpdate = purged.length !== parsed.length;
           const existingIds = new Set(purged.map(m => m.id));
-          const missingFixtures = (PMC_MATCHES || []).filter(m => m.id !== 'pmc-fixture-12' && !existingIds.has(m.id));
+          const missingFixtures = (PMC_MATCHES || []).filter(m => !REMOVED_FIXTURE_IDS.has(m.id) && !existingIds.has(m.id));
           let updatedList = purged;
           if (missingFixtures.length > 0) {
             updatedList = [...purged, ...missingFixtures];
