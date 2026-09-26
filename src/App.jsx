@@ -328,11 +328,12 @@ function App() {
             const migrated = parsed.map(p => {
               const cleanName = (p.name || '').trim().toUpperCase();
               const official = pmcStudentMap.get(cleanName) || pmcStudentMap.get(String(p.id));
+              let updated = p;
               if (official) {
                 const teamNeedsFix = p.teamId !== official.teamId || p.schoolId !== official.schoolId;
                 const jerseyNeedsFix = official.jerseyNumber !== p.jerseyNumber;
                 if (teamNeedsFix || jerseyNeedsFix) {
-                  return {
+                  updated = {
                     ...p,
                     teamId: official.teamId,
                     schoolId: official.schoolId,
@@ -341,7 +342,86 @@ function App() {
                   };
                 }
               }
-              return p;
+
+              // Purge test fixture data and contributions
+              if (updated._matchContributions && updated._matchContributions['pmc-test-fixture-live']) {
+                const newContribs = { ...updated._matchContributions };
+                delete newContribs['pmc-test-fixture-live'];
+                updated = {
+                  ...updated,
+                  _matchContributions: newContribs,
+                  shotLogs: (updated.shotLogs || []).filter(l => l.matchId !== 'pmc-test-fixture-live'),
+                  saveLogs: (updated.saveLogs || []).filter(l => l.matchId !== 'pmc-test-fixture-live')
+                };
+
+                if (updated._baselinePerformance) {
+                  const rebuiltPerf = JSON.parse(JSON.stringify(updated._baselinePerformance));
+                  const rebuiltMatchStats = updated._baselineMatchStats ? JSON.parse(JSON.stringify(updated._baselineMatchStats)) : {};
+
+                  Object.values(newContribs).forEach(contrib => {
+                    const cYear = contrib.year;
+                    const cTerm = contrib.term;
+                    const cStats = contrib.stats || {};
+
+                    if (cYear && cTerm) {
+                      if (!rebuiltPerf[cYear]) rebuiltPerf[cYear] = {};
+                      if (!rebuiltPerf[cYear][cTerm]) rebuiltPerf[cYear][cTerm] = {};
+                      const termPerf = rebuiltPerf[cYear][cTerm];
+
+                      Object.keys(cStats).forEach(k => {
+                        if (k !== 'minutesPlayed' && k !== 'yellowCards' && k !== 'redCards' && !k.startsWith('_')) {
+                          termPerf[k] = (termPerf[k] || 0) + (cStats[k] || 0);
+                        }
+                      });
+
+                      if (!rebuiltMatchStats[cYear]) rebuiltMatchStats[cYear] = {};
+                      if (!rebuiltMatchStats[cYear][cTerm]) {
+                        rebuiltMatchStats[cYear][cTerm] = { gamesPlayed: 0, minutesPlayed: 0, yellowCards: 0, redCards: 0 };
+                      }
+                      const termMatch = rebuiltMatchStats[cYear][cTerm];
+                      const minutes = typeof cStats.minutesPlayed === 'number' ? cStats.minutesPlayed : 0;
+                      const hasActiveStats = Object.entries(cStats).some(([k, v]) =>
+                        !k.startsWith('_') && k !== 'minutesPlayed' && typeof v === 'number' && v > 0
+                      );
+                      const participated = minutes > 0 || hasActiveStats;
+                      if (participated) {
+                        termMatch.gamesPlayed = (termMatch.gamesPlayed || 0) + 1;
+                      }
+                      termMatch.minutesPlayed = (termMatch.minutesPlayed || 0) + minutes;
+                      termMatch.yellowCards = (termMatch.yellowCards || 0) + (cStats.yellowCards || 0);
+                      termMatch.redCards = (termMatch.redCards || 0) + (cStats.redCards || 0);
+                    }
+                  });
+
+                  // Recompute per-game averages
+                  Object.keys(rebuiltPerf).forEach(yr => {
+                    const yPerf = rebuiltPerf[yr];
+                    const yMatch = rebuiltMatchStats[yr] || {};
+                    let totalGames = 0;
+                    Object.values(yMatch).forEach(m => { totalGames += (m.gamesPlayed || 0); });
+                    if (totalGames > 0) {
+                      let totalTackles = 0;
+                      let totalInterceptions = 0;
+                      let totalShots = 0;
+                      Object.values(yPerf).forEach(p => {
+                        totalTackles += (p['Successful Tackles'] || 0);
+                        totalInterceptions += (p['Interceptions'] || 0);
+                        totalShots += (p['Shots'] || 0);
+                      });
+                      Object.keys(yPerf).forEach(trm => {
+                        yPerf[trm]['Tackles Per Game'] = parseFloat((totalTackles / totalGames).toFixed(2));
+                        yPerf[trm]['Interceptions Per Game'] = parseFloat((totalInterceptions / totalGames).toFixed(2));
+                        yPerf[trm]['Shots Per Game'] = parseFloat((totalShots / totalGames).toFixed(2));
+                      });
+                    }
+                  });
+
+                  updated.performance = rebuiltPerf;
+                  if (updated._baselineMatchStats) updated.matchStats = rebuiltMatchStats;
+                }
+              }
+
+              return updated;
             });
 
             const existingIds = new Set(parsed.map(p => String(p.id)));
@@ -499,9 +579,43 @@ function App() {
           updatedList = updatedList.map(m => {
             const fresh = pmcMap.get(m.id);
             if (fresh) {
-              if (m.id === 'pmc-test-fixture-live' && (m.homeTeam !== fresh.homeTeam || m.awayTeam !== fresh.awayTeam)) {
-                didUpdate = true;
-                return { ...fresh };
+              if (m.id === 'pmc-test-fixture-live') {
+                const needsReset = m.status !== 'scheduled' ||
+                  m.homeScore !== 0 ||
+                  m.awayScore !== 0 ||
+                  (m.timeline && m.timeline.length > 0) ||
+                  (m.events && m.events.length > 0) ||
+                  (m.playerStats && Object.keys(m.playerStats).length > 0) ||
+                  m.homeSquadSelection != null ||
+                  m.awaySquadSelection != null ||
+                  m.teamSheetApproved;
+
+                if (needsReset) {
+                  didUpdate = true;
+                  return {
+                    ...fresh,
+                    status: 'scheduled',
+                    homeScore: 0,
+                    awayScore: 0,
+                    events: [],
+                    timeline: [],
+                    playerStats: {},
+                    teamSheetApproved: false,
+                    teamSheetApprovedBy: null,
+                    homeSquadSelection: null,
+                    awaySquadSelection: null,
+                    tombstoneEventIds: [],
+                    liveState: {
+                      period: '1H',
+                      isRunning: false,
+                      elapsedOffset: 0,
+                      playerStats: {},
+                      timeline: []
+                    },
+                    updatedAt: Date.now() + 10000000,
+                    version: 999999
+                  };
+                }
               }
               if (!m.homeTeam || !m.awayTeam) {
                 m = { ...m, homeTeam: fresh.homeTeam, awayTeam: fresh.awayTeam };
@@ -603,7 +717,7 @@ function App() {
         }
 
         // Reconstruct PMC student statistics deterministically when completed/approved/refereed matches arrive remotely
-        const finishedPmc = pmcOnly.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
+        const finishedPmc = pmcOnly.filter(m => m.id !== 'pmc-test-fixture-live' && ['approved', 'completed', 'refereed'].includes(m.status));
         if (finishedPmc.length > 0) {
           setPmcStudents(prev => {
             let updated = prev;
@@ -612,6 +726,12 @@ function App() {
             });
             return updated;
           });
+        }
+
+        // Clean purge any test fixture stats if test fixture arrives in scheduled/reset state
+        const testMatch = pmcOnly.find(m => m.id === 'pmc-test-fixture-live');
+        if (testMatch && testMatch.status === 'scheduled') {
+          setPmcStudents(prev => applyMatchContributions(prev, testMatch));
         }
       }
     });

@@ -279,6 +279,22 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     if (!localMatch) return incomingMatch;
     if (!incomingMatch) return localMatch;
 
+    const isTestFixture = (localMatch.id === 'pmc-test-fixture-live' || incomingMatch.id === 'pmc-test-fixture-live');
+    if (isTestFixture) {
+        const localIsReset = localMatch.status === 'scheduled' && (!localMatch.timeline || localMatch.timeline.length === 0);
+        const incIsReset = incomingMatch.status === 'scheduled' && (!incomingMatch.timeline || incomingMatch.timeline.length === 0);
+
+        if (incIsReset && !localIsReset) {
+            return { ...incomingMatch };
+        }
+        if (localIsReset && !incIsReset) {
+            return { ...localMatch };
+        }
+        if (incIsReset && localIsReset) {
+            return Number(incomingMatch.version || 0) >= Number(localMatch.version || 0) ? { ...incomingMatch } : { ...localMatch };
+        }
+    }
+
     const localTime = Number(localMatch.updatedAt || localMatch.liveState?.updatedAt || 0);
     const incTime = Number(incomingMatch.updatedAt || incomingMatch.liveState?.updatedAt || 0);
 
