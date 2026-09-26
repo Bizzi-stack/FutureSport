@@ -567,15 +567,18 @@ function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map(m => m.id));
-          const missingFixtures = (PMC_MATCHES || []).filter(m => !existingIds.has(m.id));
-          let updatedList = parsed;
+          const purged = parsed.filter(m => m.id !== 'pmc-fixture-12');
+          let didUpdate = purged.length !== parsed.length;
+          const existingIds = new Set(purged.map(m => m.id));
+          const missingFixtures = (PMC_MATCHES || []).filter(m => m.id !== 'pmc-fixture-12' && !existingIds.has(m.id));
+          let updatedList = purged;
           if (missingFixtures.length > 0) {
-            updatedList = [...parsed, ...missingFixtures];
+            updatedList = [...purged, ...missingFixtures];
+            didUpdate = true;
           }
           // Ensure any scheduled fixture with updated official team sheets or refs gets refreshed
           const pmcMap = new Map((PMC_MATCHES || []).map(m => [m.id, m]));
-          let didUpdate = missingFixtures.length > 0;
+          if (missingFixtures.length > 0) didUpdate = true;
           updatedList = updatedList.map(m => {
             const fresh = pmcMap.get(m.id);
             if (fresh) {
