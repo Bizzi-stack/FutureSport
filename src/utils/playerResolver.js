@@ -11,7 +11,7 @@
  * - Alias IDs from scraped data
  * - Cross-prefix compatibility ('pmc-p-' <-> 'pmc-student-')
  */
-export function createPlayerLookupMap(playersList = []) {
+export function createPlayerLookupMap(playersList = [], activeMatch = null) {
     const map = {};
     if (!Array.isArray(playersList)) return map;
 
@@ -61,13 +61,48 @@ export function createPlayerLookupMap(playersList = []) {
         }
     });
 
+    // 7. Context-aware numeric ID aliasing for active match squad selections
+    if (activeMatch) {
+        const homeSchool = (activeMatch.homeTeamId || activeMatch.homeSchoolId || '').toLowerCase();
+        const awaySchool = (activeMatch.awayTeamId || activeMatch.awaySchoolId || '').toLowerCase();
+
+        const mapSquadIds = (squad, schoolId) => {
+            if (!squad || !schoolId) return;
+            const allSquadIds = [
+                ...(squad.startingXI || []),
+                ...(squad.benchPlayers || [])
+            ].filter(id => id != null);
+
+            allSquadIds.forEach(id => {
+                const strKey = String(id).trim();
+                if (typeof id === 'number' || (/^\d+$/.test(strKey) && !map[strKey])) {
+                    const num = Number(id);
+                    const matched = playersList.find(p => {
+                        const pSchool = (p.schoolId || '').toLowerCase();
+                        if (pSchool !== schoolId) return false;
+                        if (typeof p.id === 'string' && (p.id.endsWith(`-${num}`) || p.id.endsWith(`_${num}`))) return true;
+                        if (Array.isArray(p.aliasIds) && p.aliasIds.some(a => String(a).endsWith(`-${num}`))) return true;
+                        return false;
+                    });
+                    if (matched) {
+                        map[strKey] = matched;
+                        map[id] = matched;
+                    }
+                }
+            });
+        };
+
+        mapSquadIds(activeMatch.homeSquadSelection, homeSchool);
+        mapSquadIds(activeMatch.awaySquadSelection, awaySchool);
+    }
+
     return map;
 }
 
 /**
  * Resolves a player object from an ID or partial object.
  */
-export function resolvePlayer(playerOrId, playersList = [], lookupMap = null) {
+export function resolvePlayer(playerOrId, playersList = [], lookupMap = null, contextTeamId = null) {
     if (!playerOrId) return null;
 
     // If already a valid player object with real human name
@@ -85,6 +120,9 @@ export function resolvePlayer(playerOrId, playersList = [], lookupMap = null) {
     // 1. Fast lookup from map if provided
     if (lookupMap && lookupMap[strId]) {
         return lookupMap[strId];
+    }
+    if (lookupMap && lookupMap[id]) {
+        return lookupMap[id];
     }
 
     // 2. Direct search in list
@@ -104,6 +142,30 @@ export function resolvePlayer(playerOrId, playersList = [], lookupMap = null) {
         });
 
         if (found) return found;
+
+        // 3. Fallback for numeric IDs (e.g. 1, 2, 3) with or without team context
+        if (/^\d+$/.test(strId)) {
+            const num = Number(strId);
+            let candidatePlayers = playersList;
+            if (contextTeamId) {
+                const cleanCtx = String(contextTeamId).replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
+                candidatePlayers = playersList.filter(p => {
+                    const pSchool = (p.schoolId || '').toLowerCase();
+                    const pTeam = (p.teamId || '').toLowerCase();
+                    return pSchool === cleanCtx || pTeam === cleanCtx || (Array.isArray(p.aliasIds) && p.aliasIds.includes(cleanCtx));
+                });
+            }
+
+            const matchedBySuffix = candidatePlayers.find(p => {
+                if (typeof p.id === 'string' && (p.id.endsWith(`-${num}`) || p.id.endsWith(`_${num}`))) return true;
+                if (Array.isArray(p.aliasIds) && p.aliasIds.some(a => String(a).endsWith(`-${num}`))) return true;
+                return false;
+            });
+            if (matchedBySuffix) return matchedBySuffix;
+
+            const matchedByJersey = candidatePlayers.filter(p => p.jerseyNumber === num);
+            if (matchedByJersey.length === 1) return matchedByJersey[0];
+        }
     }
 
     return typeof playerOrId === 'object' ? playerOrId : null;
@@ -113,7 +175,7 @@ export function resolvePlayer(playerOrId, playersList = [], lookupMap = null) {
  * Resolves a clean, displayable player name.
  * NEVER returns raw strings like 'Player #pmc-p-10-1' or 'PMC P-'.
  */
-export function resolvePlayerName(playerOrId, playersList = [], lookupMap = null, fallback = '') {
+export function resolvePlayerName(playerOrId, playersList = [], lookupMap = null, fallback = '', contextTeamId = null) {
     if (!playerOrId) return fallback || 'Player';
 
     // If passed an object with a real human name
@@ -124,7 +186,7 @@ export function resolvePlayerName(playerOrId, playersList = [], lookupMap = null
         }
     }
 
-    const resolved = resolvePlayer(playerOrId, playersList, lookupMap);
+    const resolved = resolvePlayer(playerOrId, playersList, lookupMap, contextTeamId);
     if (resolved && resolved.name) {
         const n = String(resolved.name).trim();
         if (n && !n.startsWith('Player #') && !n.startsWith('player #') && !n.startsWith('PMC P-') && !n.startsWith('pmc-p-')) {
