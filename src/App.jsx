@@ -1099,30 +1099,54 @@ function App() {
   const handleEndMatch = (matchResult) => {
     const matchId = matchResult.id || `match-${Date.now()}`;
     const isPmc = selectedTournament === 'PMC' || isPmcMatch(matchResult) || (pmcMatches || []).some(m => m.id === matchId);
+    const now = Date.now();
+    const completedPayload = {
+      ...matchResult,
+      status: 'completed',
+      isFinished: true,
+      updatedAt: now,
+      endTime: matchResult.endTime || now,
+      date: matchResult.date || new Date().toISOString(),
+      liveState: {
+        ...(matchResult.liveState || {}),
+        status: 'completed',
+        isRunning: false,
+        period: 'FT',
+        clockUpdatedAt: now,
+        updatedAt: now
+      },
+      refereeLiveState: {
+        ...(matchResult.refereeLiveState || {}),
+        status: 'completed',
+        isRunning: false,
+        period: 'FT',
+        clockUpdatedAt: now,
+        updatedAt: now
+      }
+    };
 
     if (isPmc) {
-      setPmcMatches(prev => {
-        const exists = prev.some(m => m.id === matchId);
-        const next = exists
-          ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
-          : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
-        pushMatchesToCloud(next);
-        return next;
-      });
-      setPmcStudents(prev => applyMatchContributions(prev, matchResult));
+      const prevList = pmcMatches || [];
+      const exists = prevList.some(m => m.id === matchId);
+      const next = exists
+        ? prevList.map(m => m.id === matchId ? { ...m, ...completedPayload } : m)
+        : [...prevList, { id: matchId, ...completedPayload }];
+      setPmcMatches(next);
+      pushMatchesToCloud(next);
+      setPmcStudents(prev => applyMatchContributions(prev, completedPayload));
     } else {
       const updateFn = prev => {
         const exists = prev.some(m => m.id === matchId);
         const next = exists
-          ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
-          : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
+          ? prev.map(m => m.id === matchId ? { ...m, ...completedPayload } : m)
+          : [...prev, { id: matchId, ...completedPayload }];
         broadcastSandboxMatches(next);
         return next;
       };
       setUclMatches(updateFn);
       setMatches(updateFn);
-      setUclPlayers(prev => applyMatchContributions(prev, matchResult));
-      setAllStudents(prev => applyMatchContributions(prev, matchResult));
+      setUclPlayers(prev => applyMatchContributions(prev, completedPayload));
+      setAllStudents(prev => applyMatchContributions(prev, completedPayload));
     }
   };
 
@@ -1149,7 +1173,11 @@ function App() {
         }
       }
 
-      const nextMatches = (pmcMatches || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+      const prevList = pmcMatches || [];
+      const exists = prevList.some(m => m.id === updatedMatch.id);
+      const nextMatches = exists
+        ? prevList.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m)
+        : [...prevList, updatedMatch];
       setPmcMatches(nextMatches);
       pushMatchesToCloud(nextMatches);
 

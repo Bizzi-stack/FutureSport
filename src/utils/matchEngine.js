@@ -361,9 +361,12 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         resolvedClockUpdatedAt = localClockTime;
     }
 
+    const isTerminal = terminalStatuses.includes(finalStatus);
+
     const merged = {
         ...base,
         status: finalStatus,
+        isFinished: isTerminal ? true : (base.isFinished ?? false),
         updatedAt: Math.max(localTime, incTime),
         version: Math.max(Number(localMatch.version || 0), Number(incomingMatch.version || 0)) + 1,
         homeScore: homeScore ?? base.homeScore,
@@ -377,11 +380,11 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         merged.liveState = {
             ...latestLiveState,
             status: finalStatus,
-            isRunning: terminalStatuses.includes(finalStatus) ? false : (resolvedIsRunning ?? false),
+            isRunning: isTerminal ? false : (resolvedIsRunning ?? false),
             startTime: resolvedStartTime,
             elapsedOffset: resolvedElapsedOffset,
-            period: terminalStatuses.includes(finalStatus) ? 'FT' : (resolvedPeriod || '1H'),
-            clockUpdatedAt: resolvedClockUpdatedAt,
+            period: isTerminal ? 'FT' : (resolvedPeriod || '1H'),
+            clockUpdatedAt: isTerminal ? Math.max(localClockTime, incClockTime, Date.now()) : resolvedClockUpdatedAt,
             homeScore: merged.homeScore,
             awayScore: merged.awayScore,
             updatedAt: Math.max(localLiveTime, incLiveTime),
@@ -389,6 +392,25 @@ export function mergeMatchStates(localMatch, incomingMatch) {
             playerStats: mergedPlayerStats,
             timeline: mergedTimeline,
             tombstoneEventIds: mergedTombstones
+        };
+    }
+
+    if (localMatch.refereeLiveState || incomingMatch.refereeLiveState || merged.liveState) {
+        const latestRefState = (incomingMatch.refereeLiveState?.updatedAt || 0) > (localMatch.refereeLiveState?.updatedAt || 0)
+            ? incomingMatch.refereeLiveState
+            : (localMatch.refereeLiveState || merged.liveState);
+        merged.refereeLiveState = {
+            ...latestRefState,
+            status: finalStatus,
+            isRunning: isTerminal ? false : (resolvedIsRunning ?? false),
+            period: isTerminal ? 'FT' : (resolvedPeriod || '1H'),
+            clockUpdatedAt: isTerminal ? Math.max(localClockTime, incClockTime, Date.now()) : resolvedClockUpdatedAt,
+            homeScore: merged.homeScore,
+            awayScore: merged.awayScore,
+            playerStats: mergedPlayerStats,
+            timeline: mergedTimeline,
+            tombstoneEventIds: mergedTombstones,
+            updatedAt: Math.max(localLiveTime, incLiveTime)
         };
     }
 

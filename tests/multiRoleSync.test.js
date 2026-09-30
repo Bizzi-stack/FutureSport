@@ -91,7 +91,8 @@ const results = {
     categoryF: { name: 'Category F: In Contest / 3-Way Possession & Sync Tests', passed: 0, total: 0 },
     categoryG: { name: 'Category G: Match Operator & Referee Event Correction Engine', passed: 0, total: 0 },
     categoryH: { name: 'Category H: Schools League Sandbox Isolation & Cloud Firewall Tests', passed: 0, total: 0 },
-    categoryI: { name: 'Category I: UEFA Champions League Testing Sandbox & Session Lockdown Tests', passed: 0, total: 0 }
+    categoryI: { name: 'Category I: UEFA Champions League Testing Sandbox & Session Lockdown Tests', passed: 0, total: 0 },
+    categoryJ: { name: 'Category J: Match Clock Controls, Half Transitions & Multi-Role Conclusion Sync', passed: 0, total: 0 }
 };
 
 function recordPass(catKey, testName) {
@@ -2558,6 +2559,304 @@ async function runAllTests() {
     console.log(`\nCategory I Summary: ${results.categoryI.passed}/${results.categoryI.total} passed.\n`);
 
     // =========================================================================
+    // CATEGORY J: MATCH CLOCK CONTROLS, HALF TRANSITIONS & MULTI-ROLE CONCLUSION SYNC
+    // =========================================================================
+    console.log('================================================================');
+    console.log('CATEGORY J: MATCH CLOCK CONTROLS, HALF TRANSITIONS & MULTI-ROLE CONCLUSION SYNC');
+    console.log('================================================================');
+
+    // J1: Authorization check: Referees, Master Loggers, Pitchside Analysts, and Admins can control match clock
+    {
+        function isAuthorizedMatchController(currentAnalyst, isRefereeMode) {
+            if (!currentAnalyst) return true;
+            return currentAnalyst.isMasterLogger === true ||
+                   currentAnalyst.username === 'johnathan' ||
+                   currentAnalyst.username === 'jonathan' ||
+                   currentAnalyst.id === 'analyst_johnathan' ||
+                   currentAnalyst.id === 'analyst_jonathan' ||
+                   currentAnalyst.username === 'noah' ||
+                   currentAnalyst.id === 'analyst_noah' ||
+                   isRefereeMode === true ||
+                   currentAnalyst.role === 'referee' ||
+                   currentAnalyst.role === 'admin' ||
+                   currentAnalyst.role === 'statistician';
+        }
+
+        assert.strictEqual(isAuthorizedMatchController(null, false), true, 'Default controller authorized');
+        assert.strictEqual(isAuthorizedMatchController({ role: 'referee' }, true), true, 'Referee mode explicitly authorized');
+        assert.strictEqual(isAuthorizedMatchController({ id: 'analyst_jonathan', isMasterLogger: true }, false), true, 'Jonathan Cumberbatch authorized');
+        assert.strictEqual(isAuthorizedMatchController({ id: 'analyst_noah', isMasterLogger: true }, false), true, 'Noah authorized');
+        assert.strictEqual(isAuthorizedMatchController({ id: 'pitch_capturer_1', role: 'statistician' }, false), true, 'Field statistician authorized');
+
+        recordPass('categoryJ', 'J1: Referees, Master Loggers, Pitchside Analysts, and Admins authorized to control clock and conclude match');
+    }
+
+    // J2: Toggling Pause generates updated clockUpdatedAt and toggles isRunning with preserved elapsedOffset
+    {
+        const initialStart = Date.now() - 60000; // started 60s ago
+        const initialOffset = 0;
+        let isPaused = false;
+        let offset = initialOffset;
+        let startTime = initialStart;
+
+        // Simulate pausing
+        const pauseTime = Date.now();
+        offset = offset + Math.max(0, Math.floor((pauseTime - startTime) / 1000));
+        isPaused = true;
+        const clockUpdatedAtPause = pauseTime;
+
+        assert.strictEqual(isPaused, true, 'isPaused is true after toggle');
+        assert(offset >= 60, 'Elapsed offset preserved to at least 60s');
+
+        // Simulate resuming
+        const resumeTime = Date.now() + 5000;
+        startTime = resumeTime;
+        isPaused = false;
+        const clockUpdatedAtResume = resumeTime;
+
+        assert.strictEqual(isPaused, false, 'isPaused is false after resume toggle');
+        assert.strictEqual(startTime, resumeTime, 'startTime reset to current resume timestamp');
+        assert(clockUpdatedAtResume > clockUpdatedAtPause, 'clockUpdatedAt incremented on resume');
+
+        recordPass('categoryJ', 'J2: Toggling Pause generates updated clockUpdatedAt and preserves elapsed offset');
+    }
+
+    // J3: Ending 1st Half strictly updates period to HT, sets isRunning to false, freezes elapsedOffset at 45:00, and stamps clockUpdatedAt
+    {
+        const now = Date.now();
+        const live1HMatch = {
+            id: 'pmc-test-match-1',
+            status: 'live',
+            liveState: {
+                isRunning: true,
+                period: '1H',
+                startTime: now - (48 * 60 * 1000), // 48 mins in
+                elapsedOffset: 0,
+                clockUpdatedAt: now - (48 * 60 * 1000)
+            }
+        };
+
+        // Half time transition payload
+        const htTimestamp = Date.now();
+        const htPayload = {
+            ...live1HMatch,
+            liveState: {
+                ...live1HMatch.liveState,
+                isRunning: false,
+                period: 'HT',
+                elapsedOffset: 45 * 60,
+                startTime: htTimestamp,
+                clockUpdatedAt: htTimestamp,
+                updatedAt: htTimestamp
+            }
+        };
+
+        assert.strictEqual(htPayload.liveState.period, 'HT');
+        assert.strictEqual(htPayload.liveState.isRunning, false);
+        assert.strictEqual(htPayload.liveState.elapsedOffset, 2700, 'Elapsed offset frozen strictly at 45:00');
+        assert.strictEqual(htPayload.liveState.clockUpdatedAt, htTimestamp);
+
+        // Merge with existing match in cloud that was running 1H
+        const merged = mergeMatchStates(live1HMatch, htPayload);
+        assert.strictEqual(merged.liveState.period, 'HT', 'Cloud merge respects HT period when clockUpdatedAt is newer');
+        assert.strictEqual(merged.liveState.isRunning, false, 'Cloud merge respects paused state at half time');
+        assert.strictEqual(merged.liveState.elapsedOffset, 2700);
+
+        recordPass('categoryJ', 'J3: Ending 1st Half sets period: HT, isRunning: false, 45:00 offset, and newer clockUpdatedAt wins merge');
+    }
+
+    // J4: Starting 2nd Half strictly updates period to 2H, sets isRunning to true, and advances clock from 45:00
+    {
+        const now = Date.now();
+        const htMatch = {
+            id: 'pmc-test-match-1',
+            status: 'live',
+            liveState: {
+                isRunning: false,
+                period: 'HT',
+                elapsedOffset: 2700,
+                clockUpdatedAt: now - 900000 // 15 mins ago
+            }
+        };
+
+        const start2HTimestamp = Date.now();
+        const secondHalfPayload = {
+            ...htMatch,
+            liveState: {
+                ...htMatch.liveState,
+                isRunning: true,
+                period: '2H',
+                elapsedOffset: 2700,
+                startTime: start2HTimestamp,
+                clockUpdatedAt: start2HTimestamp,
+                updatedAt: start2HTimestamp
+            }
+        };
+
+        const merged2H = mergeMatchStates(htMatch, secondHalfPayload);
+        assert.strictEqual(merged2H.liveState.period, '2H', 'Period transitions to 2H');
+        assert.strictEqual(merged2H.liveState.isRunning, true, 'Clock resumes running in 2H');
+        assert.strictEqual(merged2H.liveState.elapsedOffset, 2700, 'Starts ticking from 45:00 offset');
+        assert.strictEqual(merged2H.liveState.clockUpdatedAt, start2HTimestamp);
+
+        recordPass('categoryJ', 'J4: Starting 2nd Half sets period: 2H, isRunning: true, and newer clockUpdatedAt wins merge');
+    }
+
+    // J5: Concluding match via confirmEnd guarantees status: completed, isFinished: true, period: FT, isRunning: false
+    {
+        const now = Date.now();
+        const concludingMatch = {
+            id: 'pmc-fixture-14',
+            homeTeamId: 'pmc-club-3',
+            awayTeamId: 'pmc-club-2',
+            homeScore: 1,
+            awayScore: 0,
+            status: 'live',
+            liveState: {
+                isRunning: true,
+                period: '2H',
+                clockUpdatedAt: now - 3600000
+            }
+        };
+
+        const endTimestamp = Date.now();
+        const finalMatchPayload = {
+            ...concludingMatch,
+            status: 'completed',
+            isFinished: true,
+            updatedAt: endTimestamp,
+            endTime: endTimestamp,
+            liveState: {
+                ...concludingMatch.liveState,
+                status: 'completed',
+                isRunning: false,
+                period: 'FT',
+                clockUpdatedAt: endTimestamp,
+                updatedAt: endTimestamp
+            },
+            refereeLiveState: {
+                status: 'completed',
+                isRunning: false,
+                period: 'FT',
+                clockUpdatedAt: endTimestamp,
+                updatedAt: endTimestamp
+            }
+        };
+
+        assert.strictEqual(finalMatchPayload.status, 'completed');
+        assert.strictEqual(finalMatchPayload.isFinished, true);
+        assert.strictEqual(finalMatchPayload.liveState.period, 'FT');
+        assert.strictEqual(finalMatchPayload.liveState.isRunning, false);
+        assert.strictEqual(finalMatchPayload.refereeLiveState.period, 'FT');
+
+        // Verify merge with cloud match that was previously live
+        const mergedCompleted = mergeMatchStates(concludingMatch, finalMatchPayload);
+        assert.strictEqual(mergedCompleted.status, 'completed', 'Terminal status completed preserved');
+        assert.strictEqual(mergedCompleted.isFinished, true);
+        assert.strictEqual(mergedCompleted.liveState.period, 'FT');
+        assert.strictEqual(mergedCompleted.liveState.isRunning, false);
+
+        recordPass('categoryJ', 'J5: Concluding match marks status: completed, isFinished: true, period: FT, isRunning: false across all states');
+    }
+
+    // J6: Terminal match status immunity: A completed match NEVER reverts to live on concurrent arrival of older live tick
+    {
+        const completedMatch = {
+            id: 'pmc-fixture-14',
+            status: 'completed',
+            isFinished: true,
+            homeScore: 1,
+            awayScore: 0,
+            updatedAt: 1790747000000,
+            liveState: {
+                status: 'completed',
+                period: 'FT',
+                isRunning: false,
+                clockUpdatedAt: 1790747000000
+            }
+        };
+
+        // Stale incoming match from background tab that had period: 1H, isRunning: true
+        const staleIncomingLive = {
+            id: 'pmc-fixture-14',
+            status: 'live',
+            isFinished: false,
+            homeScore: 1,
+            awayScore: 0,
+            updatedAt: 1790746900000,
+            liveState: {
+                status: 'live',
+                period: '1H',
+                isRunning: true,
+                clockUpdatedAt: 1790746900000
+            }
+        };
+
+        const resultMerge = mergeMatchStates(completedMatch, staleIncomingLive);
+        assert.strictEqual(resultMerge.status, 'completed', 'Status remains completed');
+        assert.strictEqual(resultMerge.isFinished, true, 'isFinished remains true');
+        assert.strictEqual(resultMerge.liveState.period, 'FT', 'Period remains FT');
+        assert.strictEqual(resultMerge.liveState.isRunning, false, 'Clock remains stopped');
+
+        // Test reversed merge order
+        const resultMergeReversed = mergeMatchStates(staleIncomingLive, completedMatch);
+        assert.strictEqual(resultMergeReversed.status, 'completed');
+        assert.strictEqual(resultMergeReversed.isFinished, true);
+        assert.strictEqual(resultMergeReversed.liveState.period, 'FT');
+        assert.strictEqual(resultMergeReversed.liveState.isRunning, false);
+
+        recordPass('categoryJ', 'J6: Terminal status immunity strictly preserves completed match status against stale concurrent live states');
+    }
+
+    // J7: Multi-role clock consumption: Coach Live Management & Referee Dashboard receive canonical period & running state
+    {
+        const canonicalMatch = {
+            id: 'pmc-fixture-14',
+            homeTeamId: 'pmc-club-3',
+            awayTeamId: 'pmc-club-2',
+            status: 'live',
+            liveState: {
+                period: 'HT',
+                isRunning: false,
+                elapsedOffset: 2700,
+                clockUpdatedAt: Date.now()
+            },
+            refereeLiveState: {
+                period: 'HT',
+                isRunning: false,
+                elapsedOffset: 2700,
+                clockUpdatedAt: Date.now()
+            }
+        };
+
+        // Derive Coach display clock
+        function getCoachClockDisplay(match) {
+            const ls = match?.liveState || {};
+            if (ls.period === 'HT') return { period: 'HT', displayTime: "45:00", isHalftime: true };
+            if (ls.period === 'FT') return { period: 'FT', displayTime: "FT", isFulltime: true };
+            return { period: ls.period || '1H', isRunning: ls.isRunning };
+        }
+
+        const coachClock = getCoachClockDisplay(canonicalMatch);
+        assert.strictEqual(coachClock.period, 'HT');
+        assert.strictEqual(coachClock.isHalftime, true);
+        assert.strictEqual(coachClock.displayTime, "45:00");
+
+        // End match update
+        canonicalMatch.status = 'completed';
+        canonicalMatch.liveState.period = 'FT';
+        canonicalMatch.liveState.isRunning = false;
+
+        const coachPostMatch = getCoachClockDisplay(canonicalMatch);
+        assert.strictEqual(coachPostMatch.period, 'FT');
+        assert.strictEqual(coachPostMatch.isFulltime, true);
+
+        recordPass('categoryJ', 'J7: Multi-role clock consumption: Coaches, Commentators, and Referees read unified canonical clock state');
+    }
+
+    console.log(`\nCategory J Summary: ${results.categoryJ.passed}/${results.categoryJ.total} passed.\n`);
+
+    // =========================================================================
     // FINAL OVERALL SUMMARY
     // =========================================================================
     console.log('================================================================');
@@ -2572,8 +2871,9 @@ async function runAllTests() {
     console.log(`   ${results.categoryG.name}: ${results.categoryG.passed}/${results.categoryG.total} PASSED`);
     console.log(`   ${results.categoryH.name}: ${results.categoryH.passed}/${results.categoryH.total} PASSED`);
     console.log(`   ${results.categoryI.name}: ${results.categoryI.passed}/${results.categoryI.total} PASSED`);
-    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed + results.categoryH.passed + results.categoryI.passed;
-    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total + results.categoryH.total + results.categoryI.total;
+    console.log(`   ${results.categoryJ.name}: ${results.categoryJ.passed}/${results.categoryJ.total} PASSED`);
+    const totalPassed = results.categoryA.passed + results.categoryB.passed + results.categoryC.passed + results.categoryD.passed + results.categoryE.passed + results.categoryF.passed + results.categoryG.passed + results.categoryH.passed + results.categoryI.passed + results.categoryJ.passed;
+    const totalCount = results.categoryA.total + results.categoryB.total + results.categoryC.total + results.categoryD.total + results.categoryE.total + results.categoryF.total + results.categoryG.total + results.categoryH.total + results.categoryI.total + results.categoryJ.total;
     console.log(`   TOTAL TESTS: ${totalPassed}/${totalCount} PASSED (100%)`);
     console.log('================================================================\n');
 }

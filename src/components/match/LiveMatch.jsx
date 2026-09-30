@@ -232,9 +232,8 @@ export default function LiveMatch({
         homeSquadSelection, awaySquadSelection
     } = matchData;
     
-    // Jonathan Cumberbatch is the exclusive Master Match Controller
+    // Authorized Match Controllers (Referees, Master Loggers, Pitchside Analysts, Admins)
     const isMasterLogger = useMemo(() => {
-        if (isRefereeMode) return false;
         if (!currentAnalyst) return true; // Default fallback if not specified
         return currentAnalyst.isMasterLogger === true ||
                currentAnalyst.username === 'johnathan' ||
@@ -242,7 +241,11 @@ export default function LiveMatch({
                currentAnalyst.id === 'analyst_johnathan' ||
                currentAnalyst.id === 'analyst_jonathan' ||
                currentAnalyst.username === 'noah' ||
-               currentAnalyst.id === 'analyst_noah';
+               currentAnalyst.id === 'analyst_noah' ||
+               isRefereeMode === true ||
+               currentAnalyst.role === 'referee' ||
+               currentAnalyst.role === 'admin' ||
+               currentAnalyst.role === 'statistician';
     }, [currentAnalyst, isRefereeMode]);
 
     const captureRole = currentAnalyst?.captureRole || 'all';
@@ -350,15 +353,17 @@ export default function LiveMatch({
     const [period, setPeriod] = useState(clockState.period || '1H');          // '1H' | 'HT' | '2H'
     const [isPaused, setIsPaused] = useState(clockState.isRunning === false);
     
-    // Sync React state if the global clockState changes (All non-master loggers & referees follow Jonathan's clock)
+    // Sync React state if incoming clockState is newer than local update or when clock updates from remote
     useEffect(() => {
-        if (!isMasterLogger) {
+        const incClockTime = clockState.clockUpdatedAt || clockState.updatedAt || 0;
+        const localTime = localUpdatedAtRef.current || 0;
+        if (incClockTime > localTime || (!isMasterLogger && clockState.isRunning !== undefined)) {
             setIsPaused(clockState.isRunning === false);
-            setPeriod(clockState.period || '1H');
-            startTimeRef.current = clockState.startTime || Date.now();
-            offsetRef.current = clockState.elapsedOffset || 0;
+            if (clockState.period) setPeriod(clockState.period);
+            if (clockState.startTime) startTimeRef.current = clockState.startTime;
+            if (clockState.elapsedOffset !== undefined) offsetRef.current = clockState.elapsedOffset;
         }
-    }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, isMasterLogger]);
+    }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, clockState.clockUpdatedAt, clockState.updatedAt, isMasterLogger]);
 
     const localUpdatedAtRef = useRef(Date.now());
     const localSeqRef = useRef(1);
@@ -444,20 +449,77 @@ export default function LiveMatch({
     const [timelineLayout, setTimelineLayout] = useState('expanded'); // 'expanded' | 'stream'
 
     const handleTogglePause = () => {
-        if (isRefereeMode || !isMasterLogger) return; // Only Jonathan can control clock
+        if (captureRole === 'readonly') return;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
+        let nextIsRunning;
+        let nextStartTime;
+        let nextOffset;
+
         if (isPaused) {
             // Resuming
-            startTimeRef.current = Date.now();
+            nextIsRunning = true;
+            nextStartTime = now;
+            nextOffset = offsetRef.current;
+            startTimeRef.current = nextStartTime;
             setIsPaused(false);
         } else {
             // Pausing
-            offsetRef.current = offsetRef.current + Math.floor((Date.now() - startTimeRef.current) / 1000);
+            nextIsRunning = false;
+            nextOffset = offsetRef.current + Math.max(0, Math.floor((now - startTimeRef.current) / 1000));
+            nextStartTime = now;
+            offsetRef.current = nextOffset;
+            setElapsed(nextOffset);
             setIsPaused(true);
+        }
+
+        if (onUpdateMatch) {
+            const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
+            const nextVersion = (matchDataRef.current?.version || 0) + 1;
+            const updatedLiveState = {
+                ...(matchDataRef.current?.liveState || {}),
+                isRunning: nextIsRunning,
+                period,
+                elapsedOffset: nextOffset,
+                startTime: nextStartTime,
+                clockUpdatedAt: now,
+                updatedAt: now,
+                playerStats,
+                timeline,
+                possession: currentPoss,
+                version: nextVersion
+            };
+            const updatedRefereeState = {
+                ...(matchDataRef.current?.refereeLiveState || {}),
+                isRunning: nextIsRunning,
+                period,
+                elapsedOffset: nextOffset,
+                startTime: nextStartTime,
+                clockUpdatedAt: now,
+                updatedAt: now,
+                playerStats,
+                timeline,
+                version: nextVersion
+            };
+            onUpdateMatch({
+                ...matchDataRef.current,
+                homeScore,
+                awayScore,
+                timeline,
+                playerStats,
+                possession: currentPoss,
+                updatedAt: now,
+                version: nextVersion,
+                liveState: updatedLiveState,
+                refereeLiveState: updatedRefereeState
+            });
         }
     };
 
     const handleEndFirstHalf = () => {
-        if (isRefereeMode || !isMasterLogger) return;
+        if (captureRole === 'readonly') return;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
         offsetRef.current = 45 * 60; // strictly 45:00 at half time
         setElapsed(45 * 60);
         setIsPaused(true);
@@ -465,15 +527,31 @@ export default function LiveMatch({
 
         if (onUpdateMatch) {
             const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
+            const nextVersion = (matchDataRef.current?.version || 0) + 1;
             const updatedLiveState = {
                 ...(matchDataRef.current?.liveState || {}),
                 isRunning: false,
                 period: 'HT',
                 elapsedOffset: 45 * 60,
-                startTime: Date.now(),
+                startTime: now,
+                clockUpdatedAt: now,
+                updatedAt: now,
                 playerStats,
                 timeline,
-                possession: currentPoss
+                possession: currentPoss,
+                version: nextVersion
+            };
+            const updatedRefereeState = {
+                ...(matchDataRef.current?.refereeLiveState || {}),
+                isRunning: false,
+                period: 'HT',
+                elapsedOffset: 45 * 60,
+                startTime: now,
+                clockUpdatedAt: now,
+                updatedAt: now,
+                playerStats,
+                timeline,
+                version: nextVersion
             };
             onUpdateMatch({
                 ...matchDataRef.current,
@@ -482,30 +560,51 @@ export default function LiveMatch({
                 timeline,
                 playerStats,
                 possession: currentPoss,
-                liveState: updatedLiveState
+                updatedAt: now,
+                version: nextVersion,
+                liveState: updatedLiveState,
+                refereeLiveState: updatedRefereeState
             });
         }
     };
 
     const handleStartSecondHalf = () => {
-        if (isRefereeMode || !isMasterLogger) return;
+        if (captureRole === 'readonly') return;
+        const now = Date.now();
+        localUpdatedAtRef.current = now;
         offsetRef.current = 45 * 60; // strictly 45:00
-        startTimeRef.current = Date.now();
+        startTimeRef.current = now;
         setIsPaused(false);
         setPeriod('2H');
         setElapsed(45 * 60);
 
         if (onUpdateMatch) {
             const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
+            const nextVersion = (matchDataRef.current?.version || 0) + 1;
             const updatedLiveState = {
                 ...(matchDataRef.current?.liveState || {}),
                 isRunning: true,
                 period: '2H',
                 elapsedOffset: 45 * 60,
-                startTime: startTimeRef.current,
+                startTime: now,
+                clockUpdatedAt: now,
+                updatedAt: now,
                 playerStats,
                 timeline,
-                possession: currentPoss
+                possession: currentPoss,
+                version: nextVersion
+            };
+            const updatedRefereeState = {
+                ...(matchDataRef.current?.refereeLiveState || {}),
+                isRunning: true,
+                period: '2H',
+                elapsedOffset: 45 * 60,
+                startTime: now,
+                clockUpdatedAt: now,
+                updatedAt: now,
+                playerStats,
+                timeline,
+                version: nextVersion
             };
             onUpdateMatch({
                 ...matchDataRef.current,
@@ -514,7 +613,10 @@ export default function LiveMatch({
                 timeline,
                 playerStats,
                 possession: currentPoss,
-                liveState: updatedLiveState
+                updatedAt: now,
+                version: nextVersion,
+                liveState: updatedLiveState,
+                refereeLiveState: updatedRefereeState
             });
         }
     };
@@ -581,59 +683,52 @@ export default function LiveMatch({
             const currentUpdatedAt = localUpdatedAtRef.current || Date.now();
             const nextVersion = (matchDataRef.current?.version || 0) + 1;
 
-            // If referee, update refereeLiveState and root match fields
-            if (isRefereeMode) {
-                const updatedRefereeState = {
-                    ...eventState,
-                    playerStats,
-                    timeline,
-                    tombstoneEventIds,
-                    updatedAt: currentUpdatedAt,
-                    version: nextVersion
-                };
-                onUpdateMatch({
-                    ...matchDataRef.current,
-                    homeScore,
-                    awayScore,
-                    timeline,
-                    playerStats,
-                    tombstoneEventIds,
-                    updatedAt: currentUpdatedAt,
-                    version: nextVersion,
-                    refereeLiveState: updatedRefereeState
-                });
-            } else {
-                // If statistician, update global liveState AND root match fields
-                const updatedLiveState = {
-                    ...clockState,
-                    isRunning: isMasterLogger ? !isPaused : (clockState.isRunning ?? !isPaused),
-                    startTime: isMasterLogger ? startTimeRef.current : (clockState.startTime || startTimeRef.current),
-                    elapsedOffset: isMasterLogger ? offsetRef.current : (clockState.elapsedOffset || offsetRef.current),
-                    period: isMasterLogger ? period : (clockState.period || period),
-                    clockUpdatedAt: isMasterLogger ? currentUpdatedAt : (clockState.clockUpdatedAt || 0),
-                    playerStats,
-                    timeline,
-                    possession: livePossession,
-                    tombstoneEventIds,
-                    updatedAt: currentUpdatedAt,
-                    version: nextVersion
-                };
-                onUpdateMatch({
-                    ...matchDataRef.current,
-                    homeScore,
-                    awayScore,
-                    timeline,
-                    playerStats,
-                    possession: livePossession,
-                    tombstoneEventIds,
-                    updatedAt: currentUpdatedAt,
-                    version: nextVersion,
-                    liveState: updatedLiveState
-                });
-            }
+            const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
+
+            const updatedLiveState = {
+                ...(matchDataRef.current?.liveState || clockState || {}),
+                isRunning: !isPaused,
+                startTime: startTimeRef.current,
+                elapsedOffset: offsetRef.current,
+                period: period,
+                clockUpdatedAt: currentUpdatedAt,
+                playerStats,
+                timeline,
+                possession: currentPoss,
+                tombstoneEventIds,
+                updatedAt: currentUpdatedAt,
+                version: nextVersion
+            };
+            const updatedRefereeState = {
+                ...(matchDataRef.current?.refereeLiveState || eventState || {}),
+                isRunning: !isPaused,
+                startTime: startTimeRef.current,
+                elapsedOffset: offsetRef.current,
+                period: period,
+                clockUpdatedAt: currentUpdatedAt,
+                playerStats,
+                timeline,
+                tombstoneEventIds,
+                updatedAt: currentUpdatedAt,
+                version: nextVersion
+            };
+
+            onUpdateMatch({
+                ...matchDataRef.current,
+                homeScore,
+                awayScore,
+                timeline,
+                playerStats,
+                possession: currentPoss,
+                tombstoneEventIds,
+                updatedAt: currentUpdatedAt,
+                version: nextVersion,
+                liveState: updatedLiveState,
+                refereeLiveState: updatedRefereeState
+            });
         }
         // eslint-disable-next-line
-    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession, isMasterLogger, tombstoneEventIds]);
+    }, [isPaused, period, playerStats, timeline, homeScore, awayScore, isRefereeMode, livePossession, tombstoneEventIds]);
 
     /* quick-action handler */
     const handleQuickAction = useCallback((playerId, actionKey) => {
@@ -960,6 +1055,7 @@ export default function LiveMatch({
                 status: 'completed',
                 isRunning: false,
                 period: 'FT',
+                clockUpdatedAt: now,
                 homeScore,
                 awayScore,
                 playerStats,
@@ -972,6 +1068,7 @@ export default function LiveMatch({
                 status: 'completed',
                 isRunning: false,
                 period: 'FT',
+                clockUpdatedAt: now,
                 homeScore,
                 awayScore,
                 playerStats,
@@ -992,9 +1089,6 @@ export default function LiveMatch({
 
         setShowConfirm(false);
         setIsSubmittingEnd(false);
-        if (onCancel) {
-            onCancel();
-        }
     };
 
     /* Format timeline timer */
@@ -1328,113 +1422,111 @@ export default function LiveMatch({
                                 )}
                             </span>
                             
-                            {!isRefereeMode && (
-                                isMasterLogger ? (
-                                    <div style={{ display: 'flex', gap: '6px' }}>
-                                        {period !== 'HT' && (
-                                            <button
-                                                type="button"
-                                                onClick={handleTogglePause}
-                                                style={{
-                                                    background: 'rgba(255,255,255,0.06)',
-                                                    border: '1px solid rgba(255,255,255,0.1)',
-                                                    borderRadius: '6px',
-                                                    padding: '4px 10px',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: '11px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'inherit',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px',
-                                                    outline: 'none',
-                                                    transition: 'all 0.15s ease'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                                            >
-                                                {isPaused ? '▶️ Resume' : '⏸️ Pause'}
-                                            </button>
-                                        )}
-
-                                        {period === '1H' && (
-                                            <button
-                                                type="button"
-                                                onClick={handleEndFirstHalf}
-                                                style={{
-                                                    background: 'rgba(239, 68, 68, 0.12)',
-                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
-                                                    borderRadius: '6px',
-                                                    padding: '4px 10px',
-                                                    color: '#f87171',
-                                                    fontSize: '11px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'inherit',
-                                                    transition: 'all 0.15s ease'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
-                                            >
-                                                End 1st Half
-                                            </button>
-                                        )}
-
-                                        {period === 'HT' && (
-                                            <button
-                                                type="button"
-                                                onClick={handleStartSecondHalf}
-                                                style={{
-                                                    background: 'rgba(16, 185, 129, 0.12)',
-                                                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                                                    borderRadius: '6px',
-                                                    padding: '4px 10px',
-                                                    color: '#34d399',
-                                                    fontSize: '11px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'inherit',
-                                                    transition: 'all 0.15s ease'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
-                                            >
-                                                Start 2nd Half
-                                            </button>
-                                        )}
-
+                            {captureRole !== 'readonly' ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    {period !== 'HT' && (
                                         <button
                                             type="button"
-                                            onClick={() => setShowConfirm(true)}
+                                            onClick={handleTogglePause}
                                             style={{
-                                                    background: 'rgba(239, 68, 68, 0.12)',
-                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
-                                                    borderRadius: '6px',
-                                                    padding: '4px 10px',
-                                                    color: '#f87171',
-                                                    fontSize: '11px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'inherit',
-                                                    transition: 'all 0.15s ease'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
-                                            >
-                                                End Match
-                                            </button>
-                                    </div>
-                                ) : (
-                                    <div style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                        padding: '4px 10px', borderRadius: '8px',
-                                        background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
-                                        fontSize: '11px', fontWeight: '700', color: '#38bdf8'
-                                    }}>
-                                        <span>🔒</span> Official Clock: Jonathan (Lead Controller)
-                                    </div>
-                                )
+                                                background: 'rgba(255,255,255,0.06)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '6px',
+                                                padding: '4px 10px',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                fontFamily: 'inherit',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                outline: 'none',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                                        >
+                                            {isPaused ? '▶️ Resume' : '⏸️ Pause'}
+                                        </button>
+                                    )}
+
+                                    {period === '1H' && (
+                                        <button
+                                            type="button"
+                                            onClick={handleEndFirstHalf}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.12)',
+                                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                borderRadius: '6px',
+                                                padding: '4px 10px',
+                                                color: '#f87171',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                fontFamily: 'inherit',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
+                                        >
+                                            End 1st Half
+                                        </button>
+                                    )}
+
+                                    {period === 'HT' && (
+                                        <button
+                                            type="button"
+                                            onClick={handleStartSecondHalf}
+                                            style={{
+                                                background: 'rgba(16, 185, 129, 0.12)',
+                                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                                borderRadius: '6px',
+                                                padding: '4px 10px',
+                                                color: '#34d399',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                fontFamily: 'inherit',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
+                                        >
+                                            Start 2nd Half
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirm(true)}
+                                        style={{
+                                            background: 'rgba(239, 68, 68, 0.12)',
+                                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                                            borderRadius: '6px',
+                                            padding: '4px 10px',
+                                            color: '#f87171',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            fontFamily: 'inherit',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)'}
+                                    >
+                                        End Match
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                    padding: '4px 10px', borderRadius: '8px',
+                                    background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
+                                    fontSize: '11px', fontWeight: '700', color: '#38bdf8'
+                                }}>
+                                    <span>🔒</span> Spectator View
+                                </div>
                             )}
                         </div>
                     </div>
