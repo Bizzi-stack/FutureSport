@@ -240,7 +240,9 @@ export default function LiveMatch({
                currentAnalyst.username === 'johnathan' ||
                currentAnalyst.username === 'jonathan' ||
                currentAnalyst.id === 'analyst_johnathan' ||
-               currentAnalyst.id === 'analyst_jonathan';
+               currentAnalyst.id === 'analyst_jonathan' ||
+               currentAnalyst.username === 'noah' ||
+               currentAnalyst.id === 'analyst_noah';
     }, [currentAnalyst, isRefereeMode]);
 
     const captureRole = currentAnalyst?.captureRole || 'all';
@@ -421,6 +423,7 @@ export default function LiveMatch({
     const [expandedPlayer, setExpandedPlayer] = useState(null);
     const [livePossession, setLivePossession] = useState(() => matchData?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 });
     const [showConfirm, setShowConfirm] = useState(false);
+    const [isSubmittingEnd, setIsSubmittingEnd] = useState(false);
     const [hoveredBtn, setHoveredBtn] = useState(null);  // `${playerId}-${actionKey}`
 
     const matchDataRef = useRef(matchData);
@@ -925,7 +928,8 @@ export default function LiveMatch({
 
     /* end match */
     const confirmEnd = () => {
-        if (!isMasterLogger) return;
+        if (isSubmittingEnd) return;
+        setIsSubmittingEnd(true);
         isEndingRef.current = true;
         const now = Date.now();
         localUpdatedAtRef.current = now;
@@ -976,13 +980,18 @@ export default function LiveMatch({
             }
         };
 
-        if (onEndMatch) {
-            onEndMatch(finalMatchPayload);
+        try {
+            if (onEndMatch) {
+                onEndMatch(finalMatchPayload);
+            } else if (onUpdateMatch) {
+                onUpdateMatch(finalMatchPayload);
+            }
+        } catch (err) {
+            console.error('[LiveMatch] Error concluding match:', err);
         }
-        if (onUpdateMatch) {
-            onUpdateMatch(finalMatchPayload);
-        }
+
         setShowConfirm(false);
+        setIsSubmittingEnd(false);
         if (onCancel) {
             onCancel();
         }
@@ -2403,10 +2412,15 @@ export default function LiveMatch({
                                 Keep Playing
                             </button>
                             <button
-                                style={styles.dialogConfirmBtn}
+                                style={{
+                                    ...styles.dialogConfirmBtn,
+                                    opacity: isSubmittingEnd ? 0.6 : 1,
+                                    cursor: isSubmittingEnd ? 'not-allowed' : 'pointer'
+                                }}
                                 onClick={confirmEnd}
+                                disabled={isSubmittingEnd}
                             >
-                                Confirm &amp; End
+                                {isSubmittingEnd ? 'Concluding Match...' : 'Confirm & End'}
                             </button>
                         </div>
                     </div>

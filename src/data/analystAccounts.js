@@ -28,7 +28,7 @@ export const DEFAULT_ANALYSTS = [
         password: 'password',
         role: 'statistician',
         captureRole: 'all',
-        isMasterLogger: false,
+        isMasterLogger: true,
         venue: 'Friendship, St. Michael',
         assignedMatchIds: ALL_PMC_FIXTURE_IDS,
         avatar: 'N',

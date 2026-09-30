@@ -48,7 +48,9 @@ export default function StatisticianDashboard({
                activeAnalyst?.username === 'johnathan' ||
                activeAnalyst?.username === 'jonathan' ||
                activeAnalyst?.id === 'analyst_johnathan' ||
-               activeAnalyst?.id === 'analyst_jonathan';
+               activeAnalyst?.id === 'analyst_jonathan' ||
+               activeAnalyst?.username === 'noah' ||
+               activeAnalyst?.id === 'analyst_noah';
     }, [activeAnalyst]);
 
     const dataLoggerEmail = activeAnalyst?.email || 'statistician.pmcup@gmail.com';
