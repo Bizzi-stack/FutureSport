@@ -12,7 +12,7 @@ import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOL
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
 import { UCL_CLUBS, UCL_TEAMS, UCL_PLAYERS, UCL_INITIAL_MATCHES, UCL_YEARS, ensureUclPlayerIdentities } from './data/uclData';
 import { pushMatchesToCloud, broadcastSandboxMatches, subscribeToRealtimeSync, subscribeToSandboxSync, mergeCloudMatches } from './utils/realtimeSync';
-import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament } from './utils/matchEngine';
+import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament, mergeMatchStates } from './utils/matchEngine';
 import { exportClassReport } from './utils/exportReport';
 import QuickTestFixtureModal from './components/admin/QuickTestFixtureModal';
 import NationalHub from './components/NationalHub';
@@ -1176,7 +1176,7 @@ function App() {
       const prevList = pmcMatches || [];
       const exists = prevList.some(m => m.id === updatedMatch.id);
       const nextMatches = exists
-        ? prevList.map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m)
+        ? prevList.map(m => m.id === updatedMatch.id ? mergeMatchStates(m, updatedMatch) : m)
         : [...prevList, updatedMatch];
       setPmcMatches(nextMatches);
       pushMatchesToCloud(nextMatches);

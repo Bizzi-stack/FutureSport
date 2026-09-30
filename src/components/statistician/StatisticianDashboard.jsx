@@ -283,8 +283,8 @@ export default function StatisticianDashboard({
 
     // ── Selected Match View (Active Live Match, Post-Match Concluded Station, OR Pre-Kickoff Waiting Room) ──
     if (selectedMatch) {
-        const isMatchLive = selectedMatch.status === 'live';
-        const isMatchCompleted = selectedMatch.status === 'completed' || selectedMatch.status === 'refereed' || selectedMatch.status === 'approved';
+        const isMatchCompleted = selectedMatch.status === 'completed' || selectedMatch.status === 'refereed' || selectedMatch.status === 'approved' || selectedMatch.isFinished === true;
+        const isMatchLive = selectedMatch.status === 'live' && !isMatchCompleted;
         const homeSchool = getSchoolObj(selectedMatch.homeTeamId);
         const awaySchool = getSchoolObj(selectedMatch.awayTeamId);
         const homeName = getTeamName(selectedMatch.homeTeamId, selectedMatch.homeTeam);
@@ -374,6 +374,7 @@ export default function StatisticianDashboard({
                                 if (onUpdateMatch) onUpdateMatch(updated);
                             }}
                             onEndMatch={(finalData) => {
+                                if (onUpdateMatch) onUpdateMatch(finalData);
                                 if (onEndMatch) onEndMatch(finalData);
                             }}
                         />

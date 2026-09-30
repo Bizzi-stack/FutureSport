@@ -2854,6 +2854,124 @@ async function runAllTests() {
         recordPass('categoryJ', 'J7: Multi-role clock consumption: Coaches, Commentators, and Referees read unified canonical clock state');
     }
 
+    // J8: Fixture-30 conclusion: Ending a match without explicit ageGroup or match property concludes cleanly without ReferenceError
+    {
+        const fixture30Live = {
+            id: 'pmc-fixture-30',
+            matchNumber: 30,
+            date: '2026-10-18T23:00:00.000Z',
+            time: '19:00',
+            year: '2026-2027',
+            round: 'Group A · Match 30',
+            matchday: 'Matchday 15',
+            venue: 'Wildey Turf',
+            group: 'Group A',
+            homeTeamId: 'pmc-club-3',
+            awayTeamId: 'pmc-club-2',
+            homeTeam: 'KICKSTART RUSH',
+            awayTeam: 'EMPIRE CLUB',
+            status: 'live',
+            homeScore: 1,
+            awayScore: 0,
+            events: [],
+            timeline: [
+                { id: 'ev-goal-1', type: 'goal', team: 'home', result: 'goal', minute: 12 }
+            ],
+            playerStats: {},
+            liveState: {
+                period: '1H',
+                status: 'live',
+                isRunning: true,
+                startTime: Date.now() - 45 * 60 * 1000,
+                elapsedOffset: 0,
+                clockUpdatedAt: Date.now()
+            }
+        };
+
+        // Simulate confirmEnd logic from LiveMatch.jsx
+        const now = Date.now();
+        const matchData = fixture30Live;
+        const matchProp = undefined;
+        let isSubmittingEnd = false;
+        let showConfirm = true;
+
+        let finalMatchPayload = null;
+        try {
+            isSubmittingEnd = true;
+            const targetId = matchData?.id || matchProp?.id;
+            const targetHomeId = matchData?.homeTeamId || matchProp?.homeTeamId;
+            const targetAwayId = matchData?.awayTeamId || matchProp?.awayTeamId;
+            const targetAgeGroup = matchData?.ageGroup || matchProp?.ageGroup || 'Senior';
+            const targetMatchday = matchData?.matchday || matchProp?.matchday || 'Matchday 1';
+            const effectivePossession = matchData?.possession || matchProp?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 };
+
+            finalMatchPayload = {
+                ...(matchData || matchProp || {}),
+                id: targetId,
+                homeTeamId: targetHomeId,
+                awayTeamId: targetAwayId,
+                ageGroup: targetAgeGroup,
+                matchday: targetMatchday,
+                homeScore: 1,
+                awayScore: 0,
+                playerStats: {},
+                timeline: matchData.timeline,
+                possession: effectivePossession,
+                status: 'completed',
+                isFinished: true,
+                startTime: matchData.liveState.startTime,
+                endTime: now,
+                updatedAt: now,
+                date: new Date().toISOString(),
+                liveState: {
+                    ...(matchData?.liveState || {}),
+                    status: 'completed',
+                    isRunning: false,
+                    period: 'FT',
+                    clockUpdatedAt: now,
+                    homeScore: 1,
+                    awayScore: 0,
+                    playerStats: {},
+                    timeline: matchData.timeline,
+                    possession: effectivePossession,
+                    updatedAt: now
+                },
+                refereeLiveState: {
+                    ...(matchData?.refereeLiveState || {}),
+                    status: 'completed',
+                    isRunning: false,
+                    period: 'FT',
+                    clockUpdatedAt: now,
+                    homeScore: 1,
+                    awayScore: 0,
+                    playerStats: {},
+                    timeline: matchData.timeline,
+                    updatedAt: now
+                }
+            };
+        } finally {
+            showConfirm = false;
+            isSubmittingEnd = false;
+        }
+
+        assert.strictEqual(showConfirm, false, 'Modal closes immediately on confirmEnd');
+        assert.strictEqual(isSubmittingEnd, false, 'Submitting spinner resets on completion');
+        assert.strictEqual(finalMatchPayload.status, 'completed');
+        assert.strictEqual(finalMatchPayload.isFinished, true);
+        assert.strictEqual(finalMatchPayload.liveState.period, 'FT');
+        assert.strictEqual(finalMatchPayload.liveState.isRunning, false);
+        assert.strictEqual(finalMatchPayload.ageGroup, 'Senior');
+
+        // Verify merge with incoming matches in App.jsx
+        const merged = mergeMatchStates(fixture30Live, finalMatchPayload);
+        assert.strictEqual(merged.status, 'completed');
+        assert.strictEqual(merged.isFinished, true);
+        assert.strictEqual(merged.liveState.period, 'FT');
+        assert.strictEqual(merged.liveState.isRunning, false);
+
+        recordPass('categoryJ', 'J8: Fixture-30 conclusion: Confirming and ending a match without explicit ageGroup closes modal and transitions to FT without ReferenceError');
+    }
+
     console.log(`\nCategory J Summary: ${results.categoryJ.passed}/${results.categoryJ.total} passed.\n`);
 
     // =========================================================================

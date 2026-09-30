@@ -1022,73 +1022,79 @@ export default function LiveMatch({
     }, [playerStats]);
 
     /* end match */
+    /* end match */
     const confirmEnd = () => {
         if (isSubmittingEnd) return;
         setIsSubmittingEnd(true);
         isEndingRef.current = true;
         const now = Date.now();
         localUpdatedAtRef.current = now;
-        const targetId = matchData?.id || match?.id;
-        const targetHomeId = homeTeamId || matchData?.homeTeamId || match?.homeTeamId;
-        const targetAwayId = awayTeamId || matchData?.awayTeamId || match?.awayTeamId;
-
-        const finalMatchPayload = {
-            ...(matchData || match || {}),
-            id: targetId,
-            homeTeamId: targetHomeId,
-            awayTeamId: targetAwayId,
-            ageGroup: ageGroup || matchData?.ageGroup || match?.ageGroup,
-            matchday: matchday || matchData?.matchday || match?.matchday,
-            homeScore,
-            awayScore,
-            playerStats,
-            timeline,
-            possession: livePossession || matchData?.possession || match?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 },
-            status: 'completed',
-            isFinished: true,
-            startTime: startTimeRef.current || now - (elapsed * 1000),
-            endTime: now,
-            updatedAt: now,
-            date: new Date().toISOString(),
-            liveState: {
-                ...(matchData?.liveState || {}),
-                status: 'completed',
-                isRunning: false,
-                period: 'FT',
-                clockUpdatedAt: now,
-                homeScore,
-                awayScore,
-                playerStats,
-                timeline,
-                possession: livePossession || matchData?.possession || match?.possession || { homePct: 50, awayPct: 50 },
-                updatedAt: now
-            },
-            refereeLiveState: {
-                ...(matchData?.refereeLiveState || {}),
-                status: 'completed',
-                isRunning: false,
-                period: 'FT',
-                clockUpdatedAt: now,
-                homeScore,
-                awayScore,
-                playerStats,
-                timeline,
-                updatedAt: now
-            }
-        };
 
         try {
+            const targetId = matchData?.id || matchProp?.id;
+            const targetHomeId = homeTeamId || matchData?.homeTeamId || matchProp?.homeTeamId;
+            const targetAwayId = awayTeamId || matchData?.awayTeamId || matchProp?.awayTeamId;
+            const targetAgeGroup = ageGroup || matchData?.ageGroup || matchProp?.ageGroup || 'Senior';
+            const targetMatchday = matchday || matchData?.matchday || matchProp?.matchday || 'Matchday 1';
+            const effectivePossession = livePossession || matchData?.possession || matchProp?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 };
+
+            const finalMatchPayload = {
+                ...(matchData || matchProp || {}),
+                id: targetId,
+                homeTeamId: targetHomeId,
+                awayTeamId: targetAwayId,
+                ageGroup: targetAgeGroup,
+                matchday: targetMatchday,
+                homeScore,
+                awayScore,
+                playerStats,
+                timeline,
+                possession: effectivePossession,
+                status: 'completed',
+                isFinished: true,
+                startTime: startTimeRef.current || now - (elapsed * 1000),
+                endTime: now,
+                updatedAt: now,
+                date: new Date().toISOString(),
+                liveState: {
+                    ...(matchData?.liveState || {}),
+                    status: 'completed',
+                    isRunning: false,
+                    period: 'FT',
+                    clockUpdatedAt: now,
+                    homeScore,
+                    awayScore,
+                    playerStats,
+                    timeline,
+                    possession: effectivePossession,
+                    updatedAt: now
+                },
+                refereeLiveState: {
+                    ...(matchData?.refereeLiveState || {}),
+                    status: 'completed',
+                    isRunning: false,
+                    period: 'FT',
+                    clockUpdatedAt: now,
+                    homeScore,
+                    awayScore,
+                    playerStats,
+                    timeline,
+                    updatedAt: now
+                }
+            };
+
             if (onEndMatch) {
                 onEndMatch(finalMatchPayload);
-            } else if (onUpdateMatch) {
+            }
+            if (onUpdateMatch) {
                 onUpdateMatch(finalMatchPayload);
             }
         } catch (err) {
             console.error('[LiveMatch] Error concluding match:', err);
+        } finally {
+            setShowConfirm(false);
+            setIsSubmittingEnd(false);
         }
-
-        setShowConfirm(false);
-        setIsSubmittingEnd(false);
     };
 
     /* Format timeline timer */
@@ -2433,7 +2439,7 @@ export default function LiveMatch({
                 >
                     Cancel Match
                 </button>
-                {isMasterLogger ? (
+                {isMasterLogger || captureRole !== 'readonly' ? (
                     <button
                         style={styles.endBtn}
                         onClick={() => setShowConfirm(true)}
@@ -2447,7 +2453,7 @@ export default function LiveMatch({
                         background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
                         fontSize: '11px', fontWeight: '700', color: '#38bdf8'
                     }}>
-                        <span>🔒</span> Official Match End: Jonathan (Lead Controller)
+                        <span>🔒</span> Spectator View
                     </div>
                 )}
             </div>
