@@ -334,7 +334,25 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     const homeScore = rec.homeScore;
     const awayScore = rec.awayScore;
 
-        const localLiveTime = Number(localMatch.liveState?.updatedAt || 0);
+    // Squad Selection & Player List Immunity:
+    // Never allow a squad selection or player list to be overwritten with null/empty if either state has it
+    const homeSquadSelection = (incomingMatch.homeSquadSelection?.startingXI?.filter(Boolean)?.length > 0)
+        ? incomingMatch.homeSquadSelection
+        : (localMatch.homeSquadSelection?.startingXI?.filter(Boolean)?.length > 0 ? localMatch.homeSquadSelection : (incomingMatch.homeSquadSelection || localMatch.homeSquadSelection || null));
+
+    const awaySquadSelection = (incomingMatch.awaySquadSelection?.startingXI?.filter(Boolean)?.length > 0)
+        ? incomingMatch.awaySquadSelection
+        : (localMatch.awaySquadSelection?.startingXI?.filter(Boolean)?.length > 0 ? localMatch.awaySquadSelection : (incomingMatch.awaySquadSelection || localMatch.awaySquadSelection || null));
+
+    const homePlayers = (Array.isArray(incomingMatch.homePlayers) && incomingMatch.homePlayers.length > 0)
+        ? incomingMatch.homePlayers
+        : (Array.isArray(localMatch.homePlayers) && localMatch.homePlayers.length > 0 ? localMatch.homePlayers : (base.homePlayers || []));
+
+    const awayPlayers = (Array.isArray(incomingMatch.awayPlayers) && incomingMatch.awayPlayers.length > 0)
+        ? incomingMatch.awayPlayers
+        : (Array.isArray(localMatch.awayPlayers) && localMatch.awayPlayers.length > 0 ? localMatch.awayPlayers : (base.awayPlayers || []));
+
+    const localLiveTime = Number(localMatch.liveState?.updatedAt || 0);
     const incLiveTime = Number(incomingMatch.liveState?.updatedAt || 0);
     const latestLiveState = incLiveTime > localLiveTime ? incomingMatch.liveState : localMatch.liveState;
     
@@ -362,6 +380,11 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     }
 
     const isTerminal = terminalStatuses.includes(finalStatus);
+    const isHalfTime = (resolvedPeriod === 'HT');
+    if (isTerminal || isHalfTime) {
+        resolvedIsRunning = false;
+        if (isHalfTime && !isTerminal) resolvedPeriod = 'HT';
+    }
 
     const merged = {
         ...base,
@@ -371,6 +394,10 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         version: Math.max(Number(localMatch.version || 0), Number(incomingMatch.version || 0)) + 1,
         homeScore: homeScore ?? base.homeScore,
         awayScore: awayScore ?? base.awayScore,
+        homeSquadSelection,
+        awaySquadSelection,
+        homePlayers,
+        awayPlayers,
         playerStats: mergedPlayerStats,
         timeline: mergedTimeline,
         tombstoneEventIds: mergedTombstones

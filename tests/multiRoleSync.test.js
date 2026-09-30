@@ -2972,6 +2972,77 @@ async function runAllTests() {
         recordPass('categoryJ', 'J8: Fixture-30 conclusion: Confirming and ending a match without explicit ageGroup closes modal and transitions to FT without ReferenceError');
     }
 
+    // J9: Match conclusion lineup persistence and post-match roster resolution
+    {
+        const { PMC_STUDENTS } = await import('../src/utils/pmcDataLoader.js');
+
+        const fixture30 = {
+            id: 'pmc-fixture-30',
+            homeTeamId: 'pmc-club-13',
+            awayTeamId: 'pmc-club-15',
+            homeTeam: 'KICKSTART RUSH',
+            awayTeam: 'EMPIRE CLUB',
+            status: 'live',
+            homeScore: 1,
+            awayScore: 0
+        };
+
+        const kickstartPlayers = PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-13').map(s => s.id);
+        const empirePlayers = PMC_STUDENTS.filter(s => s.schoolId === 'pmc-club-15').map(s => s.id);
+
+        assert(kickstartPlayers.length >= 11, 'Kickstart Rush has at least 11 registered players');
+        assert(empirePlayers.length >= 11, 'Empire Club has at least 11 registered players');
+
+        // Simulate confirmEnd payload generation with effective squads
+        const effectiveHomeSquad = {
+            formation: '4-3-3',
+            startingXI: kickstartPlayers.slice(0, 11),
+            benchPlayers: kickstartPlayers.slice(11),
+            validationStatus: 'approved'
+        };
+        const effectiveAwaySquad = {
+            formation: '4-3-3',
+            startingXI: empirePlayers.slice(0, 11),
+            benchPlayers: empirePlayers.slice(11),
+            validationStatus: 'approved'
+        };
+
+        const concludedPayload = {
+            ...fixture30,
+            status: 'completed',
+            isFinished: true,
+            homeSquadSelection: effectiveHomeSquad,
+            awaySquadSelection: effectiveAwaySquad,
+            homePlayers: kickstartPlayers,
+            awayPlayers: empirePlayers,
+            liveState: { status: 'completed', isRunning: false, period: 'FT' }
+        };
+
+        // Test 2: mergeMatchStates immunity for squad selections against stale null updates
+        const staleServerState = {
+            ...fixture30,
+            homeSquadSelection: null,
+            awaySquadSelection: null,
+            homePlayers: [],
+            awayPlayers: [],
+            updatedAt: Date.now() + 1000 // Newer timestamp but empty squads!
+        };
+
+        const merged = mergeMatchStates(concludedPayload, staleServerState);
+        assert.strictEqual(merged.status, 'completed', 'Completed status immune to server merge');
+        assert.strictEqual(merged.isFinished, true);
+        assert.strictEqual(merged.homeSquadSelection?.startingXI?.length, 11, 'Home starting XI preserved with 11 players');
+        assert.strictEqual(merged.homeSquadSelection?.benchPlayers?.length, kickstartPlayers.length - 11, 'Home bench preserved');
+        assert.strictEqual(merged.awaySquadSelection?.startingXI?.length, 11, 'Away starting XI preserved with 11 players');
+        assert.strictEqual(merged.awaySquadSelection?.benchPlayers?.length, empirePlayers.length - 11, 'Away bench preserved');
+        assert.strictEqual(merged.homePlayers.length, kickstartPlayers.length, 'Home player roster preserved');
+        assert.strictEqual(merged.awayPlayers.length, empirePlayers.length, 'Away player roster preserved');
+        assert.strictEqual(merged.liveState.isRunning, false, 'Clock strictly stopped on concluded match');
+        assert.strictEqual(merged.liveState.period, 'FT', 'Period strictly FT');
+
+        recordPass('categoryJ', 'J9: Lineup persistence and Post-Match resolution guarantees 11 starters and bench are preserved and displayed');
+    }
+
     console.log(`\nCategory J Summary: ${results.categoryJ.passed}/${results.categoryJ.total} passed.\n`);
 
     // =========================================================================

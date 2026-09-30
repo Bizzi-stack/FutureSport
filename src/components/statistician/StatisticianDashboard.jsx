@@ -9,13 +9,41 @@ import {
     triggerDeviceNotification
 } from '../../services/refereeNotificationService';
 import { getAnalystAccounts } from '../../data/analystAccounts';
-import { PMC_MATCHES } from '../../utils/pmcDataLoader';
+import { PMC_MATCHES, PMC_STUDENTS } from '../../utils/pmcDataLoader';
 import { resolvePlayer, resolvePlayerName, createPlayerLookupMap } from '../../utils/playerResolver';
 import {
     editMatchEventState,
     overturnMatchEventState,
     recalculateMatchScores
 } from '../../utils/matchEngine';
+
+function resolveTeamRosterIds(match, side, allPlayers, year) {
+    if (!match) return [];
+    const explicitRoster = side === 'home' ? match.homePlayers : match.awayPlayers;
+    if (Array.isArray(explicitRoster) && explicitRoster.length > 0) {
+        return explicitRoster;
+    }
+    const targetTeamName = (side === 'home' ? match.homeTeam : match.awayTeam) || '';
+    const targetTeamId = (side === 'home' ? match.homeTeamId : match.awayTeamId) || '';
+    const cleanId = (targetTeamId || '').replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
+    const nameLower = targetTeamName.toLowerCase();
+    const pool = (allPlayers && allPlayers.length > 0) ? allPlayers : PMC_STUDENTS;
+
+    const roster = pool.filter(s => {
+        const sSchool = (s.schoolId || s.clubId || '').toLowerCase();
+        const sTeam = (s.teamAssignments?.[year || match.year || '2026-2027'] || '').toLowerCase();
+        return (
+            (cleanId && sSchool === cleanId) ||
+            (targetTeamId && sSchool === targetTeamId.toLowerCase()) ||
+            (targetTeamId && sTeam === targetTeamId.toLowerCase()) ||
+            (cleanId && sTeam.includes(cleanId)) ||
+            (nameLower && s.schoolName?.toLowerCase().includes(nameLower)) ||
+            (nameLower && s.clubName?.toLowerCase().includes(nameLower))
+        );
+    }).map(s => s.id);
+
+    return roster;
+}
 
 export default function StatisticianDashboard({
     matches = [],
@@ -289,8 +317,23 @@ export default function StatisticianDashboard({
         const awaySchool = getSchoolObj(selectedMatch.awayTeamId);
         const homeName = getTeamName(selectedMatch.homeTeamId, selectedMatch.homeTeam);
         const awayName = getTeamName(selectedMatch.awayTeamId, selectedMatch.awayTeam);
-        const homeXI = selectedMatch.homeSquadSelection?.startingXI || [];
-        const awayXI = selectedMatch.awaySquadSelection?.startingXI || [];
+        const homeRoster = resolveTeamRosterIds(selectedMatch, 'home', allPlayers, year);
+        const awayRoster = resolveTeamRosterIds(selectedMatch, 'away', allPlayers, year);
+
+        const homeXI = (selectedMatch.homeSquadSelection?.startingXI && selectedMatch.homeSquadSelection.startingXI.filter(Boolean).length > 0)
+            ? selectedMatch.homeSquadSelection.startingXI.filter(Boolean)
+            : homeRoster.slice(0, 11);
+        const homeBench = (selectedMatch.homeSquadSelection?.benchPlayers && selectedMatch.homeSquadSelection.benchPlayers.filter(Boolean).length > 0)
+            ? selectedMatch.homeSquadSelection.benchPlayers.filter(Boolean)
+            : homeRoster.slice(11);
+
+        const awayXI = (selectedMatch.awaySquadSelection?.startingXI && selectedMatch.awaySquadSelection.startingXI.filter(Boolean).length > 0)
+            ? selectedMatch.awaySquadSelection.startingXI.filter(Boolean)
+            : awayRoster.slice(0, 11);
+        const awayBench = (selectedMatch.awaySquadSelection?.benchPlayers && selectedMatch.awaySquadSelection.benchPlayers.filter(Boolean).length > 0)
+            ? selectedMatch.awaySquadSelection.benchPlayers.filter(Boolean)
+            : awayRoster.slice(11);
+
         const homeFormation = selectedMatch.homeSquadSelection?.formation || '4-3-3';
         const awayFormation = selectedMatch.awaySquadSelection?.formation || '4-3-3';
         const timelineEvents = selectedMatch.timeline || [];
@@ -544,9 +587,9 @@ export default function StatisticianDashboard({
                                     Starting XI ({homeXI.length} Players):
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
                                     {homeXI.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No starters registered in lineup.</div>
                                     ) : (
                                         homeXI.map((pId, idx) => {
                                             const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.homeTeamId);
@@ -557,6 +600,29 @@ export default function StatisticianDashboard({
                                                 <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
                                                     <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {name}</span>
                                                     <span style={{ fontWeight: '700', color: '#4ade80' }}>#{jersey}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
+                                    Substitutes Bench ({homeBench.length} Players):
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                                    {homeBench.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '6px' }}>No substitutes registered.</div>
+                                    ) : (
+                                        homeBench.map((pId, idx) => {
+                                            const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.homeTeamId);
+                                            const name = resolvePlayerName(p || pId, allPlayers, playerLookupMap, '', selectedMatch?.homeTeamId);
+                                            const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
+                                            const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 12 : idx + 12);
+                                            return (
+                                                <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
+                                                    <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>{idx + 12}. {name}</span>
+                                                    <span style={{ fontWeight: '700', color: 'rgba(74, 222, 128, 0.7)' }}>#{jersey}</span>
                                                 </div>
                                             );
                                         })
@@ -580,9 +646,9 @@ export default function StatisticianDashboard({
                                     Starting XI ({awayXI.length} Players):
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
                                     {awayXI.length === 0 ? (
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No players registered in lineup.</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '8px' }}>No starters registered in lineup.</div>
                                     ) : (
                                         awayXI.map((pId, idx) => {
                                             const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.awayTeamId);
@@ -593,6 +659,29 @@ export default function StatisticianDashboard({
                                                 <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', fontSize: '12px' }}>
                                                     <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{idx + 1}. {name}</span>
                                                     <span style={{ fontWeight: '700', color: '#38bdf8' }}>#{jersey}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+
+                                <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
+                                    Substitutes Bench ({awayBench.length} Players):
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                                    {awayBench.length === 0 ? (
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '6px' }}>No substitutes registered.</div>
+                                    ) : (
+                                        awayBench.map((pId, idx) => {
+                                            const p = resolvePlayer(pId, allPlayers, playerLookupMap, selectedMatch?.awayTeamId);
+                                            const name = resolvePlayerName(p || pId, allPlayers, playerLookupMap, '', selectedMatch?.awayTeamId);
+                                            const rawNum = parseInt(String(pId).replace(/\D/g, ''), 10);
+                                            const jersey = p?.jerseyNumber || (Number.isFinite(rawNum) && rawNum > 0 ? (rawNum % 22) + 12 : idx + 12);
+                                            return (
+                                                <div key={pId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.02)', fontSize: '12px' }}>
+                                                    <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>{idx + 12}. {name}</span>
+                                                    <span style={{ fontWeight: '700', color: 'rgba(56, 189, 248, 0.7)' }}>#{jersey}</span>
                                                 </div>
                                             );
                                         })

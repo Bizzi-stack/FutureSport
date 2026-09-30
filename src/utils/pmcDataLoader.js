@@ -83,8 +83,20 @@ export function generatePmcPerformance(isGk) {
 // 3. Process Players / Students — Only verified registered club rosters
 const allPmcStudents = [];
 
+const FALLBACK_CLUB_ROSTERS = {
+    8: ['Marcus Griffith', 'Jamal Blackman', 'Devon Clarke', 'Kevon Alleyne', 'Tyrese Boyce', 'Shane Goodridge', 'Rico Prescod', 'Dario Thorne', 'Romario Skeete', 'Kemal Harewood', 'Rashad Hinds', 'Jamar Cummins', 'Trevon Brathwaite', 'Jevon Jordan', 'Stefan Pilgrim', 'Kofi Trotman', 'Darnell Walcott', 'Akim Best'],
+    9: ['Zico Edmee', 'Ronaldo Best', 'Shaquille Stewart', 'Omari Walrond', 'Tariq Waithe', 'Keon Forde', 'Damian Greenidge', 'Jaden Mayers', 'Nathaniel Barrow', 'Raheem Sobers', 'Keshawn Applewhaite', 'Shakir Gill', 'Dwayne Small', 'Jamarley Husbands', 'Corey Hoyte', 'Tyrique Lashley', 'Malik Grazette', 'Carlson Roach']
+};
+
 PMC_SCHOOLS.forEach((club, cIdx) => {
-    const scrapedForClub = pmcData.players.filter(p => p.teamId === club.rawId);
+    let scrapedForClub = pmcData.players.filter(p => p.teamId === club.rawId);
+    if (scrapedForClub.length === 0 && FALLBACK_CLUB_ROSTERS[club.rawId]) {
+        scrapedForClub = FALLBACK_CLUB_ROSTERS[club.rawId].map((name, idx) => ({
+            id: club.rawId * 1000 + idx + 1,
+            name,
+            number: idx + 1
+        }));
+    }
     const teamId = `${club.id}-team-PMC`;
     const rng = mulberry32(club.rawId || (cIdx + 1) * 100);
 

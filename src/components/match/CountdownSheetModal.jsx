@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PreKickoffCorrectionModal from './PreKickoffCorrectionModal';
+import { PMC_STUDENTS } from '../../utils/pmcDataLoader';
 
 export default function CountdownSheetModal({
     match,
@@ -144,15 +145,56 @@ export default function CountdownSheetModal({
         return { id: idOrObj, name: `Player #${idOrObj}`, jerseyNumber: String(idOrObj).replace(/\D/g, '') || '?' };
     };
 
+    // Helper to resolve roster IDs if match.homePlayers or match.awayPlayers is empty
+    const resolveTeamRoster = (side) => {
+        const explicit = side === 'home' ? match.homePlayers : match.awayPlayers;
+        if (Array.isArray(explicit) && explicit.length > 0) return explicit;
+        const targetTeamName = (side === 'home' ? match.homeTeam : match.awayTeam) || '';
+        const targetTeamId = (side === 'home' ? match.homeTeamId : match.awayTeamId) || '';
+        const cleanId = (targetTeamId || '').replace(/-team-(pmc|ucl|boys|girls|u\d+)/gi, '').toLowerCase();
+        const nameLower = targetTeamName.toLowerCase();
+        const pool = (allPlayers && allPlayers.length > 0) ? allPlayers : PMC_STUDENTS;
+
+        return pool.filter(s => {
+            const sSchool = (s.schoolId || s.clubId || '').toLowerCase();
+            const sTeam = (s.teamAssignments?.[match.year || '2026-2027'] || '').toLowerCase();
+            return (
+                (cleanId && sSchool === cleanId) ||
+                (targetTeamId && sSchool === targetTeamId.toLowerCase()) ||
+                (targetTeamId && sTeam === targetTeamId.toLowerCase()) ||
+                (cleanId && sTeam.includes(cleanId)) ||
+                (nameLower && s.schoolName?.toLowerCase().includes(nameLower)) ||
+                (nameLower && s.clubName?.toLowerCase().includes(nameLower))
+            );
+        }).map(s => s.id);
+    };
+
+    const resolvedHomeRoster = resolveTeamRoster('home');
+    const resolvedAwayRoster = resolveTeamRoster('away');
+
     // Home Squad Data
     const homeSquad = match.homeSquadSelection || {};
-    const homeStartingXI = (homeSquad.startingXI || []).map(p => getPlayer(p, match.homePlayers || [])).filter(Boolean);
-    const homeBench = (homeSquad.benchPlayers || []).map(p => getPlayer(p, match.homePlayers || [])).filter(Boolean);
+    const rawHomeXI = (homeSquad.startingXI && homeSquad.startingXI.filter(Boolean).length > 0)
+        ? homeSquad.startingXI.filter(Boolean)
+        : resolvedHomeRoster.slice(0, 11);
+    const rawHomeBench = (homeSquad.benchPlayers && homeSquad.benchPlayers.filter(Boolean).length > 0)
+        ? homeSquad.benchPlayers.filter(Boolean)
+        : resolvedHomeRoster.slice(11);
+
+    const homeStartingXI = rawHomeXI.map(p => getPlayer(p, match.homePlayers || resolvedHomeRoster)).filter(Boolean);
+    const homeBench = rawHomeBench.map(p => getPlayer(p, match.homePlayers || resolvedHomeRoster)).filter(Boolean);
 
     // Away Squad Data
     const awaySquad = match.awaySquadSelection || {};
-    const awayStartingXI = (awaySquad.startingXI || []).map(p => getPlayer(p, match.awayPlayers || [])).filter(Boolean);
-    const awayBench = (awaySquad.benchPlayers || []).map(p => getPlayer(p, match.awayPlayers || [])).filter(Boolean);
+    const rawAwayXI = (awaySquad.startingXI && awaySquad.startingXI.filter(Boolean).length > 0)
+        ? awaySquad.startingXI.filter(Boolean)
+        : resolvedAwayRoster.slice(0, 11);
+    const rawAwayBench = (awaySquad.benchPlayers && awaySquad.benchPlayers.filter(Boolean).length > 0)
+        ? awaySquad.benchPlayers.filter(Boolean)
+        : resolvedAwayRoster.slice(11);
+
+    const awayStartingXI = rawAwayXI.map(p => getPlayer(p, match.awayPlayers || resolvedAwayRoster)).filter(Boolean);
+    const awayBench = rawAwayBench.map(p => getPlayer(p, match.awayPlayers || resolvedAwayRoster)).filter(Boolean);
 
     // Kit colors defaults
     const homeKit = match.homeKit || { shirt: '#00267F', shorts: '#00267F', socks: '#FFC726', gk: '#10b981' };

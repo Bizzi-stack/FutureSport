@@ -352,20 +352,46 @@ export default function LiveMatch({
 
     const [period, setPeriod] = useState(clockState.period || '1H');          // '1H' | 'HT' | '2H'
     const [isPaused, setIsPaused] = useState(clockState.isRunning === false);
+    const lastClockUpdatedAtRef = useRef(clockState.clockUpdatedAt || clockState.updatedAt || 0);
+    const lastAppliedClockTimeRef = useRef(clockState.clockUpdatedAt || clockState.updatedAt || 0);
     
-    // Sync React state if incoming clockState is newer than local update or when clock updates from remote
+    // Sync React state if incoming clockState updates from remote
     useEffect(() => {
         const incClockTime = clockState.clockUpdatedAt || clockState.updatedAt || 0;
-        const localTime = localUpdatedAtRef.current || 0;
-        if (incClockTime > localTime || (!isMasterLogger && clockState.isRunning !== undefined)) {
-            setIsPaused(clockState.isRunning === false);
+        const isTerminated = clockState.period === 'HT' || clockState.period === 'FT' || matchData.status === 'completed' || matchData.status === 'refereed' || matchData.status === 'approved' || matchData.isFinished === true;
+
+        if (isTerminated) {
+            setIsPaused(true);
+            if (clockState.period) setPeriod(clockState.period);
+            if (clockState.elapsedOffset !== undefined) {
+                offsetRef.current = clockState.elapsedOffset;
+                setElapsed(clockState.elapsedOffset);
+            }
+            lastAppliedClockTimeRef.current = Math.max(lastAppliedClockTimeRef.current, incClockTime);
+            return;
+        }
+
+        if (clockState.isRunning === false) {
+            setIsPaused(true);
+            if (clockState.period) setPeriod(clockState.period);
+            if (clockState.elapsedOffset !== undefined) {
+                offsetRef.current = clockState.elapsedOffset;
+                setElapsed(clockState.elapsedOffset);
+            }
+            lastAppliedClockTimeRef.current = Math.max(lastAppliedClockTimeRef.current, incClockTime);
+            return;
+        }
+
+        if (incClockTime > lastAppliedClockTimeRef.current) {
+            lastAppliedClockTimeRef.current = incClockTime;
+            setIsPaused(false);
             if (clockState.period) setPeriod(clockState.period);
             if (clockState.startTime) startTimeRef.current = clockState.startTime;
             if (clockState.elapsedOffset !== undefined) offsetRef.current = clockState.elapsedOffset;
         }
-    }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, clockState.clockUpdatedAt, clockState.updatedAt, isMasterLogger]);
+    }, [clockState.isRunning, clockState.period, clockState.startTime, clockState.elapsedOffset, clockState.clockUpdatedAt, clockState.updatedAt, matchData.status, matchData.isFinished]);
 
-    const localUpdatedAtRef = useRef(Date.now());
+    const localUpdatedAtRef = useRef(clockState.clockUpdatedAt || 0);
     const localSeqRef = useRef(1);
     const [tombstoneEventIds, setTombstoneEventIds] = useState(() => {
         return matchData.tombstoneEventIds || matchData.liveState?.tombstoneEventIds || [];
@@ -451,6 +477,8 @@ export default function LiveMatch({
     const handleTogglePause = () => {
         if (captureRole === 'readonly') return;
         const now = Date.now();
+        lastClockUpdatedAtRef.current = now;
+        lastAppliedClockTimeRef.current = now;
         localUpdatedAtRef.current = now;
         let nextIsRunning;
         let nextStartTime;
@@ -519,6 +547,8 @@ export default function LiveMatch({
     const handleEndFirstHalf = () => {
         if (captureRole === 'readonly') return;
         const now = Date.now();
+        lastClockUpdatedAtRef.current = now;
+        lastAppliedClockTimeRef.current = now;
         localUpdatedAtRef.current = now;
         offsetRef.current = 45 * 60; // strictly 45:00 at half time
         setElapsed(45 * 60);
@@ -571,6 +601,8 @@ export default function LiveMatch({
     const handleStartSecondHalf = () => {
         if (captureRole === 'readonly') return;
         const now = Date.now();
+        lastClockUpdatedAtRef.current = now;
+        lastAppliedClockTimeRef.current = now;
         localUpdatedAtRef.current = now;
         offsetRef.current = 45 * 60; // strictly 45:00
         startTimeRef.current = now;
@@ -624,7 +656,8 @@ export default function LiveMatch({
     /* timer */
     useEffect(() => {
         let iv = null;
-        if (!isPaused) {
+        const isTerminated = period === 'HT' || period === 'FT' || matchData?.status === 'completed' || matchData?.status === 'refereed' || matchData?.status === 'approved' || matchData?.isFinished === true;
+        if (!isPaused && !isTerminated) {
             iv = setInterval(() => {
                 setElapsed(offsetRef.current + Math.floor((Date.now() - startTimeRef.current) / 1000));
             }, 1000);
@@ -632,7 +665,7 @@ export default function LiveMatch({
         return () => {
             if (iv) clearInterval(iv);
         };
-    }, [isPaused, isRefereeMode, clockState.startTime]);
+    }, [isPaused, isRefereeMode, clockState.startTime, period, matchData?.status, matchData?.isFinished]);
 
     /* lookup helper */
     const studentsById = useMemo(() => {
@@ -685,13 +718,46 @@ export default function LiveMatch({
 
             const currentPoss = livePossession || matchDataRef.current?.possession || matchDataRef.current?.liveState?.possession || { homePct: 50, awayPct: 50 };
 
+            const isTerminated = period === 'HT' || period === 'FT' || matchDataRef.current?.status === 'completed' || matchDataRef.current?.status === 'refereed' || matchDataRef.current?.status === 'approved' || matchDataRef.current?.isFinished === true;
+            const effectiveRunning = isTerminated ? false : !isPaused;
+            const effectiveClockUpdatedAt = lastClockUpdatedAtRef.current || clockState.clockUpdatedAt || currentUpdatedAt;
+
+            const effectiveHomeXI = (homeSquadSelection?.startingXI?.filter(Boolean)?.length === 11)
+                ? homeSquadSelection.startingXI.filter(Boolean)
+                : (homeStarters.length >= 11 ? homeStarters.slice(0, 11) : homePlayers.slice(0, 11));
+            const effectiveHomeBench = (homeSquadSelection?.benchPlayers?.length > 0)
+                ? homeSquadSelection.benchPlayers
+                : (homeBench.length > 0 ? homeBench : homePlayers.slice(11));
+
+            const effectiveAwayXI = (awaySquadSelection?.startingXI?.filter(Boolean)?.length === 11)
+                ? awaySquadSelection.startingXI.filter(Boolean)
+                : (awayStarters.length >= 11 ? awayStarters.slice(0, 11) : awayPlayers.slice(0, 11));
+            const effectiveAwayBench = (awaySquadSelection?.benchPlayers?.length > 0)
+                ? awaySquadSelection.benchPlayers
+                : (awayBench.length > 0 ? awayBench : awayPlayers.slice(11));
+
+            const effectiveHomeSquad = {
+                formation: homeSquadSelection?.formation || '4-3-3',
+                startingXI: effectiveHomeXI,
+                benchPlayers: effectiveHomeBench,
+                validationStatus: 'approved',
+                captainId: homeSquadSelection?.captainId || effectiveHomeXI[0] || null
+            };
+            const effectiveAwaySquad = {
+                formation: awaySquadSelection?.formation || '4-3-3',
+                startingXI: effectiveAwayXI,
+                benchPlayers: effectiveAwayBench,
+                validationStatus: 'approved',
+                captainId: awaySquadSelection?.captainId || effectiveAwayXI[0] || null
+            };
+
             const updatedLiveState = {
                 ...(matchDataRef.current?.liveState || clockState || {}),
-                isRunning: !isPaused,
+                isRunning: effectiveRunning,
                 startTime: startTimeRef.current,
                 elapsedOffset: offsetRef.current,
                 period: period,
-                clockUpdatedAt: currentUpdatedAt,
+                clockUpdatedAt: effectiveClockUpdatedAt,
                 playerStats,
                 timeline,
                 possession: currentPoss,
@@ -701,11 +767,11 @@ export default function LiveMatch({
             };
             const updatedRefereeState = {
                 ...(matchDataRef.current?.refereeLiveState || eventState || {}),
-                isRunning: !isPaused,
+                isRunning: effectiveRunning,
                 startTime: startTimeRef.current,
                 elapsedOffset: offsetRef.current,
                 period: period,
-                clockUpdatedAt: currentUpdatedAt,
+                clockUpdatedAt: effectiveClockUpdatedAt,
                 playerStats,
                 timeline,
                 tombstoneEventIds,
@@ -723,6 +789,10 @@ export default function LiveMatch({
                 tombstoneEventIds,
                 updatedAt: currentUpdatedAt,
                 version: nextVersion,
+                homeSquadSelection: matchDataRef.current?.homeSquadSelection || effectiveHomeSquad,
+                awaySquadSelection: matchDataRef.current?.awaySquadSelection || effectiveAwaySquad,
+                homePlayers: (matchDataRef.current?.homePlayers && matchDataRef.current.homePlayers.length > 0) ? matchDataRef.current.homePlayers : homePlayers,
+                awayPlayers: (matchDataRef.current?.awayPlayers && matchDataRef.current.awayPlayers.length > 0) ? matchDataRef.current.awayPlayers : awayPlayers,
                 liveState: updatedLiveState,
                 refereeLiveState: updatedRefereeState
             });
@@ -1022,13 +1092,16 @@ export default function LiveMatch({
     }, [playerStats]);
 
     /* end match */
-    /* end match */
     const confirmEnd = () => {
         if (isSubmittingEnd) return;
         setIsSubmittingEnd(true);
         isEndingRef.current = true;
         const now = Date.now();
+        lastClockUpdatedAtRef.current = now;
+        lastAppliedClockTimeRef.current = now;
         localUpdatedAtRef.current = now;
+        setIsPaused(true);
+        setPeriod('FT');
 
         try {
             const targetId = matchData?.id || matchProp?.id;
@@ -1037,6 +1110,38 @@ export default function LiveMatch({
             const targetAgeGroup = ageGroup || matchData?.ageGroup || matchProp?.ageGroup || 'Senior';
             const targetMatchday = matchday || matchData?.matchday || matchProp?.matchday || 'Matchday 1';
             const effectivePossession = livePossession || matchData?.possession || matchProp?.possession || matchData?.liveState?.possession || { homePct: 50, awayPct: 50 };
+
+            const effectiveHomeXI = (homeSquadSelection?.startingXI?.filter(Boolean)?.length === 11)
+                ? homeSquadSelection.startingXI.filter(Boolean)
+                : (homeStarters.length >= 11 ? homeStarters.slice(0, 11) : homePlayers.slice(0, 11));
+            const effectiveHomeBench = (homeSquadSelection?.benchPlayers?.length > 0)
+                ? homeSquadSelection.benchPlayers
+                : (homeBench.length > 0 ? homeBench : homePlayers.slice(11));
+
+            const effectiveAwayXI = (awaySquadSelection?.startingXI?.filter(Boolean)?.length === 11)
+                ? awaySquadSelection.startingXI.filter(Boolean)
+                : (awayStarters.length >= 11 ? awayStarters.slice(0, 11) : awayPlayers.slice(0, 11));
+            const effectiveAwayBench = (awaySquadSelection?.benchPlayers?.length > 0)
+                ? awaySquadSelection.benchPlayers
+                : (awayBench.length > 0 ? awayBench : awayPlayers.slice(11));
+
+            const effectiveHomeSquad = {
+                formation: homeSquadSelection?.formation || '4-3-3',
+                startingXI: effectiveHomeXI,
+                benchPlayers: effectiveHomeBench,
+                validationStatus: 'approved',
+                captainId: homeSquadSelection?.captainId || effectiveHomeXI[0] || null
+            };
+            const effectiveAwaySquad = {
+                formation: awaySquadSelection?.formation || '4-3-3',
+                startingXI: effectiveAwayXI,
+                benchPlayers: effectiveAwayBench,
+                validationStatus: 'approved',
+                captainId: awaySquadSelection?.captainId || effectiveAwayXI[0] || null
+            };
+
+            const finalHomePlayers = (homePlayers && homePlayers.length > 0) ? homePlayers : [...effectiveHomeXI, ...effectiveHomeBench];
+            const finalAwayPlayers = (awayPlayers && awayPlayers.length > 0) ? awayPlayers : [...effectiveAwayXI, ...effectiveAwayBench];
 
             const finalMatchPayload = {
                 ...(matchData || matchProp || {}),
@@ -1052,6 +1157,10 @@ export default function LiveMatch({
                 possession: effectivePossession,
                 status: 'completed',
                 isFinished: true,
+                homeSquadSelection: effectiveHomeSquad,
+                awaySquadSelection: effectiveAwaySquad,
+                homePlayers: finalHomePlayers,
+                awayPlayers: finalAwayPlayers,
                 startTime: startTimeRef.current || now - (elapsed * 1000),
                 endTime: now,
                 updatedAt: now,
@@ -1061,6 +1170,7 @@ export default function LiveMatch({
                     status: 'completed',
                     isRunning: false,
                     period: 'FT',
+                    elapsedOffset: elapsed,
                     clockUpdatedAt: now,
                     homeScore,
                     awayScore,
@@ -1074,6 +1184,7 @@ export default function LiveMatch({
                     status: 'completed',
                     isRunning: false,
                     period: 'FT',
+                    elapsedOffset: elapsed,
                     clockUpdatedAt: now,
                     homeScore,
                     awayScore,
