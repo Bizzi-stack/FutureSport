@@ -339,10 +339,20 @@ export function mergeMatchStates(localMatch, incomingMatch) {
         awayScore = rec.awayScore;
     }
 
+    const finalHomePlayers = (incomingMatch.homePlayers && incomingMatch.homePlayers.length > 0) 
+        ? incomingMatch.homePlayers 
+        : ((localMatch.homePlayers && localMatch.homePlayers.length > 0) ? localMatch.homePlayers : base.homePlayers);
+        
+    const finalAwayPlayers = (incomingMatch.awayPlayers && incomingMatch.awayPlayers.length > 0) 
+        ? incomingMatch.awayPlayers 
+        : ((localMatch.awayPlayers && localMatch.awayPlayers.length > 0) ? localMatch.awayPlayers : base.awayPlayers);
+
     const merged = {
         ...base,
         ...(resolvedHomeSquad !== undefined ? { homeSquadSelection: resolvedHomeSquad } : {}),
         ...(resolvedAwaySquad !== undefined ? { awaySquadSelection: resolvedAwaySquad } : {}),
+        homePlayers: finalHomePlayers,
+        awayPlayers: finalAwayPlayers,
         updatedAt: Math.max(localTime, incTime),
         version: Math.max(Number(localMatch.version || 0), Number(incomingMatch.version || 0)) + 1,
         homeScore: homeScore ?? base.homeScore,
@@ -361,6 +371,28 @@ export function mergeMatchStates(localMatch, incomingMatch) {
             timeline: mergedTimeline,
             tombstoneEventIds: mergedTombstones
         };
+    }
+
+    // Terminal Status Immunity: A finished match must never revert to 'live'
+    const terminalStatuses = ['completed', 'approved', 'refereed'];
+    const localTerminal = terminalStatuses.includes(localMatch.status);
+    const incTerminal = terminalStatuses.includes(incomingMatch.status);
+    
+    if (localTerminal || incTerminal) {
+        // If both are terminal, prefer the incoming one if it has a newer timestamp, else local.
+        // Actually, 'approved' > 'refereed' > 'completed'. Let's just take the most advanced or if equal, the newer one.
+        // For simplicity, just use base.status if base is terminal, otherwise use the one that is terminal.
+        const winningStatus = terminalStatuses.includes(base.status) ? base.status : (incTerminal ? incomingMatch.status : localMatch.status);
+        
+        merged.status = winningStatus;
+        merged.isFinished = true;
+        if (merged.liveState) {
+            merged.liveState.status = winningStatus;
+            merged.liveState.isRunning = false;
+            if (merged.liveState.period !== 'FT' && merged.liveState.period !== 'Penalty' && merged.liveState.period !== 'AET') {
+                 merged.liveState.period = 'FT';
+            }
+        }
     }
 
     return merged;
