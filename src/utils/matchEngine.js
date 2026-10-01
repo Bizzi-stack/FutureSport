@@ -194,30 +194,33 @@ export function syncPlayerStats(localStats = {}, incomingStats = {}, localMatchT
 /**
  * Merges timeline events across clients while respecting tombstones (undone events).
  */
+function eventRevision(event) {
+    return Math.max(...['timestamp', 'editedAt', 'overturnedAt'].map(key => Number(event[key]) || 0));
+}
+
+function stableEventValue(value) {
+    if (Array.isArray(value)) return value.map(stableEventValue);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableEventValue(value[key])]));
+    }
+    return value;
+}
+
+function chooseEvent(a, b) {
+    if (!a) return b;
+    const timeDelta = eventRevision(b) - eventRevision(a);
+    if (timeDelta) return timeDelta > 0 ? b : a;
+    const seqDelta = (Number(b._eventSeq) || 0) - (Number(a._eventSeq) || 0);
+    if (seqDelta) return seqDelta > 0 ? b : a;
+    // At indistinguishable revisions, preserve an overturn; otherwise use a
+    // stable tie-break so both clients converge regardless of delivery order.
+    if (!!a.overturned !== !!b.overturned) return b.overturned ? b : a;
+    return JSON.stringify(stableEventValue(b)) > JSON.stringify(stableEventValue(a)) ? b : a;
+}
+
 export function syncTimeline(localTimeline = [], incomingTimeline = [], tombstoneEventIds = []) {
     const tombstoneSet = new Set((tombstoneEventIds || []).map(String));
     const map = new Map();
-
-    const stableEventValue = (value) => {
-        if (Array.isArray(value)) return value.map(stableEventValue);
-        if (value && typeof value === 'object') {
-            return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableEventValue(value[key])]));
-        }
-        return value;
-    };
-
-    const eventRevision = (event) => Math.max(...['timestamp', 'editedAt', 'overturnedAt'].map(key => Number(event[key]) || 0));
-
-    const chooseEvent = (a, b) => {
-        if (!a) return b;
-        const timeDelta = eventRevision(b) - eventRevision(a);
-        if (timeDelta) return timeDelta > 0 ? b : a;
-        const seqDelta = (Number(b._eventSeq) || 0) - (Number(a._eventSeq) || 0);
-        if (seqDelta) return seqDelta > 0 ? b : a;
-        // At indistinguishable revisions, preserve an overturn; otherwise use a stable tie‑break so both clients converge regardless of delivery order.
-        if (!!a.overturned !== !!b.overturned) return b.overturned ? b : a;
-        return JSON.stringify(stableEventValue(b)) > JSON.stringify(stableEventValue(a)) ? b : a;
-    };
 
     (localTimeline || []).forEach(ev => {
         if (!ev) return;
@@ -279,22 +282,6 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     if (!localMatch) return incomingMatch;
     if (!incomingMatch) return localMatch;
 
-    const isTestFixture = (localMatch.id === 'pmc-test-fixture-live' || incomingMatch.id === 'pmc-test-fixture-live');
-    if (isTestFixture) {
-        const localIsReset = localMatch.status === 'scheduled' && (!localMatch.timeline || localMatch.timeline.length === 0);
-        const incIsReset = incomingMatch.status === 'scheduled' && (!incomingMatch.timeline || incomingMatch.timeline.length === 0);
-
-        if (incIsReset && !localIsReset) {
-            return { ...incomingMatch };
-        }
-        if (localIsReset && !incIsReset) {
-            return { ...localMatch };
-        }
-        if (incIsReset && localIsReset) {
-            return Number(incomingMatch.version || 0) >= Number(localMatch.version || 0) ? { ...incomingMatch } : { ...localMatch };
-        }
-    }
-
     const localTime = Number(localMatch.updatedAt || localMatch.liveState?.updatedAt || 0);
     const incTime = Number(incomingMatch.updatedAt || incomingMatch.liveState?.updatedAt || 0);
 
@@ -313,131 +300,66 @@ export function mergeMatchStates(localMatch, incomingMatch) {
     // Pick latest root fields
     const base = incTime > localTime ? { ...localMatch, ...incomingMatch } : { ...incomingMatch, ...localMatch };
 
-    // Terminal status immunity:
-    // Once a match is completed, refereed, or approved, a concurrent or incoming merge
-    // with older or background state ('live', 'scheduled', 'upcoming') MUST NOT revert status!
-    const terminalStatuses = ['completed', 'refereed', 'approved'];
-    let finalStatus = base.status;
-    if (terminalStatuses.includes(localMatch.status) || terminalStatuses.includes(incomingMatch.status)) {
-        if (localMatch.status === 'approved' || incomingMatch.status === 'approved') {
-            finalStatus = 'approved';
-        } else if (localMatch.status === 'refereed' || incomingMatch.status === 'refereed') {
-            finalStatus = 'refereed';
-        } else {
-            finalStatus = 'completed';
-        }
-    }
-    base.status = finalStatus;
+    // Squad selection preservation: Select by newest lastModified / submittedAt timestamp,
+    // and protect against accidental null/undefined clobbering of configured squads.
+    const resolveSquad = (localSq, incSq) => {
+        if (localSq && !incSq) return localSq;
+        if (!localSq && incSq) return incSq;
+        if (!localSq && !incSq) return null;
+        // Prefer a squad with an explicit lastModified over one without
+        const localHasLM = !!(localSq.lastModified || localSq.submittedAt);
+        const incHasLM = !!(incSq.lastModified || incSq.submittedAt);
+        if (localHasLM && !incHasLM) return localSq;
+        if (!localHasLM && incHasLM) return incSq;
+        const localMod = Number(localSq.lastModified || localSq.submittedAt || localSq.updatedAt || localTime || 0);
+        const incMod = Number(incSq.lastModified || incSq.submittedAt || incSq.updatedAt || incTime || 0);
+        return incMod >= localMod ? incSq : localSq;
+    };
 
-    // Recalculate scores deterministically from merged playerStats and merged timeline
-    const rec = recalculateMatchScores(base, mergedPlayerStats, mergedTimeline);
-    const homeScore = rec.homeScore;
-    const awayScore = rec.awayScore;
+    const resolvedHomeSquad = resolveSquad(localMatch.homeSquadSelection, incomingMatch.homeSquadSelection);
+    const resolvedAwaySquad = resolveSquad(localMatch.awaySquadSelection, incomingMatch.awaySquadSelection);
 
-    // Squad Selection & Player List Immunity:
-    // Never allow a squad selection or player list to be overwritten with null/empty if either state has it
-    const homeSquadSelection = (incomingMatch.homeSquadSelection?.startingXI?.filter(Boolean)?.length > 0)
-        ? incomingMatch.homeSquadSelection
-        : (localMatch.homeSquadSelection?.startingXI?.filter(Boolean)?.length > 0 ? localMatch.homeSquadSelection : (incomingMatch.homeSquadSelection || localMatch.homeSquadSelection || null));
+    const homePlayersList = (base.homePlayers && base.homePlayers.length > 0)
+        ? base.homePlayers
+        : (resolvedHomeSquad?.startingXI || []);
+    const awayPlayersList = (base.awayPlayers && base.awayPlayers.length > 0)
+        ? base.awayPlayers
+        : (resolvedAwaySquad?.startingXI || []);
 
-    const awaySquadSelection = (incomingMatch.awaySquadSelection?.startingXI?.filter(Boolean)?.length > 0)
-        ? incomingMatch.awaySquadSelection
-        : (localMatch.awaySquadSelection?.startingXI?.filter(Boolean)?.length > 0 ? localMatch.awaySquadSelection : (incomingMatch.awaySquadSelection || localMatch.awaySquadSelection || null));
+    let homeScore = base.homeScore;
+    let awayScore = base.awayScore;
 
-    const homePlayers = (Array.isArray(incomingMatch.homePlayers) && incomingMatch.homePlayers.length > 0)
-        ? incomingMatch.homePlayers
-        : (Array.isArray(localMatch.homePlayers) && localMatch.homePlayers.length > 0 ? localMatch.homePlayers : (base.homePlayers || []));
-
-    const awayPlayers = (Array.isArray(incomingMatch.awayPlayers) && incomingMatch.awayPlayers.length > 0)
-        ? incomingMatch.awayPlayers
-        : (Array.isArray(localMatch.awayPlayers) && localMatch.awayPlayers.length > 0 ? localMatch.awayPlayers : (base.awayPlayers || []));
-
-    const localLiveTime = Number(localMatch.liveState?.updatedAt || 0);
-    const incLiveTime = Number(incomingMatch.liveState?.updatedAt || 0);
-    const latestLiveState = incLiveTime > localLiveTime ? incomingMatch.liveState : localMatch.liveState;
-    
-    // CRITICAL FIX: Safe Clock Merging
-    const localClockTime = Number(localMatch.liveState?.clockUpdatedAt || 0);
-    const incClockTime = Number(incomingMatch.liveState?.clockUpdatedAt || 0);
-    let resolvedIsRunning = latestLiveState?.isRunning;
-    let resolvedStartTime = latestLiveState?.startTime;
-    let resolvedElapsedOffset = latestLiveState?.elapsedOffset;
-    let resolvedPeriod = latestLiveState?.period;
-    let resolvedClockUpdatedAt = latestLiveState?.clockUpdatedAt;
-
-    if (incClockTime > localClockTime) {
-        resolvedIsRunning = incomingMatch.liveState.isRunning;
-        resolvedStartTime = incomingMatch.liveState.startTime;
-        resolvedElapsedOffset = incomingMatch.liveState.elapsedOffset;
-        resolvedPeriod = incomingMatch.liveState.period;
-        resolvedClockUpdatedAt = incClockTime;
-    } else if (localClockTime > incClockTime) {
-        resolvedIsRunning = localMatch.liveState.isRunning;
-        resolvedStartTime = localMatch.liveState.startTime;
-        resolvedElapsedOffset = localMatch.liveState.elapsedOffset;
-        resolvedPeriod = localMatch.liveState.period;
-        resolvedClockUpdatedAt = localClockTime;
-    }
-
-    const isTerminal = terminalStatuses.includes(finalStatus);
-    const isHalfTime = (resolvedPeriod === 'HT');
-    if (isTerminal || isHalfTime) {
-        resolvedIsRunning = false;
-        if (isHalfTime && !isTerminal) resolvedPeriod = 'HT';
+    if (homePlayersList.length > 0 || awayPlayersList.length > 0) {
+        const calculated = calculateScores(homePlayersList, awayPlayersList, mergedPlayerStats);
+        homeScore = calculated.homeScore;
+        awayScore = calculated.awayScore;
+    } else if (mergedTimeline && mergedTimeline.length > 0) {
+        const rec = recalculateMatchScores(base, mergedPlayerStats, mergedTimeline);
+        homeScore = rec.homeScore;
+        awayScore = rec.awayScore;
     }
 
     const merged = {
         ...base,
-        status: finalStatus,
-        isFinished: isTerminal ? true : (base.isFinished ?? false),
+        ...(resolvedHomeSquad !== undefined ? { homeSquadSelection: resolvedHomeSquad } : {}),
+        ...(resolvedAwaySquad !== undefined ? { awaySquadSelection: resolvedAwaySquad } : {}),
         updatedAt: Math.max(localTime, incTime),
         version: Math.max(Number(localMatch.version || 0), Number(incomingMatch.version || 0)) + 1,
         homeScore: homeScore ?? base.homeScore,
         awayScore: awayScore ?? base.awayScore,
-        homeSquadSelection,
-        awaySquadSelection,
-        homePlayers,
-        awayPlayers,
         playerStats: mergedPlayerStats,
         timeline: mergedTimeline,
         tombstoneEventIds: mergedTombstones
     };
 
-    if (latestLiveState) {
+    if (merged.liveState) {
         merged.liveState = {
-            ...latestLiveState,
-            status: finalStatus,
-            isRunning: isTerminal ? false : (resolvedIsRunning ?? false),
-            startTime: resolvedStartTime,
-            elapsedOffset: resolvedElapsedOffset,
-            period: isTerminal ? 'FT' : (resolvedPeriod || '1H'),
-            clockUpdatedAt: isTerminal ? Math.max(localClockTime, incClockTime, Date.now()) : resolvedClockUpdatedAt,
-            homeScore: merged.homeScore,
-            awayScore: merged.awayScore,
-            updatedAt: Math.max(localLiveTime, incLiveTime),
-            version: Math.max(Number(localMatch.liveState?.version || 0), Number(incomingMatch.liveState?.version || 0)) + 1,
+            ...merged.liveState,
+            updatedAt: merged.updatedAt,
+            version: merged.version,
             playerStats: mergedPlayerStats,
             timeline: mergedTimeline,
             tombstoneEventIds: mergedTombstones
-        };
-    }
-
-    if (localMatch.refereeLiveState || incomingMatch.refereeLiveState || merged.liveState) {
-        const latestRefState = (incomingMatch.refereeLiveState?.updatedAt || 0) > (localMatch.refereeLiveState?.updatedAt || 0)
-            ? incomingMatch.refereeLiveState
-            : (localMatch.refereeLiveState || merged.liveState);
-        merged.refereeLiveState = {
-            ...latestRefState,
-            status: finalStatus,
-            isRunning: isTerminal ? false : (resolvedIsRunning ?? false),
-            period: isTerminal ? 'FT' : (resolvedPeriod || '1H'),
-            clockUpdatedAt: isTerminal ? Math.max(localClockTime, incClockTime, Date.now()) : resolvedClockUpdatedAt,
-            homeScore: merged.homeScore,
-            awayScore: merged.awayScore,
-            playerStats: mergedPlayerStats,
-            timeline: mergedTimeline,
-            tombstoneEventIds: mergedTombstones,
-            updatedAt: Math.max(localLiveTime, incLiveTime)
         };
     }
 
@@ -577,36 +499,13 @@ export function resolveActiveGoalkeeper({ side, matchData, allStudents = [] }) {
 /**
  * Validates whether a player ID or alias matches a student record.
  */
-export function matchesStudentId(studentId, student, matchContext = null) {
+export function matchesStudentId(studentId, student) {
     if (!student || studentId == null) return false;
     const targetStr = String(studentId).trim();
     if (String(student.id).trim() === targetStr) return true;
     if (student.aliasIds && Array.isArray(student.aliasIds)) {
         if (student.aliasIds.some(alias => String(alias).trim() === targetStr)) return true;
     }
-
-    // Support short index or raw club-index matching (e.g. 1 -> pmc-p-19-1 when student is club 19)
-    if (/^\d+$/.test(targetStr)) {
-        const num = Number(targetStr);
-        if (matchContext) {
-            const homeId = (matchContext.homeTeamId || matchContext.homeSchoolId || '').toLowerCase();
-            const awayId = (matchContext.awayTeamId || matchContext.awaySchoolId || '').toLowerCase();
-            const sSchool = (student.schoolId || '').toLowerCase();
-            if (homeId && awayId && sSchool !== homeId && sSchool !== awayId) {
-                return false;
-            }
-        }
-        if (typeof student.id === 'string' && (student.id.endsWith(`-${num}`) || student.id.endsWith(`_${num}`))) {
-            return true;
-        }
-        if (Array.isArray(student.aliasIds) && student.aliasIds.some(a => String(a).endsWith(`-${num}`))) {
-            return true;
-        }
-        if (student.jerseyNumber === num) {
-            return true;
-        }
-    }
-
     return false;
 }
 
@@ -729,7 +628,7 @@ export function applyMatchContributions(students = [], updatedMatch, options = {
 
         let stats = null;
         if (effectivePlayerStats) {
-            const matchedKey = Object.keys(effectivePlayerStats).find(k => matchesStudentId(k, student, updatedMatch));
+            const matchedKey = Object.keys(effectivePlayerStats).find(k => matchesStudentId(k, student));
             if (matchedKey) stats = effectivePlayerStats[matchedKey];
         }
 
@@ -863,7 +762,7 @@ export function applyMatchContributions(students = [], updatedMatch, options = {
 
         // Shot logs persistence with stable IDs
         const playerShotEvents = (updatedMatch.timeline || []).filter(event =>
-            matchesStudentId(event.playerId, student, updatedMatch) &&
+            matchesStudentId(event.playerId, student) &&
             (event.type === 'goal' || event.type === 'shotOnTarget' || event.type === 'shotBlocked' || event.type === 'shotMissed')
         );
         const matchShots = playerShotEvents.map((event, index) => {
@@ -889,7 +788,7 @@ export function applyMatchContributions(students = [], updatedMatch, options = {
 
         // Save logs persistence with stable IDs
         const playerSaveEvents = (updatedMatch.timeline || []).filter(event =>
-            matchesStudentId(event.playerId, student, updatedMatch) && event.type === 'gkSave'
+            matchesStudentId(event.playerId, student) && event.type === 'gkSave'
         );
         const matchSaves = playerSaveEvents.map((event, index) => ({
             id: `${updatedMatch.id}-${event.id || index}`,
@@ -1245,7 +1144,6 @@ export function recordMatchShotState({
         sTimes[field] = now;
         sSeq[field] = seq;
         sOp[field] = 'action';
-        syncStatAlias(s, field, now, seq, 'action', sTimes, sSeq, sOp);
     };
 
     if (result === 'goal') {
@@ -1283,7 +1181,6 @@ export function recordMatchShotState({
         aTimes.Assists = now;
         aSeq.Assists = seq;
         aOp.Assists = 'action';
-        syncStatAlias(a, 'Assists', now, seq, 'action', aTimes, aSeq, aOp);
         a._updatedAt = now;
         a._statUpdatedAt = aTimes;
         a._statSeq = aSeq;
@@ -1450,18 +1347,9 @@ export function undoMatchEventState({
     const nextTombstones = Array.from(new Set([...tombstoneEventIds, ...eventIdsToRemove].map(String)));
     const nextPlayerStats = { ...playerStats };
 
-    let targetPid = ev.playerId;
-    if (targetPid && !nextPlayerStats[targetPid]) {
-        const foundKey = Object.keys(nextPlayerStats).find(k => {
-            const cleanK = String(k).replace(/^pmc-(p|student)-/, '');
-            const cleanTarget = String(targetPid).replace(/^pmc-(p|student)-/, '');
-            return cleanK === cleanTarget || k === targetPid || String(targetPid).endsWith(k) || k.endsWith(String(targetPid));
-        });
-        if (foundKey) targetPid = foundKey;
-    }
-
-    if (targetPid && nextPlayerStats[targetPid] && !ev.overturned) {
-        const s = { ...nextPlayerStats[targetPid] };
+    const pId = ev.playerId;
+    if (nextPlayerStats[pId] && !ev.overturned) {
+        const s = { ...nextPlayerStats[pId] };
         const statTimes = { ...(s._statUpdatedAt || {}) };
         const statSeq = { ...(s._statSeq || {}) };
         const statOp = { ...(s._statOp || {}) };
@@ -1483,18 +1371,8 @@ export function undoMatchEventState({
                 decrementField('Shots');
 
                 // Revert assist if any
-                let targetAid = ev.assistingPlayerId;
-                if (targetAid && !nextPlayerStats[targetAid]) {
-                    const foundAKey = Object.keys(nextPlayerStats).find(k => {
-                        const cleanK = String(k).replace(/^pmc-(p|student)-/, '');
-                        const cleanTarget = String(targetAid).replace(/^pmc-(p|student)-/, '');
-                        return cleanK === cleanTarget || k === targetAid || String(targetAid).endsWith(k) || k.endsWith(String(targetAid));
-                    });
-                    if (foundAKey) targetAid = foundAKey;
-                }
-
-                if (targetAid && nextPlayerStats[targetAid]) {
-                    const a = { ...nextPlayerStats[targetAid] };
+                if (ev.assistingPlayerId && nextPlayerStats[ev.assistingPlayerId]) {
+                    const a = { ...nextPlayerStats[ev.assistingPlayerId] };
                     const aTimes = { ...(a._statUpdatedAt || {}) };
                     const aSeq = { ...(a._statSeq || {}) };
                     const aOp = { ...(a._statOp || {}) };
@@ -1508,7 +1386,7 @@ export function undoMatchEventState({
                     a._statUpdatedAt = aTimes;
                     a._statSeq = aSeq;
                     a._statOp = aOp;
-                    nextPlayerStats[targetAid] = a;
+                    nextPlayerStats[ev.assistingPlayerId] = a;
                 }
             }
         } else if (ev.type === 'shotOnTarget') {
@@ -1539,7 +1417,7 @@ export function undoMatchEventState({
         s._statUpdatedAt = statTimes;
         s._statSeq = statSeq;
         s._statOp = statOp;
-        nextPlayerStats[targetPid] = s;
+        nextPlayerStats[pId] = s;
     }
 
     // Reverse linked companion event in single pass
@@ -1599,9 +1477,6 @@ function syncStatAlias(stats, field, now, seq, op, times, sequences, operations)
     operations[alias] = op;
 }
 
-/**
- * State transition for manual detail stat change (e.g. minutes, passes, tackles).
- */
 export function updateMatchPlayerDetailState({
     playerStats = {},
     playerId,
@@ -1769,6 +1644,7 @@ export function editMatchEventState({
         ...updatedFields,
         edited: true,
         editedAt: now,
+        _eventSeq: Math.max(seq, (Number(oldEv._eventSeq) || 0) + 1),
         editedBy,
         overturned: false // un-overturn if actively edited with new call
     };
@@ -1856,7 +1732,8 @@ export function overturnMatchEventState({
                     overturned: true,
                     overturnReason,
                     overturnedBy,
-                    overturnedAt: now
+                    overturnedAt: now,
+                    _eventSeq: Math.max(seq, (Number(t._eventSeq) || 0) + 1)
                 };
             }
             return t;
@@ -1878,20 +1755,17 @@ export function overturnMatchEventState({
 export function recalculateMatchScores(match = {}, playerStats = null, timeline = null) {
     const pStats = playerStats || match.playerStats || match.liveState?.playerStats || {};
     const tLine = timeline || match.timeline || match.liveState?.timeline || [];
-    const tombstones = new Set((match.tombstoneEventIds || match.liveState?.tombstoneEventIds || []).map(String));
 
     const homePids = new Set([
         ...(match.homePlayers || []),
         ...(match.homeSquadSelection?.startingXI || []),
-        ...(match.homeSquadSelection?.substitutes || []),
-        ...(match.homeSquadSelection?.benchPlayers || [])
+        ...(match.homeSquadSelection?.substitutes || [])
     ].map(String));
 
     const awayPids = new Set([
         ...(match.awayPlayers || []),
         ...(match.awaySquadSelection?.startingXI || []),
-        ...(match.awaySquadSelection?.substitutes || []),
-        ...(match.awaySquadSelection?.benchPlayers || [])
+        ...(match.awaySquadSelection?.substitutes || [])
     ].map(String));
 
     // If player lists are empty, infer from pStats[id].team
@@ -1906,21 +1780,21 @@ export function recalculateMatchScores(match = {}, playerStats = null, timeline 
     let awayOwnGoals = 0;
 
     homePids.forEach(id => {
-        homeGoals += (pStats[id]?.Goals ?? pStats[id]?.goals ?? 0);
+        homeGoals += (pStats[id]?.Goals ?? 0);
         awayOwnGoals += (pStats[id]?.ownGoals ?? 0);
     });
 
     awayPids.forEach(id => {
-        awayGoals += (pStats[id]?.Goals ?? pStats[id]?.goals ?? 0);
+        awayGoals += (pStats[id]?.Goals ?? 0);
         homeOwnGoals += (pStats[id]?.ownGoals ?? 0);
     });
 
     let calcHomeScore = homeGoals + homeOwnGoals;
     let calcAwayScore = awayGoals + awayOwnGoals;
 
-    // Cross-verify with active non-overturned, non-tombstoned goal events in timeline
-    const activeGoals = (tLine || []).filter(t => t && t.type === 'goal' && !t.overturned && !tombstones.has(String(t.id)));
-    if (activeGoals.length > 0) {
+    // Cross-verify with active non-overturned goal events in timeline
+    const activeGoals = tLine.filter(t => t.type === 'goal' && !t.overturned);
+    if (activeGoals.length > 0 || (calcHomeScore === 0 && calcAwayScore === 0)) {
         let tHome = 0;
         let tAway = 0;
         activeGoals.forEach(g => {
@@ -1933,21 +1807,11 @@ export function recalculateMatchScores(match = {}, playerStats = null, timeline 
             }
         });
 
-        if (tombstones.size > 0) {
-            // An event was undone: remaining active goals in timeline are authoritative
+        // If pStats had 0 or missing players, timeline is authoritative
+        if (Object.keys(pStats).length === 0 || (homeGoals === 0 && awayGoals === 0 && activeGoals.length > 0)) {
             calcHomeScore = tHome;
             calcAwayScore = tAway;
-        } else if (Object.keys(pStats).length === 0 || (homeGoals === 0 && awayGoals === 0)) {
-            calcHomeScore = tHome;
-            calcAwayScore = tAway;
-        } else {
-            calcHomeScore = Math.max(calcHomeScore, tHome);
-            calcAwayScore = Math.max(calcAwayScore, tAway);
         }
-    } else if (tombstones.size > 0 && activeGoals.length === 0 && (Array.isArray(tLine) && tLine.length > 0)) {
-        // All goals in timeline were undone / tombstoned: score reverts to 0 - 0
-        calcHomeScore = 0;
-        calcAwayScore = 0;
     }
 
     return {
@@ -1955,4 +1819,3 @@ export function recalculateMatchScores(match = {}, playerStats = null, timeline 
         awayScore: Math.max(0, calcAwayScore)
     };
 }
-

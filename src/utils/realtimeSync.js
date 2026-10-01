@@ -4,12 +4,10 @@
  */
 
 import { mergeMatchStates, isPmcMatch } from './matchEngine.js';
-import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://[REDACTED].supabase.co';
 const SUPABASE_KEY = '[REDACTED_API_KEY]';
 const TABLE_URL = `${SUPABASE_URL}/rest/v1/pmc_matches_state`;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const HEADERS = {
     'apikey': SUPABASE_KEY,
@@ -22,6 +20,9 @@ let broadcastChannel = null;
 if (typeof globalThis !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
     try {
         broadcastChannel = new BroadcastChannel('futuresport_demo_channel');
+        if (typeof broadcastChannel.unref === 'function') {
+            broadcastChannel.unref();
+        }
     } catch {
         broadcastChannel = null;
     }
@@ -32,6 +33,9 @@ let sandboxBroadcastChannel = null;
 if (typeof globalThis !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
     try {
         sandboxBroadcastChannel = new BroadcastChannel('futuresport_sandbox_channel');
+        if (typeof sandboxBroadcastChannel.unref === 'function') {
+            sandboxBroadcastChannel.unref();
+        }
     } catch {
         sandboxBroadcastChannel = null;
     }
@@ -64,8 +68,16 @@ export function computeMatchesHash(matches) {
                 tombstonesHash: tombstones.slice(-5).join(','),
                 homeSquad: !!m.homeSquadSelection,
                 awaySquad: !!m.awaySquadSelection,
-                homeSquadXI: m.homeSquadSelection?.startingXI?.join(','),
-                awaySquadXI: m.awaySquadSelection?.startingXI?.join(','),
+                homeSquadXI: (m.homeSquadSelection?.startingXI || []).join(','),
+                awaySquadXI: (m.awaySquadSelection?.startingXI || []).join(','),
+                homeSquadBench: (m.homeSquadSelection?.benchPlayers || []).join(','),
+                awaySquadBench: (m.awaySquadSelection?.benchPlayers || []).join(','),
+                homeSquadForm: m.homeSquadSelection?.formation || '',
+                awaySquadForm: m.awaySquadSelection?.formation || '',
+                homeSquadCap: m.homeSquadSelection?.captainId || '',
+                awaySquadCap: m.awaySquadSelection?.captainId || '',
+                homeSquadMod: m.homeSquadSelection?.lastModified || m.homeSquadSelection?.submittedAt || '',
+                awaySquadMod: m.awaySquadSelection?.lastModified || m.awaySquadSelection?.submittedAt || '',
                 possession: m.possession?.homePct != null 
                     ? `${m.possession.homePct}-${m.possession.activeSide}-${m.possession.inContestPct || m.possession.contestPct || 0}` 
                     : (m.liveState?.possession?.homePct != null ? `${m.liveState.possession.homePct}-${m.liveState.possession.activeSide}-${m.liveState.possession.inContestPct || m.liveState.possession.contestPct || 0}` : ''),
@@ -121,7 +133,7 @@ export function mergeCloudMatches(existingMatches = [], incomingMatches = []) {
         }
     });
 
-    return Array.from(matchMap.values()).filter(m => m && m.id !== 'pmc-fixture-11' && m.id !== 'pmc-fixture-12' && m.id !== 'pmc-match-001');
+    return Array.from(matchMap.values());
 }
 
 async function drainCloudPushQueue() {
@@ -340,8 +352,9 @@ export function subscribeToRealtimeSync(onMatchesUpdate) {
         broadcastChannel.addEventListener('message', handleBroadcast);
     }
 
-    // Initial Fetch
-    fetchMatchesFromCloud().then(cloudMatches => {
+    // Supabase Cloud Polling (every 1.2s) for cross-device sync of PMC production
+    const pollMatches = async () => {
+        const cloudMatches = await fetchMatchesFromCloud();
         if (cloudMatches && Array.isArray(cloudMatches) && cloudMatches.length > 0) {
             const pmcOnly = cloudMatches.filter(isPmcMatch);
             const newHash = computeMatchesHash(pmcOnly);
@@ -350,25 +363,12 @@ export function subscribeToRealtimeSync(onMatchesUpdate) {
                 onMatchesUpdate(pmcOnly);
             }
         }
-    });
+    };
 
-    // Supabase Realtime WebSockets for Instant Sync
-    const channel = supabase
-        .channel('public:pmc_matches_state')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'pmc_matches_state' }, (payload) => {
-            const rawMatches = payload.new?.data?.matches;
-            if (Array.isArray(rawMatches)) {
-                const pmcOnly = rawMatches.filter(isPmcMatch);
-                const newHash = computeMatchesHash(pmcOnly);
-                if (newHash !== localHash) {
-                    localHash = newHash;
-                    onMatchesUpdate(pmcOnly);
-                }
-            }
-        })
-        .subscribe();
+    pollMatches();
+    const intervalId = setInterval(pollMatches, 1200);
 
     return () => {
-        supabase.removeChannel(channel);
+        clearInterval(intervalId);
     };
 }

@@ -13,7 +13,7 @@ import {
     getRefereeContactSettings 
 } from '../services/refereeNotificationService';
 import { PMC_MATCHES } from '../utils/pmcDataLoader';
-import { isMatchForTeam, normalizeId } from '../utils/fixtureUtils';
+import { isMatchForTeam } from '../utils/fixtureUtils';
 
 // Formation layouts define rows from back (GK) to front (FWD)
 // Each row has: y position (% from top), count of players, role, and position labels
@@ -239,39 +239,13 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const eligiblePlayers = useMemo(() => {
         if (!selectedMatch) return [];
-        
-        const targetSideId = isHome ? (selectedMatch.homeSchoolId || selectedMatch.homeTeamId) : (selectedMatch.awaySchoolId || selectedMatch.awayTeamId);
-        const opponentSideId = isHome ? (selectedMatch.awaySchoolId || selectedMatch.awayTeamId) : (selectedMatch.homeSchoolId || selectedMatch.homeTeamId);
-
-        const cleanTarget = normalizeId(targetSideId);
-        const cleanOpponent = normalizeId(opponentSideId);
-        const cleanCoachSchool = normalizeId(schoolId);
-
         return (allPlayers || []).filter(p => {
-            const pSchool = normalizeId(p.schoolId);
-            const pTeam = normalizeId(p.teamId);
-            
-            // 1. Hard guard: Never allow opponent players to bleed over
-            if (cleanOpponent && (pSchool === cleanOpponent || pTeam === cleanOpponent)) {
-                return false;
-            }
-
-            // 2. Direct match on target side club ID or team ID
-            if (cleanTarget && (pSchool === cleanTarget || pTeam === cleanTarget)) {
-                return true;
-            }
-
-            // 3. Match on coach authorized school ID
-            if (cleanCoachSchool && (pSchool === cleanCoachSchool || pTeam === cleanCoachSchool)) {
-                return true;
-            }
-
+            if (p.schoolId === schoolId) return true;
             const assignments = p.teamAssignments || {};
-            const assignedVals = Object.values(assignments).map(normalizeId);
-            return (cleanTarget && assignedVals.includes(cleanTarget)) || 
-                   (cleanCoachSchool && assignedVals.includes(cleanCoachSchool));
+            const teamIds = (allTeams || []).filter(t => t.schoolId === schoolId).map(t => t.id);
+            return teamIds.some(tId => Object.values(assignments).includes(tId)) || Object.values(assignments).includes(schoolId);
         });
-    }, [allPlayers, selectedMatch, schoolId, isHome, allTeams]);
+    }, [allPlayers, selectedMatch, schoolId, allTeams]);
 
     // Flat list of selected player IDs in starting XI (no nulls)
     const selectedStartingXIIds = useMemo(() => {
@@ -363,11 +337,80 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
     const getPlayerById = (id) => eligiblePlayers.find(p => p.id === id);
 
+    // Helper to persist squad state directly into the match object and sync across tabs/cloud
+    const persistSquad = (newXI, newBench, newFormation, newCaptain, isOfficialSubmit = false) => {
+        if (!selectedMatch) return null;
+        const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+        const existingSquad = selectedMatch[squadKey] || {};
+
+        const xiToSave = newXI !== undefined ? newXI : startingXI;
+        const benchToSave = newBench !== undefined ? newBench : benchPlayers;
+        const formationToSave = newFormation !== undefined ? newFormation : formation;
+        const captainToSave = newCaptain !== undefined ? newCaptain : captainId;
+
+        const isFullXI = xiToSave.filter(Boolean).length === 11;
+        const wasSubmitted = !!(existingSquad.submittedAt || existingSquad.confirmedAt);
+
+        const squadPayload = {
+            ...existingSquad,
+            formation: formationToSave,
+            startingXI: xiToSave,
+            benchPlayers: benchToSave,
+            captainId: captainToSave,
+            submittedAt: isOfficialSubmit
+                ? new Date().toISOString()
+                : (isFullXI && wasSubmitted ? existingSquad.submittedAt : null),
+            submittedBy: schoolName,
+            validationStatus: isOfficialSubmit
+                ? 'pending_validation'
+                : (isFullXI && wasSubmitted ? (existingSquad.validationStatus || 'draft') : 'draft'),
+            lastModified: Date.now()
+        };
+
+        const updatedMatch = {
+            ...selectedMatch,
+            [squadKey]: squadPayload,
+            updatedAt: Date.now()
+        };
+
+        if (onUpdateMatch) {
+            onUpdateMatch(updatedMatch);
+        }
+
+        try {
+            const draftKey = `fs_squad_draft_${selectedMatch.id}_${schoolId}`;
+            localStorage.setItem(draftKey, JSON.stringify(squadPayload));
+        } catch {}
+
+        return updatedMatch;
+    };
+
     // Automatically sync squad state when active match, school, or home/away orientation changes
+    // ARCHITECTURE: localStorage draft is the SINGLE SOURCE OF TRUTH for unsaved squad edits.
+    // The selectedMatch prop may contain stale cloud data due to async polling race conditions.
+    // Only fall back to the prop when NO draft exists for this match+school combination.
     useEffect(() => {
         if (!selectedMatch) return;
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
-        const savedSquad = selectedMatch[squadKey];
+
+        // Step 1: Always try localStorage draft FIRST — it represents the user's latest edit
+        let savedSquad = null;
+        try {
+            const draftKey = `fs_squad_draft_${selectedMatch.id}_${schoolId}`;
+            const cached = localStorage.getItem(draftKey);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                // If the draft has startingXI data, it's valid — always use it
+                if (parsed && (Array.isArray(parsed.startingXI) || parsed.formation)) {
+                    savedSquad = parsed;
+                }
+            }
+        } catch {}
+
+        // Step 2: Only fall back to the match prop when no valid draft exists
+        if (!savedSquad) {
+            savedSquad = selectedMatch[squadKey];
+        }
 
         if (savedSquad) {
             setFormation(savedSquad.formation || '4-3-3');
@@ -395,6 +438,9 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     }, [selectedMatch?.id, schoolId, isHome]);
 
     const handleSelectMatch = (matchId) => {
+        if (selectedMatch && selectedMatch.id !== matchId) {
+            persistSquad(startingXI, benchPlayers, formation, captainId);
+        }
         setSelectedMatchId(matchId);
         setNotificationInfo(null);
     };
@@ -412,47 +458,55 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
         setStartingXI(newXI);
         setActiveSlotIndex(null);
         setSearchQuery('');
+        persistSquad(newXI, benchPlayers, formation, captainId);
     };
 
     const clearSlot = (slotIdx) => {
         const newXI = [...startingXI];
+        const clearedPlayerId = newXI[slotIdx];
         newXI[slotIdx] = null;
         setStartingXI(newXI);
         setActiveSlotIndex(null);
+
+        const newCaptain = (clearedPlayerId && String(captainId) === String(clearedPlayerId)) ? null : captainId;
+        if (newCaptain !== captainId) {
+            setCaptainId(newCaptain);
+        }
+        persistSquad(newXI, benchPlayers, formation, newCaptain);
+    };
+
+    const clearAllStarters = () => {
+        const emptyXI = Array(11).fill(null);
+        setStartingXI(emptyXI);
+        setCaptainId(null);
+        setActiveSlotIndex(null);
+        persistSquad(emptyXI, benchPlayers, formation, null);
+    };
+
+    const clearAllBench = () => {
+        setBenchPlayers([]);
+        persistSquad(startingXI, [], formation, captainId);
     };
 
     const addToBench = (playerId) => {
         if (benchPlayers.length >= MAX_BENCH) return;
-        setBenchPlayers(prev => [...prev, playerId]);
+        const newBench = [...benchPlayers, playerId];
+        setBenchPlayers(newBench);
+        persistSquad(startingXI, newBench, formation, captainId);
     };
 
     const removeFromBench = (playerId) => {
-        setBenchPlayers(prev => prev.filter(id => id !== playerId));
+        const newBench = benchPlayers.filter(id => id !== playerId);
+        setBenchPlayers(newBench);
+        persistSquad(startingXI, newBench, formation, captainId);
     };
 
     const handleSubmitSquad = () => {
         if (selectedStartingXIIds.length !== 11 || !selectedMatch) return;
-        const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
         const opponentSquadKey = isHome ? 'awaySquadSelection' : 'homeSquadSelection';
         const opponentAlreadySubmitted = !!selectedMatch[opponentSquadKey];
 
-        const squadPayload = {
-            formation,
-            startingXI,
-            benchPlayers,
-            captainId,
-            submittedAt: new Date().toISOString(),
-            submittedBy: schoolName,
-            validationStatus: 'pending_validation' // Manager submits -> Super-Admin validates
-        };
-
-        const updatedMatch = {
-            ...selectedMatch,
-            [squadKey]: squadPayload,
-            updatedAt: Date.now()
-        };
-
-        onUpdateMatch(updatedMatch);
+        const updatedMatch = persistSquad(startingXI, benchPlayers, formation, captainId, true);
         setSubmitSuccess(true);
 
         const homeName = getSchoolName(selectedMatch.homeTeamId, selectedMatch);
@@ -460,7 +514,7 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
 
         // Dispatch instant alert to Super-Administrator for roster verification
         try {
-            sendSuperAdminSquadSubmissionAlert(selectedMatch, schoolName, isHome ? awayName : homeName);
+            sendSuperAdminSquadSubmissionAlert(updatedMatch || selectedMatch, schoolName, isHome ? awayName : homeName);
         } catch (adminAlertErr) {
             console.warn('Super-Admin squad notification notice:', adminAlertErr);
         }
@@ -493,12 +547,28 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
     const handleReopenSquad = () => {
         if (!selectedMatch) return;
         const squadKey = isHome ? 'homeSquadSelection' : 'awaySquadSelection';
+        const existingSquad = selectedMatch[squadKey] || {};
+        const updatedSquad = {
+            ...existingSquad,
+            formation: existingSquad.formation || formation || '4-3-3',
+            startingXI: existingSquad.startingXI || startingXI,
+            benchPlayers: existingSquad.benchPlayers || benchPlayers,
+            captainId: existingSquad.captainId || captainId,
+            submittedAt: null,
+            confirmedAt: null,
+            validationStatus: 'draft',
+            lastModified: Date.now()
+        };
         const updatedMatch = {
             ...selectedMatch,
-            [squadKey]: null,
+            [squadKey]: updatedSquad,
             updatedAt: Date.now()
         };
         onUpdateMatch(updatedMatch);
+        try {
+            const draftKey = `fs_squad_draft_${selectedMatch.id}_${schoolId}`;
+            localStorage.setItem(draftKey, JSON.stringify(updatedSquad));
+        } catch {}
         setSubmitSuccess(false);
         setNotificationInfo(null);
     };
@@ -772,6 +842,24 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                             >
                                                 Send Reminder
                                             </button>
+                                            <button
+                                                type="button"
+                                                onClick={clearAllStarters}
+                                                disabled={selectedStartingXIIds.length === 0}
+                                                style={{
+                                                    padding: '8px 14px', borderRadius: '10px', fontSize: '11.5px', fontWeight: '700',
+                                                    background: selectedStartingXIIds.length > 0 ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255,255,255,0.03)',
+                                                    color: selectedStartingXIIds.length > 0 ? '#fca5a5' : 'var(--text-muted)',
+                                                    border: selectedStartingXIIds.length > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : 'var(--border)',
+                                                    cursor: selectedStartingXIIds.length > 0 ? 'pointer' : 'not-allowed',
+                                                    display: 'flex', alignItems: 'center', gap: '5px',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                title="Clear all assigned starting XI players for this match"
+                                            >
+                                                <span>✕</span>
+                                                <span>Clear Pitch ({selectedStartingXIIds.length}/11)</span>
+                                            </button>
                                             <button onClick={handleSubmitSquad} disabled={selectedStartingXIIds.length !== 11} style={{
                                                 padding: '8px 22px', borderRadius: '10px', fontSize: '12px', fontWeight: '800',
                                                 background: selectedStartingXIIds.length === 11 ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : 'rgba(255,255,255,0.06)',
@@ -872,7 +960,12 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                                     <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', marginRight: '4px' }}>Formation:</span>
                                     {Object.keys(FORMATION_LAYOUTS).map(f => (
-                                        <button key={f} disabled={alreadySubmitted} onClick={() => { setFormation(f); setStartingXI(Array(11).fill(null)); }} style={{
+                                        <button key={f} disabled={alreadySubmitted} onClick={() => {
+                                            setFormation(f);
+                                            const emptyXI = Array(11).fill(null);
+                                            setStartingXI(emptyXI);
+                                            persistSquad(emptyXI, benchPlayers, f, captainId);
+                                        }} style={{
                                             padding: '5px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: '700',
                                             background: formation === f ? 'rgba(37,99,235,0.18)' : 'rgba(255,255,255,0.03)',
                                             color: formation === f ? 'var(--primary-light)' : 'var(--text-secondary)',
@@ -1058,7 +1151,9 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                                                 title={String(player.id) === String(captainId) ? 'Current Captain (Click to unset)' : 'Nominate as Team Captain'}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setCaptainId(prev => String(prev) === String(player.id) ? null : player.id);
+                                                                    const newCap = String(player.id) === String(captainId) ? null : player.id;
+                                                                    setCaptainId(newCap);
+                                                                    persistSquad(startingXI, benchPlayers, formation, newCap);
                                                                 }}
                                                                 style={{
                                                                     background: String(player.id) === String(captainId) ? '#FFC726' : 'rgba(255,255,255,0.1)',
@@ -1233,7 +1328,10 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                             {captainId && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => setCaptainId(null)}
+                                                    onClick={() => {
+                                                        setCaptainId(null);
+                                                        persistSquad(startingXI, benchPlayers, formation, null);
+                                                    }}
                                                     disabled={alreadySubmitted}
                                                     style={{ background: 'none', border: 'none', color: '#ff6b6b', fontSize: '10px', cursor: 'pointer', fontWeight: '700' }}
                                                 >
@@ -1245,7 +1343,11 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                         <select
                                             value={captainId || ''}
                                             disabled={alreadySubmitted}
-                                            onChange={e => setCaptainId(e.target.value || null)}
+                                            onChange={e => {
+                                                const newCap = e.target.value || null;
+                                                setCaptainId(newCap);
+                                                persistSquad(startingXI, benchPlayers, formation, newCap);
+                                            }}
                                             style={{
                                                 width: '100%',
                                                 padding: '8px 10px',
@@ -1291,7 +1393,19 @@ export default function MatchdaySquadSelection({ matches, schoolId, allPlayers, 
                                     <div className="glass-panel" style={{ padding: '12px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                             <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-primary)' }}>Substitute Bench</span>
-                                            <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>{benchPlayers.length}/{MAX_BENCH} max</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {benchPlayers.length > 0 && !alreadySubmitted && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={clearAllBench}
+                                                        style={{ background: 'none', border: 'none', color: '#ff6b6b', fontSize: '10px', cursor: 'pointer', fontWeight: '700' }}
+                                                        title="Remove all bench substitutes"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                )}
+                                                <span style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)' }}>{benchPlayers.length}/{MAX_BENCH} max</span>
+                                            </div>
                                         </div>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '110px', overflowY: 'auto', marginBottom: '8px' }}>

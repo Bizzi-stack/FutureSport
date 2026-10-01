@@ -12,7 +12,7 @@ import { ALL_STUDENTS, YEARS, TERMS, SUBJECTS as DEFAULT_SUBJECTS, TEAMS, SCHOOL
 import { PMC_SCHOOLS, PMC_TEAMS, PMC_STUDENTS, PMC_MATCHES, PMC_YEARS } from './utils/pmcDataLoader';
 import { UCL_CLUBS, UCL_TEAMS, UCL_PLAYERS, UCL_INITIAL_MATCHES, UCL_YEARS, ensureUclPlayerIdentities } from './data/uclData';
 import { pushMatchesToCloud, broadcastSandboxMatches, subscribeToRealtimeSync, subscribeToSandboxSync, mergeCloudMatches } from './utils/realtimeSync';
-import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament, mergeMatchStates } from './utils/matchEngine';
+import { applyMatchContributions, cleanStudentsForSave, loadAndMergeStudents, migrateTermsToMatchdays, isPmcMatch, isPmcTournament } from './utils/matchEngine';
 import { exportClassReport } from './utils/exportReport';
 import QuickTestFixtureModal from './components/admin/QuickTestFixtureModal';
 import NationalHub from './components/NationalHub';
@@ -303,10 +303,10 @@ function App() {
 
   const [pmcStudents, setPmcStudents] = useState(() => {
     try {
-      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6', 'eduvision-pmc-students-v7', 'eduvision-pmc-students-v8', 'eduvision-pmc-students-v9', 'eduvision-pmc-students-v10', 'eduvision-pmc-students-v11', 'eduvision-pmc-students-v12', 'eduvision-pmc-students-v20', 'eduvision-pmc-students-v21', 'eduvision-pmc-students-v22', 'eduvision-pmc-students-v23', 'eduvision-pmc-students-v24'].forEach(k => {
+      ['eduvision-pmc-students', 'eduvision-pmc-students-v4', 'eduvision-pmc-students-v5', 'eduvision-pmc-students-v6'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
-      const saved = localStorage.getItem('eduvision-pmc-students-v25');
+      const saved = localStorage.getItem('eduvision-pmc-students-v7');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -316,123 +316,7 @@ function App() {
             const m1 = perf['Matchday 1'];
             return m1 && ((m1.Goals || 0) > 0 || (m1.Assists || 0) > 0) && !p._matchContributions;
           });
-          if (!hasLegacyMock) {
-            // PERMANENT FIX: Sync official registrations, club assignments, and real jersey numbers
-            const pmcStudentMap = new Map();
-            PMC_STUDENTS.forEach(s => {
-              if (s.name) pmcStudentMap.set(s.name.trim().toUpperCase(), s);
-              if (s.id) pmcStudentMap.set(String(s.id), s);
-              (s.aliasIds || []).forEach(a => pmcStudentMap.set(String(a), s));
-            });
-
-            const migrated = parsed.map(p => {
-              const cleanName = (p.name || '').trim().toUpperCase();
-              const official = pmcStudentMap.get(cleanName) || pmcStudentMap.get(String(p.id));
-              let updated = p;
-              if (official) {
-                const teamNeedsFix = p.teamId !== official.teamId || p.schoolId !== official.schoolId;
-                const jerseyNeedsFix = official.jerseyNumber !== p.jerseyNumber;
-                if (teamNeedsFix || jerseyNeedsFix) {
-                  updated = {
-                    ...p,
-                    teamId: official.teamId,
-                    schoolId: official.schoolId,
-                    teamAssignments: official.teamAssignments || p.teamAssignments,
-                    jerseyNumber: official.jerseyNumber
-                  };
-                }
-              }
-
-              // Purge test fixture data and contributions
-              if (updated._matchContributions && updated._matchContributions['pmc-test-fixture-live']) {
-                const newContribs = { ...updated._matchContributions };
-                delete newContribs['pmc-test-fixture-live'];
-                updated = {
-                  ...updated,
-                  _matchContributions: newContribs,
-                  shotLogs: (updated.shotLogs || []).filter(l => l.matchId !== 'pmc-test-fixture-live'),
-                  saveLogs: (updated.saveLogs || []).filter(l => l.matchId !== 'pmc-test-fixture-live')
-                };
-
-                if (updated._baselinePerformance) {
-                  const rebuiltPerf = JSON.parse(JSON.stringify(updated._baselinePerformance));
-                  const rebuiltMatchStats = updated._baselineMatchStats ? JSON.parse(JSON.stringify(updated._baselineMatchStats)) : {};
-
-                  Object.values(newContribs).forEach(contrib => {
-                    const cYear = contrib.year;
-                    const cTerm = contrib.term;
-                    const cStats = contrib.stats || {};
-
-                    if (cYear && cTerm) {
-                      if (!rebuiltPerf[cYear]) rebuiltPerf[cYear] = {};
-                      if (!rebuiltPerf[cYear][cTerm]) rebuiltPerf[cYear][cTerm] = {};
-                      const termPerf = rebuiltPerf[cYear][cTerm];
-
-                      Object.keys(cStats).forEach(k => {
-                        if (k !== 'minutesPlayed' && k !== 'yellowCards' && k !== 'redCards' && !k.startsWith('_')) {
-                          termPerf[k] = (termPerf[k] || 0) + (cStats[k] || 0);
-                        }
-                      });
-
-                      if (!rebuiltMatchStats[cYear]) rebuiltMatchStats[cYear] = {};
-                      if (!rebuiltMatchStats[cYear][cTerm]) {
-                        rebuiltMatchStats[cYear][cTerm] = { gamesPlayed: 0, minutesPlayed: 0, yellowCards: 0, redCards: 0 };
-                      }
-                      const termMatch = rebuiltMatchStats[cYear][cTerm];
-                      const minutes = typeof cStats.minutesPlayed === 'number' ? cStats.minutesPlayed : 0;
-                      const hasActiveStats = Object.entries(cStats).some(([k, v]) =>
-                        !k.startsWith('_') && k !== 'minutesPlayed' && typeof v === 'number' && v > 0
-                      );
-                      const participated = minutes > 0 || hasActiveStats;
-                      if (participated) {
-                        termMatch.gamesPlayed = (termMatch.gamesPlayed || 0) + 1;
-                      }
-                      termMatch.minutesPlayed = (termMatch.minutesPlayed || 0) + minutes;
-                      termMatch.yellowCards = (termMatch.yellowCards || 0) + (cStats.yellowCards || 0);
-                      termMatch.redCards = (termMatch.redCards || 0) + (cStats.redCards || 0);
-                    }
-                  });
-
-                  // Recompute per-game averages
-                  Object.keys(rebuiltPerf).forEach(yr => {
-                    const yPerf = rebuiltPerf[yr];
-                    const yMatch = rebuiltMatchStats[yr] || {};
-                    let totalGames = 0;
-                    Object.values(yMatch).forEach(m => { totalGames += (m.gamesPlayed || 0); });
-                    if (totalGames > 0) {
-                      let totalTackles = 0;
-                      let totalInterceptions = 0;
-                      let totalShots = 0;
-                      Object.values(yPerf).forEach(p => {
-                        totalTackles += (p['Successful Tackles'] || 0);
-                        totalInterceptions += (p['Interceptions'] || 0);
-                        totalShots += (p['Shots'] || 0);
-                      });
-                      Object.keys(yPerf).forEach(trm => {
-                        yPerf[trm]['Tackles Per Game'] = parseFloat((totalTackles / totalGames).toFixed(2));
-                        yPerf[trm]['Interceptions Per Game'] = parseFloat((totalInterceptions / totalGames).toFixed(2));
-                        yPerf[trm]['Shots Per Game'] = parseFloat((totalShots / totalGames).toFixed(2));
-                      });
-                    }
-                  });
-
-                  updated.performance = rebuiltPerf;
-                  if (updated._baselineMatchStats) updated.matchStats = rebuiltMatchStats;
-                }
-              }
-
-              return updated;
-            });
-
-            const existingIds = new Set(parsed.map(p => String(p.id)));
-            const existingNames = new Set(parsed.map(p => (p.name || '').trim().toUpperCase()).filter(Boolean));
-            const missingOfficial = PMC_STUDENTS.filter(s => 
-              !existingIds.has(String(s.id)) && 
-              !existingNames.has((s.name || '').trim().toUpperCase())
-            );
-
-            return [...migrated, ...missingOfficial];
-          }
+          if (!hasLegacyMock) return parsed;
         }
       }
     } catch (err) {
@@ -443,7 +327,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-students-v25', JSON.stringify(pmcStudents));
+      localStorage.setItem('eduvision-pmc-students-v7', JSON.stringify(pmcStudents));
     } catch {}
   }, [pmcStudents]);
   const [allTeams, setAllTeams] = useState(() => {
@@ -562,96 +446,12 @@ function App() {
 
   const [pmcMatches, setPmcMatches] = useState(() => {
     try {
-      localStorage.removeItem('eduvision-pmc-matches-v9');
-      const saved = localStorage.getItem('eduvision-pmc-matches-v21');
+      localStorage.removeItem('eduvision-pmc-matches-v7');
+      const saved = localStorage.getItem('eduvision-pmc-matches-v8');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const REMOVED_FIXTURE_IDS = new Set(['pmc-fixture-11', 'pmc-fixture-12', 'pmc-match-001']);
-          const purged = parsed.filter(m => !REMOVED_FIXTURE_IDS.has(m.id));
-          let didUpdate = purged.length !== parsed.length;
-          const existingIds = new Set(purged.map(m => m.id));
-          const missingFixtures = (PMC_MATCHES || []).filter(m => !REMOVED_FIXTURE_IDS.has(m.id) && !existingIds.has(m.id));
-          let updatedList = purged;
-          if (missingFixtures.length > 0) {
-            updatedList = [...purged, ...missingFixtures];
-            didUpdate = true;
-          }
-          // Ensure any scheduled fixture with updated official team sheets or refs gets refreshed
-          const pmcMap = new Map((PMC_MATCHES || []).map(m => [m.id, m]));
-          if (missingFixtures.length > 0) didUpdate = true;
-          updatedList = updatedList.map(m => {
-            const fresh = pmcMap.get(m.id);
-            if (fresh) {
-              if (m.id === 'pmc-test-fixture-live') {
-                const needsReset = m.status !== 'scheduled' ||
-                  m.homeScore !== 0 ||
-                  m.awayScore !== 0 ||
-                  (m.timeline && m.timeline.length > 0) ||
-                  (m.events && m.events.length > 0) ||
-                  (m.playerStats && Object.keys(m.playerStats).length > 0) ||
-                  m.homeSquadSelection != null ||
-                  m.awaySquadSelection != null ||
-                  m.teamSheetApproved;
-
-                if (needsReset) {
-                  didUpdate = true;
-                  return {
-                    ...fresh,
-                    status: 'scheduled',
-                    homeScore: 0,
-                    awayScore: 0,
-                    events: [],
-                    timeline: [],
-                    playerStats: {},
-                    teamSheetApproved: false,
-                    teamSheetApprovedBy: null,
-                    homeSquadSelection: null,
-                    awaySquadSelection: null,
-                    tombstoneEventIds: [],
-                    liveState: {
-                      period: '1H',
-                      isRunning: false,
-                      elapsedOffset: 0,
-                      playerStats: {},
-                      timeline: []
-                    },
-                    updatedAt: Date.now() + 10000000,
-                    version: 999999
-                  };
-                }
-              }
-              if (!m.homeTeam || !m.awayTeam) {
-                m = { ...m, homeTeam: fresh.homeTeam, awayTeam: fresh.awayTeam };
-                didUpdate = true;
-              }
-              if (m.status === 'scheduled' || !m.status) {
-              // If previously populated with synthetic coach submissions, clear them for coaches to submit
-              if (m.homeSquadSelection?.submittedBy === 'Bagatelle Coach' ||
-                  m.homeSquadSelection?.submittedBy === 'Weymouth Wales Coach' ||
-                  m.teamSheetApprovedBy === 'J. Griffith' ||
-                  m.teamSheetApprovedBy === 'I. Watkins') {
-                didUpdate = true;
-                return {
-                  ...m,
-                  homeSquadSelection: null,
-                  awaySquadSelection: null,
-                  teamSheetApproved: false,
-                  teamSheetApprovedBy: null
-                };
-              }
-              if (fresh.teamSheetApproved && !m.teamSheetApproved) {
-                didUpdate = true;
-                return { ...m, ...fresh };
-              }
-            }
-            }
-            return m;
-          });
-          if (didUpdate) {
-            localStorage.setItem('eduvision-pmc-matches-v21', JSON.stringify(updatedList));
-          }
-          return sanitizeMatchState(updatedList);
+          return sanitizeMatchState(parsed);
         }
       }
     } catch (err) {
@@ -707,7 +507,7 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('eduvision-pmc-matches-v21', JSON.stringify(pmcMatches));
+      localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(pmcMatches));
     } catch { /* ignored */ }
   }, [pmcMatches]);
 
@@ -721,7 +521,7 @@ function App() {
         }
 
         // Reconstruct PMC student statistics deterministically when completed/approved/refereed matches arrive remotely
-        const finishedPmc = pmcOnly.filter(m => m.id !== 'pmc-test-fixture-live' && ['approved', 'completed', 'refereed'].includes(m.status));
+        const finishedPmc = pmcOnly.filter(m => ['approved', 'completed', 'refereed'].includes(m.status));
         if (finishedPmc.length > 0) {
           setPmcStudents(prev => {
             let updated = prev;
@@ -730,12 +530,6 @@ function App() {
             });
             return updated;
           });
-        }
-
-        // Clean purge any test fixture stats if test fixture arrives in scheduled/reset state
-        const testMatch = pmcOnly.find(m => m.id === 'pmc-test-fixture-live');
-        if (testMatch && testMatch.status === 'scheduled') {
-          setPmcStudents(prev => applyMatchContributions(prev, testMatch));
         }
       }
     });
@@ -837,8 +631,8 @@ function App() {
     const sanitized = sanitizeMatchState(PMC_MATCHES);
     setPmcMatches(sanitized);
     try {
-      localStorage.removeItem('eduvision-pmc-matches-v9');
-      localStorage.setItem('eduvision-pmc-matches-v21', JSON.stringify(sanitized));
+      localStorage.removeItem('eduvision-pmc-matches-v7');
+      localStorage.setItem('eduvision-pmc-matches-v8', JSON.stringify(sanitized));
       pushMatchesToCloud(sanitized);
     } catch {}
   };
@@ -933,14 +727,8 @@ function App() {
   const currentSchool = displaySchools.find(s => s.id === selectedSchool) || { name: 'All Academies' };
 
   // Merge an updated subset of students back into the master list
-  const handleDataUpdate = (updatedSubset) => {
-    const isPmc = selectedTournament === 'PMC';
-    if (isPmc) {
-      setPmcStudents(prev => prev.map(s => updatedSubset.find(u => String(u.id) === String(s.id)) || s));
-    } else {
-      setAllStudents(prev => prev.map(s => updatedSubset.find(u => String(u.id) === String(s.id)) || s));
-    }
-  };
+  const handleDataUpdate = (updatedSubset) =>
+    setAllStudents(prev => prev.map(s => updatedSubset.find(u => String(u.id) === String(s.id)) || s));
 
   const handleAddSubject   = (name) => { if (!name || subjects.includes(name)) return; setSubjects(prev => [...prev, name]); setShowAddSubject(false); };
   const handleRemoveSubject = (name) => setSubjects(prev => prev.filter(s => s !== name));
@@ -1099,54 +887,30 @@ function App() {
   const handleEndMatch = (matchResult) => {
     const matchId = matchResult.id || `match-${Date.now()}`;
     const isPmc = selectedTournament === 'PMC' || isPmcMatch(matchResult) || (pmcMatches || []).some(m => m.id === matchId);
-    const now = Date.now();
-    const completedPayload = {
-      ...matchResult,
-      status: 'completed',
-      isFinished: true,
-      updatedAt: now,
-      endTime: matchResult.endTime || now,
-      date: matchResult.date || new Date().toISOString(),
-      liveState: {
-        ...(matchResult.liveState || {}),
-        status: 'completed',
-        isRunning: false,
-        period: 'FT',
-        clockUpdatedAt: now,
-        updatedAt: now
-      },
-      refereeLiveState: {
-        ...(matchResult.refereeLiveState || {}),
-        status: 'completed',
-        isRunning: false,
-        period: 'FT',
-        clockUpdatedAt: now,
-        updatedAt: now
-      }
-    };
 
     if (isPmc) {
-      const prevList = pmcMatches || [];
-      const exists = prevList.some(m => m.id === matchId);
-      const next = exists
-        ? prevList.map(m => m.id === matchId ? { ...m, ...completedPayload } : m)
-        : [...prevList, { id: matchId, ...completedPayload }];
-      setPmcMatches(next);
-      pushMatchesToCloud(next);
-      setPmcStudents(prev => applyMatchContributions(prev, completedPayload));
+      setPmcMatches(prev => {
+        const exists = prev.some(m => m.id === matchId);
+        const next = exists
+          ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
+          : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
+        pushMatchesToCloud(next);
+        return next;
+      });
+      setPmcStudents(prev => applyMatchContributions(prev, matchResult));
     } else {
       const updateFn = prev => {
         const exists = prev.some(m => m.id === matchId);
         const next = exists
-          ? prev.map(m => m.id === matchId ? { ...m, ...completedPayload } : m)
-          : [...prev, { id: matchId, ...completedPayload }];
+          ? prev.map(m => m.id === matchId ? { ...m, ...matchResult, status: 'completed', date: new Date().toISOString() } : m)
+          : [...prev, { id: matchId, ...matchResult, status: 'completed', date: new Date().toISOString() }];
         broadcastSandboxMatches(next);
         return next;
       };
       setUclMatches(updateFn);
       setMatches(updateFn);
-      setUclPlayers(prev => applyMatchContributions(prev, completedPayload));
-      setAllStudents(prev => applyMatchContributions(prev, completedPayload));
+      setUclPlayers(prev => applyMatchContributions(prev, matchResult));
+      setAllStudents(prev => applyMatchContributions(prev, matchResult));
     }
   };
 
@@ -1173,13 +937,11 @@ function App() {
         }
       }
 
-      const prevList = pmcMatches || [];
-      const exists = prevList.some(m => m.id === updatedMatch.id);
-      const nextMatches = exists
-        ? prevList.map(m => m.id === updatedMatch.id ? mergeMatchStates(m, updatedMatch) : m)
-        : [...prevList, updatedMatch];
-      setPmcMatches(nextMatches);
-      pushMatchesToCloud(nextMatches);
+      setPmcMatches(prev => {
+        const nextMatches = (prev || []).map(m => m.id === updatedMatch.id ? { ...m, ...updatedMatch } : m);
+        pushMatchesToCloud(nextMatches);
+        return nextMatches;
+      });
 
       if (['approved', 'completed', 'refereed'].includes(updatedMatch.status)) {
         setPmcStudents(prev => applyMatchContributions(prev, updatedMatch));
@@ -1250,17 +1012,6 @@ function App() {
         } else if (role === 'commissioner') {
           const comm = officialProfile || getOfficialsByRole('commissioner')[0];
           setCurrentCommissioner(comm);
-        } else if (role === 'commentator') {
-          const commAccount = officialProfile || getOfficialsByRole('commentator')[0];
-          // Treat commentator as a statistician internally but strictly read-only
-          setCurrentAnalyst({
-            ...commAccount,
-            captureRole: 'readonly',
-            isMasterLogger: false
-          });
-          if (deepLinkedMatchId) {
-            setDirectMatchId(deepLinkedMatchId);
-          }
         }
 
         if (role === 'supervisor') {
@@ -1539,7 +1290,7 @@ function App() {
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
 
 
-          {(userRole === 'referee' || userRole === 'statistician' || userRole === 'commentator' || userRole === 'super_admin' || userRole === 'supervisor') && (
+          {(userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'supervisor') && (
             <button
               onClick={() => setShowMatchCentre(true)}
               style={{
@@ -1878,8 +1629,8 @@ function App() {
               />
           )}
 
-          {/* Field Live Data Capturer & Commentator View */}
-          {(userRole === 'statistician' || userRole === 'commentator') && (
+          {/* Field Live Data Capturer (Statistician View) */}
+          {userRole === 'statistician' && (
               <StatisticianDashboard
                   matches={displayMatches}
                   schools={displaySchools}
@@ -1954,7 +1705,7 @@ function App() {
         />
       )}
 
-      {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'commentator' || userRole === 'super_admin' || userRole === 'supervisor') && (
+      {showMatchCentre && (userRole === 'referee' || userRole === 'statistician' || userRole === 'super_admin' || userRole === 'supervisor') && (
         <MatchCentre
           allStudents={displayStudents}
           year={selectedYear}
