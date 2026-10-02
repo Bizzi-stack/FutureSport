@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SCHOOLS } from '../data/mockData';
 import { getOfficialsByRole, findOfficial } from '../data/matchOfficialAccounts';
 import DotField from './DotField';
+import fbLogo from '../assets/FB-Logo.svg';
 import './landing.css';
 
 const SparklesIcon = () => (
@@ -18,14 +19,16 @@ const AdminLandingPage = ({
   pmcSchools = [], 
   nsslTeams = [], 
   nsslSchools = [],
+  uclTeams = [],
+  uclSchools = [],
   selectedTournament = 'PMC',
   setSelectedTournament = () => {}
 }) => {
   const [selectedRole, setSelectedRole] = useState('super_admin');
   
-  // Official Accounts for Referee, Fourth Official, and Statistician
+  // Official Accounts for Referee, Fourth Official, Statistician, Match Coordinator, and Commentator
   const currentRoleOfficials = useMemo(() => {
-    if (['referee', 'fourth_official', 'statistician'].includes(selectedRole)) {
+    if (['referee', 'fourth_official', 'statistician', 'commissioner', 'commentator'].includes(selectedRole)) {
       return getOfficialsByRole(selectedRole);
     }
     return [];
@@ -36,12 +39,16 @@ const AdminLandingPage = ({
   const [deepLinkedMatchId, setDeepLinkedMatchId] = useState(null);
   
   const activeTeamsList = useMemo(() => {
-    return selectedTournament === 'PMC' ? (pmcTeams.length ? pmcTeams : allTeams) : (nsslTeams.length ? nsslTeams : allTeams);
-  }, [selectedTournament, pmcTeams, nsslTeams, allTeams]);
+    if (selectedTournament === 'PMC') return (pmcTeams.length ? pmcTeams : allTeams);
+    if (uclTeams.length) return uclTeams;
+    return (nsslTeams.length ? nsslTeams : allTeams);
+  }, [selectedTournament, pmcTeams, uclTeams, nsslTeams, allTeams]);
 
   const activeSchoolsList = useMemo(() => {
-    return selectedTournament === 'PMC' ? (pmcSchools.length ? pmcSchools : allSchools) : (nsslSchools.length ? nsslSchools : allSchools);
-  }, [selectedTournament, pmcSchools, nsslSchools, allSchools]);
+    if (selectedTournament === 'PMC') return (pmcSchools.length ? pmcSchools : allSchools);
+    if (uclSchools.length) return uclSchools;
+    return (nsslSchools.length ? nsslSchools : allSchools);
+  }, [selectedTournament, pmcSchools, uclSchools, nsslSchools, allSchools]);
 
   const [selectedTeam, setSelectedTeam] = useState(activeTeamsList[0]?.id || '');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
@@ -94,7 +101,7 @@ const AdminLandingPage = ({
       setTeamSearchQuery('');
     }
     if (selectedTournament === 'PMC') {
-      if (['school_admin', 'league_admin', 'commissioner'].includes(selectedRole)) {
+      if (['school_admin', 'league_admin'].includes(selectedRole)) {
         setSelectedRole('coach');
       }
     }
@@ -147,7 +154,7 @@ const AdminLandingPage = ({
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    const isOfficialRole = ['referee', 'fourth_official', 'statistician'].includes(selectedRole);
+    const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner', 'commentator'].includes(selectedRole);
     let officialProfile = null;
 
     if (isOfficialRole) {
@@ -167,12 +174,13 @@ const AdminLandingPage = ({
     }
   };
 
-  const isOfficialRole = ['referee', 'fourth_official', 'statistician'].includes(selectedRole);
+  const isOfficialRole = ['referee', 'fourth_official', 'statistician', 'commissioner', 'commentator'].includes(selectedRole);
 
   const getRoleBadgeTitle = () => {
     if (selectedRole === 'referee') return 'Referee Match Official Accounts';
     if (selectedRole === 'fourth_official') return 'Fourth Official Accounts';
     if (selectedRole === 'statistician') return 'Field Data Capturer Accounts';
+    if (selectedRole === 'commissioner') return selectedTournament === 'PMC' ? 'Match Coordinator / Operator Accounts' : 'Match Commissioner Accounts';
     return 'Official Accounts';
   };
 
@@ -204,6 +212,20 @@ const AdminLandingPage = ({
             {/* Glassmorphic Login Card */}
             <div className="login-card-wrapper" style={{ margin: 0, width: '100%', background: 'transparent', border: 'none', boxShadow: 'none' }}>
 
+              {/* Tournament / Platform Brand Logo */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '22px' }}>
+                <img 
+                  src={fbLogo} 
+                  alt="Football Barbados" 
+                  style={{ 
+                    height: '36px', 
+                    width: 'auto', 
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 2px 10px rgba(0, 0, 0, 0.6))' 
+                  }} 
+                />
+              </div>
+
               {error && (
                 <div style={{
                   color: '#f43f5e',
@@ -222,35 +244,53 @@ const AdminLandingPage = ({
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
                 {/* Tournament Selector */}
-                <div className="login-form-group" style={{ marginBottom: '4px' }}>
+                <div className="login-form-group" style={{ marginBottom: '6px' }}>
                   <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                    Tournament Competition
+                    Environment & Competition Domain
                   </label>
                   <div style={{ display: 'flex', gap: '8px', background: 'rgba(3, 7, 18, 0.65)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
                     <button
                       type="button"
                       onClick={() => setSelectedTournament('PMC')}
                       style={{
-                        flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '800',
+                        flex: 1, padding: '9px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
                         background: selectedTournament === 'PMC' ? '#FFC726' : 'transparent',
                         color: selectedTournament === 'PMC' ? '#00267F' : 'rgba(255, 255, 255, 0.7)',
-                        border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                        border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
                       }}
                     >
-                      Prime Minister's Cup
+                      <span>🏆 Prime Minister's Cup</span>
+                      <span style={{ fontSize: '9.5px', opacity: 0.85, fontWeight: '700' }}>Production Vault</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedTournament('NSSL')}
+                      onClick={() => setSelectedTournament('UCL')}
                       style={{
-                        flex: 1, padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '800',
-                        background: selectedTournament === 'NSSL' ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                        color: selectedTournament === 'NSSL' ? '#ffffff' : 'rgba(255, 255, 255, 0.7)',
-                        border: 'none', cursor: 'pointer', transition: 'all 0.2s'
+                        flex: 1, padding: '9px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: '800',
+                        background: (selectedTournament === 'UCL' || selectedTournament === 'NSSL') ? '#38bdf8' : 'transparent',
+                        color: (selectedTournament === 'UCL' || selectedTournament === 'NSSL') ? '#04101e' : 'rgba(255, 255, 255, 0.7)',
+                        border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px'
                       }}
                     >
-                      National League
+                      <span>⭐ UEFA Champions League</span>
+                      <span style={{ fontSize: '9.5px', opacity: 0.9, fontWeight: '700' }}>Testing Sandbox</span>
                     </button>
+                  </div>
+                  <div style={{
+                    marginTop: '6px', padding: '6px 10px', borderRadius: '6px', fontSize: '11px',
+                    background: selectedTournament === 'PMC' ? 'rgba(255, 199, 38, 0.08)' : 'rgba(56, 189, 248, 0.08)',
+                    border: selectedTournament === 'PMC' ? '1px solid rgba(255, 199, 38, 0.2)' : '1px solid rgba(56, 189, 248, 0.2)',
+                    color: selectedTournament === 'PMC' ? '#fbbf24' : '#38bdf8',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    <span>{selectedTournament === 'PMC' ? '🔒' : '⭐'}</span>
+                    <span>
+                      {selectedTournament === 'PMC'
+                        ? "Production Vault: Live official tournament connected to Supabase cloud database & API feeds."
+                        : "Testing Sandbox: Real Madrid, Man City, Bayern, PSG & star rosters. 100% firewalled from PMC production."}
+                    </span>
                   </div>
                 </div>
 
@@ -277,15 +317,19 @@ const AdminLandingPage = ({
                     }}
                   >
                     <option value="super_admin">
-                      {selectedTournament === 'PMC' ? "PMC Tournament Director / Super Admin" : "Schools League Super Administrator"}
+                      {selectedTournament === 'PMC' ? "PMC Tournament Director / Super Admin" : "UEFA Champions League Sandbox Administrator"}
                     </option>
-                    {selectedTournament !== 'PMC' && <option value="league_admin">League Administrator</option>}
-                    {selectedTournament !== 'PMC' && <option value="school_admin">School Administrator</option>}
+                    <option value="supervisor">Executive Supervisor / Observer (Read-Only)</option>
+                    {selectedTournament !== 'PMC' && <option value="league_admin">Competition Administrator</option>}
+                    {selectedTournament !== 'PMC' && <option value="school_admin">Club / School Administrator</option>}
                     <option value="coach">Coach / Team Manager</option>
                     <option value="referee">Referee (Match Whistle & Official)</option>
                     <option value="fourth_official">Fourth Official (Substitutions & Board)</option>
                     <option value="statistician">Statistician / Live Data Entry</option>
-                    {selectedTournament !== 'PMC' && <option value="commissioner">Match Commissioner</option>}
+                    <option value="commentator">Broadcast Commentator (Read-Only Portal)</option>
+                    <option value="commissioner">
+                      {selectedTournament === 'PMC' ? "Match Coordinator / Match Operator" : "UEFA Match Delegate / Commissioner"}
+                    </option>
                   </select>
                 </div>
 
@@ -297,7 +341,7 @@ const AdminLandingPage = ({
                     </label>
                     
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      {selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen && (
+                      {selectedTournament !== 'PMC' && selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen && (
                         <img 
                           src={selectedTeamObj.school.logo} 
                           alt="" 
@@ -315,11 +359,11 @@ const AdminLandingPage = ({
                           setTeamSearchQuery(e.target.value);
                           setIsTeamDropdownOpen(true);
                         }}
-                        placeholder="Type club name (e.g. UWI, Wotton, Notre Dame...)"
+                        placeholder={selectedTournament === 'PMC' ? "Type club name (e.g. UWI, Wotton, Notre Dame...)" : "Type UCL club (e.g. Real Madrid, Man City, Bayern...)"}
                         style={{
                           width: '100%',
                           height: '42px',
-                          paddingLeft: (selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen) ? '42px' : '14px',
+                          paddingLeft: (selectedTournament !== 'PMC' && selectedTeamObj && selectedTeamObj.school?.logo && !isTeamDropdownOpen) ? '42px' : '14px',
                           paddingRight: '32px',
                           borderRadius: '8px',
                           fontSize: '13px',
@@ -380,7 +424,7 @@ const AdminLandingPage = ({
                                   if (!isSelected) e.currentTarget.style.background = 'transparent';
                                 }}
                               >
-                                {school?.logo && (
+                                {selectedTournament !== 'PMC' && school?.logo && (
                                   <img src={school.logo} alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
                                 )}
                                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -432,9 +476,9 @@ const AdminLandingPage = ({
                       }}
                     >
                       {currentRoleOfficials.map(o => (
-                        <option key={o.id} value={o.username}>
-                          {o.name} ({o.username}) · {o.assignedVenue}
-                        </option>
+                          <option key={o.id} value={o.username}>
+                            {o.name} ({o.username}){o.assignedVenue ? ` · ${o.assignedVenue}` : ''}
+                          </option>
                       ))}
                     </select>
 
@@ -472,6 +516,23 @@ const AdminLandingPage = ({
                   </div>
                 )}
 
+                {/* Supervisor Role Notice */}
+                {selectedRole === 'supervisor' && (
+                  <div style={{
+                    padding: '10px 14px', borderRadius: '8px',
+                    background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)',
+                    color: '#38bdf8', fontSize: '12px', lineHeight: '1.45',
+                    display: 'flex', flexDirection: 'column', gap: '4px'
+                  }}>
+                    <div style={{ fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>👁️</span> Executive Supervisor Session (Read-Only)
+                    </div>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '11px' }}>
+                      Allows complete observation access to inspect all clubs, player rosters, performance radar profiles, fixtures, and commissioner verifications without modifying any data.
+                    </span>
+                  </div>
+                )}
+
                 {/* Password Input */}
                 <div className="login-form-group" style={{ marginBottom: 0 }}>
                   <label htmlFor="password-input" style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
@@ -492,6 +553,11 @@ const AdminLandingPage = ({
                   Log in to Dashboard
                 </button>
 
+                {selectedRole === 'supervisor' && (
+                  <div style={{ textAlign: 'center', fontSize: '11.5px', color: 'rgba(255, 255, 255, 0.45)', marginTop: '2px' }}>
+                    Supervisor Access Password: <code style={{ color: '#38bdf8', fontWeight: '700' }}>password</code>
+                  </div>
+                )}
               </form>
             </div>
 

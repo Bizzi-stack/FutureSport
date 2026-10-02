@@ -99,7 +99,6 @@ export default function MatchHistory({ matches = [], onSelectMatch }) {
           alignItems: 'center',
           gap: '12px',
         }}>
-          <span style={{ fontSize: '2.5rem' }}>⚽</span>
           <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.95rem' }}>
             No matches played yet
           </p>

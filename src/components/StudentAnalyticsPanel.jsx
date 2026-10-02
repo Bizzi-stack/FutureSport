@@ -54,7 +54,7 @@ function SubjectRadar({ student, classmates, year, term }) {
     }, [student, classmates, year, term]);
 
     return (
-        <MiniCard title="Stat Category Profile" icon="🕸️">
+        <MiniCard title="Stat Category Profile">
             <div style={{ width: '100%', height: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={data} outerRadius="72%">
@@ -102,7 +102,7 @@ function GradeTrend({ student }) {
     const domainMax = Math.min(100, max + 10);
 
     return (
-        <MiniCard title="Rating Trend (All Years)" icon="📈">
+        <MiniCard title="Rating Trend (All Years)">
             <div style={{ width: '100%', height: 180 }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
@@ -158,7 +158,7 @@ function MomentumGauge({ student, year, term }) {
     const arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
 
     return (
-        <MiniCard title="Momentum" icon="⚡">
+        <MiniCard title="Momentum">
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ textAlign: 'center', minWidth: '70px' }}>
                     <div style={{ fontSize: '28px', fontWeight: '900', color, lineHeight: 1 }}>
@@ -205,7 +205,7 @@ function CsecReadiness({ student, year, term }) {
     const ringColor = passRate >= 80 ? '#10b981' : passRate >= 50 ? '#f59e0b' : '#ef4444';
 
     return (
-        <MiniCard title="Pro Academy Readiness" icon="⚽">
+        <MiniCard title="Pro Academy Readiness">
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ position: 'relative', width: '90px', height: '90px', flexShrink: 0 }}>
                     <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
@@ -264,7 +264,7 @@ function ZScorePosition({ student, classmates, year, term }) {
     const pct = Math.max(2, Math.min(98, ((zScore + 3) / 6) * 100));
 
     return (
-        <MiniCard title="Z-Score Position" icon="📊">
+        <MiniCard title="Z-Score Position">
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ textAlign: 'center', minWidth: '60px' }}>
                     <div style={{ fontSize: '24px', fontWeight: '900', color: barColor, lineHeight: 1 }}>
@@ -319,15 +319,13 @@ function ClassRank({ student, classmates, year, term }) {
         };
     }, [student, classmates, year, term]);
 
-    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
     const pctColor = percentile >= 75 ? '#10b981' : percentile >= 40 ? '#f59e0b' : '#ef4444';
 
     return (
-        <MiniCard title="Squad Rank" icon="🏆">
+        <MiniCard title="Squad Rank">
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ textAlign: 'center', minWidth: '60px' }}>
                     <div style={{ fontSize: '26px', fontWeight: '900', color: 'var(--text-primary)', lineHeight: 1 }}>
-                        {medal && <span style={{ marginRight: '2px' }}>{medal}</span>}
                         {rank}
                     </div>
                     <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', fontWeight: '600' }}>of {total}</div>
@@ -376,7 +374,6 @@ export default function StudentAnalyticsPanel({ student, year, term }) {
                     color: 'var(--text-primary)', fontFamily: 'inherit',
                 }}
             >
-                <span style={{ fontSize: '14px' }}>📊</span>
                 <span className="section-title" style={{ margin: 0, flex: 1, textAlign: 'left' }}>Analytics Hub</span>
                 <span style={{
                     fontSize: '9px', fontWeight: '700', color: '#64748b',

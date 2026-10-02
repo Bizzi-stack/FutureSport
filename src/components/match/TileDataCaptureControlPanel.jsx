@@ -1,0 +1,799 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { resolvePlayer, resolvePlayerName } from '../../utils/playerResolver';
+
+const JerseyBadge = ({ number, isHome }) => (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg viewBox="0 0 100 90" style={{ width: '64px', height: '58px', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }}>
+            <defs>
+                <linearGradient id={`shirtGrad-${isHome ? 'home' : 'away'}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor={isHome ? "#22c55e" : "#6366f1"} />
+                    <stop offset="100%" stopColor={isHome ? "#15803d" : "#4338ca"} />
+                </linearGradient>
+            </defs>
+            {/* Football Jersey Shirt Silhouette */}
+            <path 
+                d="M 30,10 C 40,20 60,20 70,10 L 92,28 L 80,48 L 74,44 L 74,84 L 26,84 L 26,44 L 20,48 L 8,28 Z" 
+                fill={`url(#shirtGrad-${isHome ? 'home' : 'away'})`}
+                stroke={isHome ? "#86efac" : "#c7d2fe"}
+                strokeWidth="3"
+            />
+            {/* V-Neck Collar */}
+            <path d="M 30,10 C 40,22 60,22 70,10" fill="none" stroke="#ffffff" strokeWidth="2.5" />
+            {/* Sleeve Detail Trim */}
+            <line x1="8" y1="28" x2="20" y2="48" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+            <line x1="92" y1="28" x2="80" y2="48" stroke="rgba(255,255,255,0.4)" strokeWidth="2" />
+            {/* Bold Centered Jersey Number */}
+            <text 
+                x="50" 
+                y="59" 
+                textAnchor="middle" 
+                fill="#ffffff" 
+                fontSize="32" 
+                fontWeight="900" 
+                fontFamily="system-ui, -apple-system, sans-serif"
+                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+            >
+                {number}
+            </text>
+        </svg>
+    </div>
+);
+
+export default function TileDataCaptureControlPanel({
+    match,
+    home,
+    away,
+    homePlayers = [],
+    awayPlayers = [],
+    studentsById = {},
+    playerStats = {},
+    elapsed = 0,
+    period = '1H',
+    isPaused = false,
+    onQuickLogEvent,
+    onShotModal,
+    onGkSaveModal,
+    captureRole = 'all'
+}) {
+    // Data Capturer Assigned Scope Role ('possession' | 'shots' | 'general' | 'all')
+    const isScopeLocked = Boolean(captureRole && captureRole !== 'all');
+    const [activeRole, setActiveRole] = useState(captureRole || 'all');
+
+    useEffect(() => {
+        if (captureRole) setActiveRole(captureRole);
+    }, [captureRole]);
+
+    const handleRoleChange = (newRole) => {
+        if (isScopeLocked) return;
+        setActiveRole(newRole);
+    };
+
+    // Permission flags for role-based scoping
+    const isPossessionEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'possession';
+    const isShotsEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'shots';
+    const isGeneralEnabled = activeRole === 'all' || activeRole === 'master' || activeRole === 'general';
+
+    // Active Possession Tracking State ('home' | 'away' | 'contest' | null)
+    const [possessionSide, setPossessionSide] = useState(match?.liveState?.possession?.activeSide || null);
+    const [homePossessionSecs, setHomePossessionSecs] = useState(match?.liveState?.possession?.homeSecs || 0);
+    const [awayPossessionSecs, setAwayPossessionSecs] = useState(match?.liveState?.possession?.awaySecs || 0);
+    const [inContestSecs, setInContestSecs] = useState(match?.liveState?.possession?.inContestSecs || match?.liveState?.possession?.contestSecs || 0);
+
+    // Selected Active Player (Optional Player-First Flow)
+    const [activePlayer, setActivePlayer] = useState(null); // { id, name, team: 'home'|'away' }
+
+    // Stat Action Picker Modal State (Stat-First Flow)
+    const [pendingAction, setPendingAction] = useState(null); // { key: 'shot'|'yellowCard'|..., label: string, color: string }
+    const [pickerTeamTab, setPickerTeamTab] = useState('home'); // 'home' | 'away'
+
+    // Notification toast state
+    const [toastMessage, setToastMessage] = useState(null);
+
+    // Possession Timer Effect (Only ticks when match timer is actively running and not at Half-Time)
+    useEffect(() => {
+        let interval = null;
+        if (!isPaused && period !== 'HT') {
+            if (possessionSide === 'home') {
+                interval = setInterval(() => setHomePossessionSecs(s => s + 1), 1000);
+            } else if (possessionSide === 'away') {
+                interval = setInterval(() => setAwayPossessionSecs(s => s + 1), 1000);
+            } else if (possessionSide === 'contest') {
+                interval = setInterval(() => setInContestSecs(s => s + 1), 1000);
+            }
+        }
+        return () => { if (interval) clearInterval(interval); };
+    }, [possessionSide, isPaused, period]);
+
+    // Calculate Possession Percentages (Home / In Contest / Away)
+    const totalPossessionSecs = homePossessionSecs + awayPossessionSecs + inContestSecs;
+    let homePossessionPct = 50;
+    let awayPossessionPct = 50;
+    let inContestPct = 0;
+
+    if (totalPossessionSecs > 0) {
+        homePossessionPct = Math.round((homePossessionSecs / totalPossessionSecs) * 100);
+        inContestPct = Math.round((inContestSecs / totalPossessionSecs) * 100);
+        awayPossessionPct = Math.max(0, 100 - homePossessionPct - inContestPct);
+    }
+
+    // Persist possession back to parent live state whenever possession state updates (throttled to avoid network flooding)
+    useEffect(() => {
+        if (!onQuickLogEvent) return;
+        const totalSecs = homePossessionSecs + awayPossessionSecs + inContestSecs;
+        // Sync on first start, every 3 seconds of active possession, or whenever paused / period changes
+        if (totalSecs === 1 || totalSecs % 3 === 0 || isPaused || period === 'HT') {
+            onQuickLogEvent({
+                type: 'possessionSync',
+                possession: {
+                    homePct: homePossessionPct,
+                    awayPct: awayPossessionPct,
+                    inContestPct,
+                    contestPct: inContestPct,
+                    homeSecs: homePossessionSecs,
+                    awaySecs: awayPossessionSecs,
+                    inContestSecs,
+                    contestSecs: inContestSecs,
+                    activeSide: possessionSide
+                }
+            });
+        }
+    }, [homePossessionSecs, awayPossessionSecs, inContestSecs, possessionSide, homePossessionPct, awayPossessionPct, inContestPct, isPaused, period]);
+
+    const formatPossessionTime = (secs) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return `${m}m ${String(s).padStart(2, '0')}s`;
+    };
+
+    // Toggle Team Possession / In Contest
+    const handleTogglePossession = (side) => {
+        if (!isPossessionEnabled) return;
+        setPossessionSide(side);
+        
+        const teamName = side === 'home' ? home.name : (side === 'away' ? away.name : 'In Contest');
+        if (side === 'contest') {
+            triggerToast('⚔️ Ball In Contest / Loose Ball');
+        } else {
+            triggerToast(`Ball Possession switched to ${teamName}`);
+        }
+        
+        const nextHomeSecs = side === 'home' ? Math.max(1, homePossessionSecs) : homePossessionSecs;
+        const nextAwaySecs = side === 'away' ? Math.max(1, awayPossessionSecs) : awayPossessionSecs;
+        const nextContestSecs = side === 'contest' ? Math.max(1, inContestSecs) : inContestSecs;
+        const nextTotal = nextHomeSecs + nextAwaySecs + nextContestSecs;
+
+        let nextHomePct = 50;
+        let nextAwayPct = 50;
+        let nextContestPct = 0;
+
+        if (nextTotal > 0) {
+            nextHomePct = Math.round((nextHomeSecs / nextTotal) * 100);
+            nextContestPct = Math.round((nextContestSecs / nextTotal) * 100);
+            nextAwayPct = Math.max(0, 100 - nextHomePct - nextContestPct);
+        } else if (side === 'home') {
+            nextHomePct = 55; nextAwayPct = 45; nextContestPct = 0;
+        } else if (side === 'away') {
+            nextHomePct = 45; nextAwayPct = 55; nextContestPct = 0;
+        } else if (side === 'contest') {
+            nextHomePct = 50; nextAwayPct = 50; nextContestPct = 10;
+        }
+
+        if (onQuickLogEvent) {
+            onQuickLogEvent({
+                type: 'possessionChange',
+                team: side,
+                teamName,
+                homePct: nextHomePct,
+                awayPct: nextAwayPct,
+                inContestPct: nextContestPct,
+                possession: {
+                    homePct: nextHomePct,
+                    awayPct: nextAwayPct,
+                    inContestPct: nextContestPct,
+                    contestPct: nextContestPct,
+                    homeSecs: nextHomeSecs,
+                    awaySecs: nextAwaySecs,
+                    inContestSecs: nextContestSecs,
+                    contestSecs: nextContestSecs,
+                    activeSide: side
+                }
+            });
+        }
+    };
+
+    const triggerToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 2500);
+    };
+
+    // All Direct Stat Tiles Configuration (Categorized with dedicated Shot Types)
+    const STAT_TILES = [
+        { key: 'goal', label: '🎯 Goal Scored', subtitle: 'Standard Goal', color: 'linear-gradient(135deg, #059669, #047857)', border: 'rgba(5, 150, 105, 0.4)' },
+        { key: 'shotOnTarget', label: '⚽ Shot on Target', subtitle: 'Saved by Opposing GK (Auto-Logged)', color: 'linear-gradient(135deg, #10b981, #059669)', border: 'rgba(16, 185, 129, 0.4)' },
+        { key: 'shotBlocked', label: '🛡️ Shot Blocked', subtitle: 'Shot Blocked by Outfield Defender', color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'rgba(139, 92, 246, 0.4)' },
+        { key: 'shotMissed', label: '💥 Shot Off-Target', subtitle: 'Missed Wide or Over Crossbar', color: 'linear-gradient(135deg, #64748b, #475569)', border: 'rgba(100, 116, 139, 0.4)' },
+        { key: 'headerShot', label: '🗣️ Header Shot / Goal', subtitle: 'Header Attempt or Goal', color: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'rgba(2, 132, 199, 0.4)' },
+        { key: 'penaltyShot', label: '🎯 Penalty Kick', subtitle: 'Penalty Spot Kick', color: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', border: 'rgba(139, 92, 246, 0.4)' },
+        { key: 'freekickShot', label: '📐 Free Kick Shot', subtitle: 'Direct Free Kick Attempt', color: 'linear-gradient(135deg, #06b6d4, #0891b2)', border: 'rgba(6, 182, 212, 0.4)' },
+        { key: 'ownGoal', label: '⚠️ Own Goal', subtitle: 'Accidental Goal against Own Team', color: 'linear-gradient(135deg, #dc2626, #991b1b)', border: 'rgba(220, 38, 38, 0.4)' },
+        { key: 'yellowCard', label: '🟨 Yellow Card', subtitle: 'Caution / Warning', color: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'rgba(245, 158, 11, 0.4)' },
+        { key: 'redCard', label: '🟥 Red Card', subtitle: 'Ejection / Send-off', color: 'linear-gradient(135deg, #ef4444, #dc2626)', border: 'rgba(239, 68, 68, 0.4)' },
+        { key: 'foul', label: '🛑 Foul Committed', subtitle: 'Tactical or Free Kick Foul', color: 'linear-gradient(135deg, #ea580c, #c2410c)', border: 'rgba(234, 88, 12, 0.4)' },
+        { key: 'corner', label: '🚩 Corner Kick', subtitle: 'Set Piece Corner', color: 'linear-gradient(135deg, #3b82f6, #2563eb)', border: 'rgba(59, 130, 246, 0.4)' },
+        { key: 'sub', label: '🔄 Substitution', subtitle: 'Player Tactical Swap', color: 'linear-gradient(135deg, #4b5563, #374151)', border: 'rgba(75, 85, 99, 0.4)' },
+    ];
+
+    // Handle Clicking a Stat Tile
+    const handleTileClick = (tile) => {
+        const isShotTile = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(tile.key);
+        const isTileEnabled = isShotTile ? isShotsEnabled : isGeneralEnabled;
+        if (!isTileEnabled) return;
+
+        // If a player is already selected, log directly for active player!
+        if (activePlayer) {
+            executeLogForPlayer(activePlayer, tile.key);
+            setActivePlayer(null);
+            return;
+        }
+
+        // Open quick player picker for stat
+        setPendingAction(tile);
+    };
+
+    // Execute Log for Selected Player
+    const executeLogForPlayer = (player, actionKey) => {
+        const isShotAction = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(actionKey);
+        const isActionEnabled = isShotAction ? isShotsEnabled : isGeneralEnabled;
+        if (!isActionEnabled) return;
+
+        const student = resolvePlayer(player.id, [], studentsById);
+        const name = resolvePlayerName(student || player, [], studentsById);
+        const teamSide = player.team || (homePlayers.includes(player.id) ? 'home' : 'away');
+
+        if (isShotAction && onShotModal) {
+            let defaultGoalType = 'foot';
+            let defaultResult = 'goal';
+
+            if (actionKey === 'headerShot') defaultGoalType = 'header';
+            if (actionKey === 'penaltyShot') defaultGoalType = 'penalty';
+            if (actionKey === 'freekickShot') defaultGoalType = 'freekick';
+            if (actionKey === 'ownGoal') defaultGoalType = 'own-goal';
+
+            if (actionKey === 'shotOnTarget') defaultResult = 'saved';
+            if (actionKey === 'shotBlocked') defaultResult = 'blocked';
+            if (actionKey === 'shotMissed') defaultResult = 'miss';
+
+            onShotModal({ ...player, name, team: teamSide }, defaultGoalType, defaultResult);
+            setPendingAction(null);
+            return;
+        }
+
+        // Direct Quick Log
+        if (onQuickLogEvent) {
+            onQuickLogEvent({
+                type: actionKey,
+                playerId: player.id,
+                playerName: name,
+                team: teamSide
+            });
+        }
+
+        triggerToast(`Logged ${actionKey} for ${name}`);
+        setPendingAction(null);
+    };
+
+    const homeRoster = useMemo(() => homePlayers.map(id => {
+        const student = resolvePlayer(id, [], studentsById);
+        const name = resolvePlayerName(student || id, [], studentsById);
+        const rawNumeric = parseInt(String(id || '').replace(/\D/g, ''), 10);
+        const jerseyNum = student?.jerseyNumber ?? (Number.isFinite(rawNumeric) && rawNumeric > 0 ? (rawNumeric % 22) + 1 : 10);
+        return {
+            id,
+            name,
+            jerseyNumber: jerseyNum,
+            position: student?.position || 'Player',
+            team: 'home'
+        };
+    }), [homePlayers, studentsById]);
+
+    const awayRoster = useMemo(() => awayPlayers.map(id => {
+        const student = resolvePlayer(id, [], studentsById);
+        const name = resolvePlayerName(student || id, [], studentsById);
+        const rawNumeric = parseInt(String(id || '').replace(/\D/g, ''), 10);
+        const jerseyNum = student?.jerseyNumber ?? (Number.isFinite(rawNumeric) && rawNumeric > 0 ? (rawNumeric % 22) + 1 : 10);
+        return {
+            id,
+            name,
+            jerseyNumber: jerseyNum,
+            position: student?.position || 'Player',
+            team: 'away'
+        };
+    }), [awayPlayers, studentsById]);
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+            
+            {/* Toast Notification Banner */}
+            {toastMessage && (
+                <div style={{
+                    padding: '12px 20px', borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#ffffff', fontWeight: '800', fontSize: '13px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxShadow: '0 8px 24px rgba(16,185,129,0.3)'
+                }}>
+                    <span>{toastMessage}</span>
+                    <button onClick={() => setToastMessage(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                </div>
+            )}
+
+            {/* ── 0. DATA CAPTURER ROLE SCOPE SELECTOR BAR ───────────────────── */}
+            <div className="glass-panel" style={{
+                padding: '14px 18px', borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,27,75,0.6))',
+                border: '1px solid rgba(165,180,252,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>
+                        {activeRole === 'possession' ? '⏱️' : activeRole === 'shots' ? '⚽' : activeRole === 'general' ? '📋' : '👑'}
+                    </span>
+                    <div>
+                        <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Data Capturer Assigned Scope: 
+                            <span style={{
+                                color: activeRole === 'possession' ? '#4ade80' : activeRole === 'shots' ? '#60a5fa' : activeRole === 'general' ? '#fbbf24' : '#a5b4fc',
+                                textTransform: 'uppercase', letterSpacing: '0.04em'
+                            }}>
+                                {activeRole === 'possession' ? 'Possession Specialist (1 Logger)' :
+                                 activeRole === 'shots' ? 'Shot Specialist (2 Loggers)' :
+                                 activeRole === 'general' ? 'General Event Specialist (4 Loggers)' : 'Master Lead Analyst (All Tiles)'}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {activeRole === 'possession' ? 'ONLY Possession tiles active · Shot & General Event tiles greyed out' :
+                             activeRole === 'shots' ? 'ONLY Shot & Goal tiles active · Possession & General Event tiles greyed out' :
+                             activeRole === 'general' ? 'ONLY Fouls, Cards, Saves & Corners active · Possession & Shot tiles greyed out' :
+                             'All stat tiles active (Full Master Access)'}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Role Switcher Pills or Locked Indicator */}
+                {isScopeLocked ? (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                        padding: '6px 14px', borderRadius: '8px', color: '#f87171',
+                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em'
+                    }}>
+                        <span>🔒</span> Assigned Scope Fixed
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        {[
+                            { key: 'possession', label: '⏱️ Possession', color: '#22c55e' },
+                            { key: 'shots', label: '⚽ Shots', color: '#3b82f6' },
+                            { key: 'general', label: '📋 General Events', color: '#f59e0b' },
+                            { key: 'all', label: '👑 Master (All)', color: '#6366f1' }
+                        ].map(r => (
+                            <button
+                                key={r.key}
+                                type="button"
+                                onClick={() => handleRoleChange(r.key)}
+                                style={{
+                                    padding: '5px 10px', borderRadius: '7px', fontSize: '11px', fontWeight: '800',
+                                    background: activeRole === r.key ? r.color : 'transparent',
+                                    color: activeRole === r.key ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.15s'
+                                }}
+                            >
+                                {r.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* ── 1. POSSESSION LOGGING TILES ───────────────────────────────── */}
+            <div 
+                className="glass-panel" 
+                style={{
+                    padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px',
+                    background: 'linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.8))',
+                    opacity: (isPossessionEnabled || activeRole === 'readonly') ? 1 : 0.35,
+                    pointerEvents: isPossessionEnabled ? 'auto' : 'none',
+                    filter: (isPossessionEnabled || activeRole === 'readonly') ? 'none' : 'grayscale(85%)',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                }}
+            >
+                {!isPossessionEnabled && activeRole !== 'readonly' && (
+                    <div style={{
+                        position: 'absolute', top: '12px', right: '16px',
+                        background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)',
+                        color: '#f87171', fontSize: '10.5px', fontWeight: '800',
+                        padding: '4px 10px', borderRadius: '20px', textTransform: 'uppercase'
+                    }}>
+                        🔒 Greyed Out (Restricted to Possession Logger)
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Live Team Possession Tracker
+                        </h3>
+                    </div>
+                    <span style={{ fontSize: '11px', color: (isPaused || period === 'HT') ? '#f59e0b' : 'var(--text-muted)', fontWeight: '700' }}>
+                        {(isPaused || period === 'HT') ? 'Match Clock Paused · Possession Clock Frozen' : 'Click team tile when ball possession switches'}
+                    </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+                    {/* Home Possession Tile */}
+                    <button
+                        type="button"
+                        disabled={!isPossessionEnabled}
+                        onClick={() => handleTogglePossession('home')}
+                        style={{
+                            padding: '18px 20px', borderRadius: '14px',
+                            background: possessionSide === 'home'
+                                ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(16, 185, 129, 0.15))'
+                                : 'rgba(255, 255, 255, 0.03)',
+                            border: possessionSide === 'home'
+                                ? ((isPaused || period === 'HT') ? '2px solid #f59e0b' : '2px solid #22c55e')
+                                : '1px solid rgba(255, 255, 255, 0.1)',
+                            cursor: isPossessionEnabled ? 'pointer' : 'not-allowed', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
+                            boxShadow: possessionSide === 'home' 
+                                ? ((isPaused || period === 'HT') ? '0 0 20px rgba(245, 158, 11, 0.2)' : '0 0 24px rgba(34, 197, 94, 0.3)') 
+                                : 'none',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                                {home.name}
+                            </span>
+                            {possessionSide === 'home' && (
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    color: (isPaused || period === 'HT') ? '#fbbf24' : '#4ade80',
+                                    background: (isPaused || period === 'HT') ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.2)',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: (isPaused || period === 'HT') ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(34,197,94,0.4)'
+                                }}>
+                                    {(isPaused || period === 'HT') ? 'IN POSSESSION (PAUSED)' : 'IN POSSESSION'}
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'home' ? ((isPaused || period === 'HT') ? '#fbbf24' : '#4ade80') : 'var(--text-muted)' }}>
+                                {homePossessionPct}%
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                Time: {formatPossessionTime(homePossessionSecs)}
+                            </span>
+                        </div>
+                    </button>
+
+                    {/* ⚔️ In Contest (Loose Ball / 50-50 Dual) Tile */}
+                    <button
+                        type="button"
+                        disabled={!isPossessionEnabled}
+                        onClick={() => handleTogglePossession('contest')}
+                        style={{
+                            padding: '18px 20px', borderRadius: '14px',
+                            background: possessionSide === 'contest'
+                                ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))'
+                                : 'rgba(255, 255, 255, 0.03)',
+                            border: possessionSide === 'contest'
+                                ? ((isPaused || period === 'HT') ? '2px solid #ef4444' : '2px solid #f59e0b')
+                                : '1px solid rgba(255, 255, 255, 0.1)',
+                            cursor: isPossessionEnabled ? 'pointer' : 'not-allowed', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
+                            boxShadow: possessionSide === 'contest'
+                                ? ((isPaused || period === 'HT') ? '0 0 20px rgba(239, 68, 68, 0.2)' : '0 0 24px rgba(245, 158, 11, 0.3)')
+                                : 'none',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div>
+                                <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>⚔️</span> In Contest
+                                </span>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    Loose Ball · 50/50 Dual
+                                </div>
+                            </div>
+                            {possessionSide === 'contest' && (
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    color: (isPaused || period === 'HT') ? '#f87171' : '#fbbf24',
+                                    background: (isPaused || period === 'HT') ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: (isPaused || period === 'HT') ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(245,158,11,0.4)'
+                                }}>
+                                    {(isPaused || period === 'HT') ? 'IN CONTEST (PAUSED)' : 'IN CONTEST'}
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'contest' ? ((isPaused || period === 'HT') ? '#f87171' : '#fbbf24') : 'var(--text-muted)' }}>
+                                {inContestPct}%
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                Time: {formatPossessionTime(inContestSecs)}
+                            </span>
+                        </div>
+                    </button>
+
+                    {/* Away Possession Tile */}
+                    <button
+                        type="button"
+                        disabled={!isPossessionEnabled}
+                        onClick={() => handleTogglePossession('away')}
+                        style={{
+                            padding: '18px 20px', borderRadius: '14px',
+                            background: possessionSide === 'away'
+                                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(79, 70, 229, 0.15))'
+                                : 'rgba(255, 255, 255, 0.03)',
+                            border: possessionSide === 'away'
+                                ? ((isPaused || period === 'HT') ? '2px solid #f59e0b' : '2px solid #818cf8')
+                                : '1px solid rgba(255, 255, 255, 0.1)',
+                            cursor: isPossessionEnabled ? 'pointer' : 'not-allowed', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px',
+                            boxShadow: possessionSide === 'away' 
+                                ? ((isPaused || period === 'HT') ? '0 0 20px rgba(245, 158, 11, 0.2)' : '0 0 24px rgba(99, 102, 241, 0.3)') 
+                                : 'none',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span style={{ fontSize: '15px', fontWeight: '800', color: '#ffffff' }}>
+                                {away.name}
+                            </span>
+                            {possessionSide === 'away' && (
+                                <span style={{
+                                    fontSize: '11px',
+                                    fontWeight: '900',
+                                    color: (isPaused || period === 'HT') ? '#fbbf24' : '#818cf8',
+                                    background: (isPaused || period === 'HT') ? 'rgba(245,158,11,0.2)' : 'rgba(99,102,241,0.2)',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    border: (isPaused || period === 'HT') ? '1px solid rgba(245,158,11,0.4)' : '1px solid rgba(99,102,241,0.4)'
+                                }}>
+                                    {(isPaused || period === 'HT') ? 'IN POSSESSION (PAUSED)' : 'IN POSSESSION'}
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '4px' }}>
+                            <span style={{ fontSize: '32px', fontWeight: '900', color: possessionSide === 'away' ? ((isPaused || period === 'HT') ? '#fbbf24' : '#818cf8') : 'var(--text-muted)' }}>
+                                {awayPossessionPct}%
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                Time: {formatPossessionTime(awayPossessionSecs)}
+                            </span>
+                        </div>
+                    </button>
+                </div>
+
+                {/* 3-Way Realtime Possession Distribution Bar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', width: '100%', height: '10px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.08)' }}>
+                        <div style={{ width: `${homePossessionPct}%`, background: '#22c55e', transition: 'width 0.4s ease' }} title={`${home.name}: ${homePossessionPct}%`} />
+                        <div style={{ width: `${inContestPct}%`, background: '#f59e0b', transition: 'width 0.4s ease' }} title={`In Contest: ${inContestPct}%`} />
+                        <div style={{ width: `${awayPossessionPct}%`, background: '#6366f1', transition: 'width 0.4s ease' }} title={`${away.name}: ${awayPossessionPct}%`} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', fontWeight: '800' }}>
+                        <span style={{ color: '#4ade80' }}>{home.name} ({homePossessionPct}%)</span>
+                        <span style={{ color: '#fbbf24' }}>⚔️ In Contest ({inContestPct}%)</span>
+                        <span style={{ color: '#818cf8' }}>{away.name} ({awayPossessionPct}%)</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Active Selected Player Indicator (Optional Fast Selection) */}
+            {activePlayer && (
+                <div style={{
+                    padding: '12px 20px', borderRadius: '10px',
+                    background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div>
+                            <span style={{ fontSize: '11px', color: 'var(--primary-light)', fontWeight: '700', textTransform: 'uppercase' }}>Active Selected Player</span>
+                            <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff' }}>
+                                {activePlayer.name} ({activePlayer.team === 'home' ? home.name : away.name})
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Tap any Stat Tile below to log instantly!</span>
+                        <button onClick={() => setActivePlayer(null)} style={{ padding: '4px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
+                            Clear ✕
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 2. DIRECT STAT LOG OPTIONS TILES GRID ─────────────────────── */}
+            <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '14px', fontWeight: '800', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Direct Match Event Log Tiles
+                    </h3>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Select a tile to log match events in 1 tap
+                    </span>
+                </div>
+
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                    gap: '14px'
+                }}>
+                    {STAT_TILES.map(tile => {
+                        const isShotTile = ['goal', 'shotOnTarget', 'shotBlocked', 'shotMissed', 'headerShot', 'penaltyShot', 'freekickShot', 'ownGoal'].includes(tile.key);
+                        const isTileEnabled = isShotTile ? isShotsEnabled : isGeneralEnabled;
+
+                        return (
+                            <button
+                                key={tile.key}
+                                type="button"
+                                disabled={!isTileEnabled}
+                                onClick={() => isTileEnabled && handleTileClick(tile)}
+                                style={{
+                                    padding: '16px', borderRadius: '12px',
+                                    background: tile.color,
+                                    border: `1px solid ${tile.border}`,
+                                    color: '#ffffff',
+                                    cursor: isTileEnabled ? 'pointer' : 'not-allowed',
+                                    opacity: isTileEnabled ? 1 : 0.3,
+                                    filter: isTileEnabled ? 'none' : 'grayscale(85%)',
+                                    pointerEvents: isTileEnabled ? 'auto' : 'none',
+                                    textAlign: 'left',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    boxShadow: isTileEnabled ? '0 4px 14px rgba(0, 0, 0, 0.2)' : 'none',
+                                    transition: 'all 0.15s ease',
+                                    position: 'relative'
+                                }}
+                                onMouseEnter={e => isTileEnabled && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                                onMouseLeave={e => isTileEnabled && (e.currentTarget.style.transform = 'translateY(0)')}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '15px', fontWeight: '800' }}>
+                                        {tile.label}
+                                    </span>
+                                    {!isTileEnabled && (
+                                        <span style={{ fontSize: '9px', fontWeight: '900', background: 'rgba(0,0,0,0.5)', color: '#f87171', padding: '2px 6px', borderRadius: '4px' }}>
+                                            🔒 GREYED OUT
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: '11px', opacity: 0.85, fontWeight: '600' }}>
+                                    {tile.subtitle}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* ── 3. FAST PLAYER SELECTOR MODAL (Stat-First Flow) ───────────── */}
+            {pendingAction && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 10000,
+                    background: 'rgba(3, 7, 18, 0.85)', backdropFilter: 'blur(10px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '100%', maxWidth: '650px', maxHeight: '85vh',
+                        display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
+                        border: `1px solid ${pendingAction.border}`,
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: '16px 20px', background: pendingAction.color, color: '#ffffff',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800' }}>
+                                    Select Player for {pendingAction.label}
+                                </h3>
+                                <span style={{ fontSize: '12px', opacity: 0.9, fontWeight: '600' }}>
+                                    Tap player jersey number to log event immediately
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setPendingAction(null)}
+                                style={{ padding: '6px 12px', borderRadius: '6px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Team Selector Tabs */}
+                        <div style={{ display: 'flex', borderBottom: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}>
+                            <button
+                                type="button"
+                                onClick={() => setPickerTeamTab('home')}
+                                style={{
+                                    flex: 1, padding: '12px', background: pickerTeamTab === 'home' ? 'rgba(34, 197, 94, 0.15)' : 'transparent',
+                                    color: pickerTeamTab === 'home' ? '#4ade80' : 'var(--text-muted)',
+                                    border: 'none', borderBottom: pickerTeamTab === 'home' ? '3px solid #22c55e' : 'none',
+                                    fontWeight: '800', fontSize: '13px', cursor: 'pointer'
+                                }}
+                            >
+                                {home.name}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPickerTeamTab('away')}
+                                style={{
+                                    flex: 1, padding: '12px', background: pickerTeamTab === 'away' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                                    color: pickerTeamTab === 'away' ? '#818cf8' : 'var(--text-muted)',
+                                    border: 'none', borderBottom: pickerTeamTab === 'away' ? '3px solid #6366f1' : 'none',
+                                    fontWeight: '800', fontSize: '13px', cursor: 'pointer'
+                                }}
+                            >
+                                {away.name}
+                            </button>
+                        </div>
+
+                        {/* Roster Selection Jersey Grid */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(115px, 1fr))', gap: '14px' }}>
+                            {(pickerTeamTab === 'home' ? homeRoster : awayRoster).map(p => {
+                                const rawNumeric = parseInt(String(p.id || '').replace(/\D/g, ''), 10);
+                                const jerseyNum = p.jerseyNumber ?? (Number.isFinite(rawNumeric) && rawNumeric > 0 ? (rawNumeric % 22) + 1 : 10);
+                                return (
+                                    <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => executeLogForPlayer({ id: p.id, name: p.name, team: pickerTeamTab }, pendingAction.key)}
+                                        style={{
+                                            padding: '14px 10px', borderRadius: '14px',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            color: '#ffffff', cursor: 'pointer',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = pickerTeamTab === 'home' ? 'rgba(34, 197, 94, 0.18)' : 'rgba(99, 102, 241, 0.18)';
+                                            e.currentTarget.style.borderColor = pickerTeamTab === 'home' ? '#22c55e' : '#6366f1';
+                                            e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)';
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                        }}
+                                    >
+                                        <JerseyBadge number={jerseyNum} isHome={pickerTeamTab === 'home'} />
+                                        <div style={{ textAlign: 'center', width: '100%', overflow: 'hidden' }}>
+                                            <div style={{ fontSize: '12px', fontWeight: '800', color: '#ffffff', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                                {p.name}
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600', marginTop: '2px' }}>
+                                                {p.position || 'Player'}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
