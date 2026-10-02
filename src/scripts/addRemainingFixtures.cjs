@@ -123,8 +123,8 @@ fs.writeFileSync(initialMatchesPath, JSON.stringify(mergedInitial, null, 2), 'ut
 console.log(`Updated ${initialMatchesPath} with ${mergedInitial.length} total fixtures.`);
 
 // Sync to Supabase Cloud
-const key = '[REDACTED_API_KEY]';
-const getUrl = 'https://[REDACTED].supabase.co/rest/v1/pmc_matches_state?id=eq.global_matches&select=*';
+const key = process.env.SUPABASE_ANON_KEY;
+const getUrl = process.env.SUPABASE_URL + '/rest/v1/pmc_matches_state?id=eq.global_matches&select=*';
 
 https.get(getUrl, { headers: { apikey: key, Authorization: 'Bearer ' + key } }, (res) => {
   let data = '';
@@ -157,7 +157,7 @@ https.get(getUrl, { headers: { apikey: key, Authorization: 'Bearer ' + key } }, 
         updated_at: new Date().toISOString()
       });
 
-      const postReq = https.request('https://[REDACTED].supabase.co/rest/v1/pmc_matches_state', {
+      const postReq = https.request(process.env.SUPABASE_URL + '/rest/v1/pmc_matches_state', {
         method: 'POST',
         headers: {
           apikey: key,

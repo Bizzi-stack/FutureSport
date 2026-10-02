@@ -5,8 +5,8 @@
 
 import { mergeMatchStates, isPmcMatch } from './matchEngine.js';
 
-const SUPABASE_URL = 'https://[REDACTED].supabase.co';
-const SUPABASE_KEY = '[REDACTED_API_KEY]';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const TABLE_URL = `${SUPABASE_URL}/rest/v1/pmc_matches_state`;
 
 const HEADERS = {
